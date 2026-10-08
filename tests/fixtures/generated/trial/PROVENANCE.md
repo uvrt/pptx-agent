@@ -9,6 +9,8 @@
 | `quarterly-revenue-2026.csv` | `977e11638b60fdeb12c706935d93e440aa1f9c25044d81e3959316c6a9175b78` |
 | `wms-vendor-selection.pptx` | `7e8d7582c1922d5baba257d9265bb66503fe5fb9c5c1a82b4773ff29d979d8ac` |
 | `wms-vendor-scores.csv` | `1bb99ba07ed6c04a0db06307b77ed25f9c18fb13ae27cfd92689157e3f4fee63` |
+| `customer-review.pptx` | `697f2724d7aa28ed6f745072a7f7559577d71f856fb259e4f6119b939019ca81` |
+| `new-logo.png` | `78522c7cc2628493168f347e1c24fc285c051d6a9c12717f632db23a70332b10` |
 
 **Written by pptx-agent** through its own API, for the full end-to-end trial (twelve tasks,
 two runs each, agents using only the public API and its documentation), and committed as
@@ -37,6 +39,14 @@ the trial used them:
   `Document.new()` with an invented theme (six accents, Arial), `insert_outline` of a
   four-slide vendor selection, and an evaluation panel's scores (1 to 5) for three vendors
   on six criteria.
+- `customer-review.pptx` and `new-logo.png` are the rebrand task p5's deck and new logo,
+  written by `p5_draw` in `tests/golden_inputs.py` (`python tests/golden_inputs.py --draw
+  <root> p5-rebrand`, Pillow 12.3): `Document.new()`, `insert_outline` of a four-slide
+  customer review, then the old brand -- a red title colour, bands, an amber callout, a
+  red table header and an old logo on every slide, and a team photo. The logos and the
+  photo are flat shapes Pillow draws (the logo's word in Pillow's default font, as
+  pixels; no font file is carried). The golden replayed whatever the installed Pillow
+  drew until they were committed; these are the bytes its transcript was recorded with.
 
 The text is invented. Licence: this repository's, MIT -- with one exception.
 `company-template.potx` derives from `tests/fixtures/real-basic-theme.pptx`, a Google
