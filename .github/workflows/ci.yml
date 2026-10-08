@@ -29,10 +29,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install "ooxml-common @ git+https://github.com/uvrt/ooxml-common@main"
           python -m pip install "ooxml-edit @ git+https://github.com/uvrt/ooxml-edit@main"
-          # TEMPORARY: pptx2svg's prod-feedback branch carries table_row_heights and the
-          # missing-glyph warning this branch uses (uvrt/pptx2svg#20). Back to @main once it
-          # is merged, before this is.
-          python -m pip install "pptx2svg[png] @ git+https://github.com/uvrt/pptx2svg@prod-feedback"
+          python -m pip install "pptx2svg[png] @ git+https://github.com/uvrt/pptx2svg@main"
           # The fonts a render draws with, as the README installs them: without them a runner
           # with no CJK font leaves the fixtures' Japanese out of every PNG (and says so).
           python -m pip install "pptx2svg-fonts @ git+https://github.com/uvrt/pptx2svg@main#subdirectory=packages/pptx2svg-fonts"
