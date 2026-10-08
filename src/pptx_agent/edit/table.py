@@ -53,6 +53,7 @@ from .text import TextFrame
 
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Shape
+    from .fit import RowsFit
 
 #: Cell edge -> the ``a:tcPr`` child that draws it.
 BORDER_TAGS: dict[str, str] = {
@@ -255,6 +256,38 @@ class Table:
             table.row_heights
         """
         return [get_int(row, "h", 0) or 0 for row in self._rows()]
+
+    @property
+    def drawn_row_heights(self) -> list[int]:
+        """Each row's height as PowerPoint draws it, EMU: :attr:`row_heights` is a minimum,
+        and a row whose text needs more grows to fit it, moving the rows below down.
+        Measured with pptx2svg's table layout and text measurement; the stored heights
+        without pptx2svg.
+
+        For example::
+
+            sum(table.drawn_row_heights)            # the table's height on the slide
+        """
+        from .fit import table_heights
+
+        return table_heights(self._shape())
+
+    def rows_fitting(self, bottom: int | None = None) -> "RowsFit":
+        """How many rows, from the first, fit above ``bottom`` (a y on the slide, EMU; the
+        slide's bottom edge by default) as PowerPoint draws them, grown to fit their text:
+        a :class:`~pptx_agent.RowsFit` with the ``count``, each row's drawn ``heights``,
+        the table's ``top`` and how far it runs ``past``.  To paginate a long table, keep
+        ``count`` rows here and move the rest to a table on the next slide.  Needs
+        pptx2svg.
+
+        For example::
+
+            rows = table.rows_fitting()
+            rows.count, rows.past                   # (6, 4114800): rows 7 on are cut off
+        """
+        from .fit import rows_fitting
+
+        return rows_fitting(self._shape(), bottom)
 
     def set_column_width(self, column: int, width: int) -> "Table":
         """Set a grid column's width, EMU; the frame grows or shrinks with it.

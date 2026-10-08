@@ -516,8 +516,9 @@ class Shape(ShapeFactory):
         """``(left, top, width, height)`` on the slide of what is *drawn*: the frame turned
         by its rotation and flips and those of every enclosing group, and for a connector
         the box around its route (:attr:`route`) -- not its frame, which PowerPoint writes
-        rotated and can reach far past the line.  A table's height includes rows grown past
-        the frame.  :meth:`Document.overflows` checks these.  See :mod:`.geometry`.
+        rotated and can reach far past the line.  A table's height is its rows' as drawn,
+        each grown to fit its text (:attr:`Table.drawn_row_heights`; the stored heights
+        without pptx2svg).  :meth:`Document.overflows` checks these.  See :mod:`.geometry`.
 
         For example::
 
@@ -3374,12 +3375,15 @@ class Document(CommentOps):
         """Render to PNG via pptx2svg.  Requires ``pip install pptx-agent[png]``.  ``slides``
         as :meth:`render_svg`.
 
+        ``warnings=[]`` collects pptx2svg's warnings -- among them ``glyphs-missing``, text
+        the image leaves out because no font the renderer has can draw it.
+
         For example::
 
             pngs = deck.render_png([1], width=1280)
         """
         pptx2svg = _require_renderer()
-        render_keys = {"width", "height", "font_mapping", "measurer"}
+        render_keys = {"width", "height", "font_mapping", "measurer", "warnings"}
         convert_options = pptx2svg.ConvertOptions(
             slide_numbers=self._numbers(slides),
             **{k: v for k, v in options.items() if k in render_keys}

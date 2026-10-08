@@ -9,6 +9,7 @@
 | `sample-issue-387.pptx` | PowerPoint | pptx-glimpse, third-party (below) |
 | `authoring-integration.pptx` | python-pptx | pptx-glimpse, third-party (below) |
 | `powerpoint-smartart.pptx` | PowerPoint | ours: PowerPoint's save of a hand-made SmartArt data model (`tests/test_diagram.py`) |
+| `table-rows-probe.json` | PowerPoint (measured) | ours: the row heights PowerPoint drew for `tools/table_rows_probe.py`'s tables, read from its PDF export; numbers only, no Office output |
 | `generated/trial/*` | pptx-agent | ours, written through this project's API, except as [`generated/trial/PROVENANCE.md`](generated/trial/PROVENANCE.md) says |
 
 ## Provenance of the third-party decks

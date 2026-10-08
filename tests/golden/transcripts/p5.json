@@ -2,12 +2,14 @@
  "task": "p5-rebrand",
  "inputs": [
   {
-   "file": "input/customer-review.pptx",
+   "root": "fixtures",
+   "file": "generated/trial/customer-review.pptx",
    "as": "document",
    "sha256": "697f2724d7aa28ed6f745072a7f7559577d71f856fb259e4f6119b939019ca81"
   },
   {
-   "file": "input/new-logo.png",
+   "root": "fixtures",
+   "file": "generated/trial/new-logo.png",
    "as": "blob",
    "sha256": "78522c7cc2628493168f347e1c24fc285c051d6a9c12717f632db23a70332b10"
   }

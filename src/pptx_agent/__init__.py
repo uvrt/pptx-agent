@@ -93,7 +93,8 @@ from .edit.diagram import Diagram, DiagramNode
 from .edit.effective import EffectiveParagraph
 from .edit.document import EMU_PER_INCH, EMU_PER_POINT, Document, ImageSize, Shape, Slide
 from .edit.fill import Arrowhead, Fill, GradientStop, LineFormat
-from .edit.fit import WRAP_MARGIN, Overflow, TextFit, TextMeasure, fit_box, measure_text
+from .edit.fit import (WRAP_MARGIN, Overflow, RowsFit, TextFit, TextMeasure, fit_box,
+                       measure_text)
 from .edit.ids import ShapeId
 from .edit.labels import LabelError
 from .edit.slides import Layout, LayoutPlaceholder, LayoutShape, Placeholder
@@ -149,6 +150,7 @@ __all__ = [
     "PresentationPackage",
     "Pt",
     "Region",
+    "RowsFit",
     "Run",
     "RunSpec",
     "Series",

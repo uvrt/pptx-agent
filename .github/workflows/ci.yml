@@ -30,6 +30,9 @@ jobs:
           python -m pip install "ooxml-common @ git+https://github.com/uvrt/ooxml-common@main"
           python -m pip install "ooxml-edit @ git+https://github.com/uvrt/ooxml-edit@main"
           python -m pip install "pptx2svg[png] @ git+https://github.com/uvrt/pptx2svg@main"
+          # The fonts a render draws with, as the README installs them: without them a runner
+          # with no CJK font leaves the fixtures' Japanese out of every PNG (and says so).
+          python -m pip install "pptx2svg-fonts @ git+https://github.com/uvrt/pptx2svg@main#subdirectory=packages/pptx2svg-fonts"
           python -m pip install -e .[dev,png]
 
       # The PowerPoint oracle tests are opt-in (`-m oracle`) and need macOS with

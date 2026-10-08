@@ -19,12 +19,21 @@ Not on PyPI yet. Python 3.10+. The siblings install from git:
 ```bash
 pip install "ooxml-common @ git+https://github.com/uvrt/ooxml-common@main" \
             "ooxml-edit @ git+https://github.com/uvrt/ooxml-edit@main" \
-            "pptx2svg[png] @ git+https://github.com/uvrt/pptx2svg@main"
+            "pptx2svg[png] @ git+https://github.com/uvrt/pptx2svg@main" \
+            "pptx2svg-fonts @ git+https://github.com/uvrt/pptx2svg@main#subdirectory=packages/pptx2svg-fonts"
 pip install "pptx-agent @ git+https://github.com/uvrt/pptx-agent@main"
 ```
 
 Editing needs only lxml, `ooxml-common` and `ooxml-edit`; rendering is delegated to
 [`pptx2svg`](https://github.com/uvrt/pptx2svg) (the `render` and `png` extras).
+**`pptx2svg-fonts` is the fonts the PNGs are drawn with** (about 11 MB): Carlito, Arimo,
+Tinos and Cousine, stand-ins with the advance widths of Calibri, Arial, Times New Roman and
+Courier New; Caladea for Cambria; Noto Sans JP for Japanese and Chinese text; Lato and
+Raleway. They are under the SIL Open Font License 1.1, with their licence texts in the
+package; its code is MIT; no Microsoft font is in it. Without it a render draws with the
+machine's own fonts, and text none of them can draw -- every CJK character, on a server
+with no CJK font -- is left out of the image: `render` then says so (`missing_glyphs`),
+and pptx2svg warns.
 
 ## Example
 

@@ -57,11 +57,6 @@ def _expectation(result) -> dict:
 def inputs(tmp_path_factory):
     root = tmp_path_factory.mktemp("golden-inputs")
     for task in golden_inputs.BUILDERS:
-        if task == "p5-rebrand":
-            try:
-                import PIL  # noqa: F401
-            except ImportError:
-                continue
         golden_inputs.build(task, root)
     return root
 
@@ -74,8 +69,6 @@ def test_a_golden_transcript_replays_to_a_passing_check(path, inputs, tmp_path):
         session = toolbox.session(clock=lambda: CLOCK)
         for item in transcript["inputs"]:
             source = (FIXTURES if item.get("root") == "fixtures" else inputs / task) / item["file"]
-            if not source.exists():
-                pytest.skip(f"{source.name} was not built (Pillow missing?)")
             data = source.read_bytes()
             assert hashlib.sha256(data).hexdigest() == item["sha256"], \
                 f"{item['file']} is not the input the transcript was recorded with"

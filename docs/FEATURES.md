@@ -12,7 +12,7 @@ Moved from the README. How to do each of these, with an example the tests run, i
 | Text: replace keeping mixed formatting, paragraphs, runs, bullets that hang, hyperlinks; insets, vertical anchor, wrapping, autofit | ✅ |
 | Speaker notes: read, write, find, address (`<sldId>/notes`) | ✅ |
 | Fills and outlines in theme colours; the theme's colours and fonts, resolved and set; which colours do which job, and their tints | ✅ |
-| Tables: cell text and formatting, rows, columns, merges, cells by label | ✅ |
+| Tables: cell text and formatting, rows, columns, merges, cells by label; rows as drawn, grown to fit their text, and how many fit on the slide (to split a long table) | ✅ |
 | Charts: values, categories, series, titles, legend, with cache and embedded workbook together; series and points by label | ✅ |
 | SmartArt: node text, adding and removing nodes | ✅ |
 | Shapes, pictures, connectors that stay attached, groups, z-order | ✅ |

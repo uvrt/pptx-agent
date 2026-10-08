@@ -207,7 +207,20 @@ table.delete_column(2)
 table.cell(6, 1).fill = "accent1 lumMod=20% lumOff=80%"
 table.cell(6, 1).set_border("bottom", width=12700, color="accent1")
 table.merge(6, 2, 6, 3)
+
+rows = table.rows_fitting()                        # as drawn: rows grow to fit their text
+print(rows.count, len(rows.heights), rows.past)    # -> 7 7 0
 ```
+
+A row's stored height is a minimum: PowerPoint grows a row to fit its text, and the rows
+below move down -- past the slide's bottom edge, where they are cut off, while the stored
+heights still add up to a frame that fits. `drawn_row_heights` is each row as PowerPoint
+draws it (the renderer's table layout, held to PowerPoint's PDF); `drawn_bounds` and
+`overflows()` use it, and `rows_fitting()` (the example's last lines) says how many rows
+fit above the slide's bottom edge, or any other line. `overflows()` reports a table that
+runs past it as `off_slide` with `detail="rows"`, `rows` (the first and last row past the
+edge, 1-based) and `rows_fit`: keep `rows_fit` rows on this slide and move the rest to a
+table on the next.
 
 Label lookups are strict: a label that names no row or column, or more than one, raises
 `LabelError` listing the labels there are. Whitespace is collapsed; only when nothing

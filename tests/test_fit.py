@@ -228,3 +228,83 @@ def test_the_margin_is_the_tightest_line_and_none_without_wrapping():
     assert box.text_fit().margin_to_wrap is None and not box.text_fit().near_wrap
     empty = _label("", 1371600)
     assert empty.text_fit().margin_to_wrap is None
+
+
+# -- tables grown past the slide (production feedback) ----------------------------------------
+
+LONG_CELL = "A longer cell text that wraps onto two or three lines in this column width"
+
+
+def _long_table(rows: int = 12, *, text: str = LONG_CELL):
+    """A ``rows`` x 3 table under a title, 0.4 in per stored row: the frame fits the slide,
+    the rows -- three lines of 18 pt each -- do not."""
+    deck = Document.new()
+    slide = deck.add_slide("Title Only")
+    slide.title = "A long table"
+    width, _ = deck.slide_size
+    frame = slide.add_table(rows, 3, 457200, 1371600, width - 914400, rows * 365760)
+    for row in range(rows):
+        for column in range(3):
+            frame.table.cell(row, column).text = f"R{row + 1}C{column + 1}: {text}"
+    return deck, frame
+
+
+def test_a_table_whose_rows_grow_past_the_slide_is_reported():
+    deck, frame = _long_table()
+    table = frame.table
+    assert frame.top + sum(table.row_heights) < deck.slide_size[1]     # the frame fits
+    (problem,) = deck.overflows()
+    assert (problem.kind, problem.shape, problem.detail) == ("off_slide", frame.id, "rows")
+    assert problem.rows == (7, 12) and problem.rows_fit == 6
+    assert problem.amount == frame.top + sum(table.drawn_row_heights) - deck.slide_size[1]
+    assert "rows 7-12 past the slide's bottom" in str(problem) and "6 row(s) fit" in str(problem)
+
+
+def test_drawn_bounds_hold_the_rows_as_grown_to_fit_their_text():
+    deck, frame = _long_table()
+    stored, drawn = frame.table.row_heights, frame.table.drawn_row_heights
+    assert all(grown > height for grown, height in zip(drawn, stored))
+    assert frame.drawn_bounds[3] == sum(drawn)
+
+
+def test_a_row_never_draws_shorter_than_its_stored_height():
+    deck, frame = _long_table(3, text="short")
+    table = frame.table
+    table.set_row_height(1, 1371600)
+    assert table.drawn_row_heights == table.row_heights
+    assert deck.overflows() == []
+
+
+def test_rows_fitting_says_where_to_split_a_table():
+    deck, frame = _long_table()
+    rows = frame.table.rows_fitting()
+    assert rows.count == 6 and len(rows.heights) == 12 and rows.top == frame.top
+    assert rows.bottoms[rows.count - 1] <= deck.slide_size[1] < rows.bottoms[rows.count]
+    assert rows.past == rows.bottoms[-1] - deck.slide_size[1]
+    halfway = frame.table.rows_fitting(rows.bottoms[2])
+    assert halfway.count == 3 and halfway.heights == rows.heights
+    # Paginated as the fact says: the rows past the slide go to the next one, and both fit.
+    for _ in range(12 - rows.count):
+        frame.table.delete_row(rows.count)
+    assert frame.table.rows_fitting().past == 0 and deck.overflows() == []
+
+
+def test_drawn_row_heights_are_the_rows_powerpoint_drew(tmp_path):
+    """Held to PowerPoint's PDF of the probe's tables (tools/table_rows_probe.py): font
+    sizes 10 to 40 pt, cell margins none to half an inch, stored heights above and below
+    what the text needs, paragraphs, empty rows, four faces, twelve rows past the slide."""
+    import importlib.util
+    import json
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("table_rows_probe",
+                                                  root / "tools" / "table_rows_probe.py")
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+    probe.build(str(tmp_path / "probe.pptx"), str(tmp_path / "cases.json"))
+    built = json.loads((tmp_path / "cases.json").read_text())
+    measured = json.loads((root / "tests" / "fixtures" / "table-rows-probe.json").read_text())
+    for case, truth in zip(built, measured["cases"], strict=True):
+        assert case["name"] == truth["name"] and case["stored"] == truth["stored"]
+        off = [abs(a - b) for a, b in zip(case["predicted"], truth["drawn"], strict=True)]
+        assert max(off) <= 1270, (case["name"], case["predicted"], truth["drawn"])

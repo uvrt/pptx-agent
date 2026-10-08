@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import FIXTURE_DIR
 from ooxml_edit.tools import Toolbox, shared
 from ooxml_edit.tools.adapters import anthropic_problems, openai_problems
 
@@ -435,6 +436,27 @@ def test_render_takes_slides_and_caches_by_version(toolbox, session):
     assert call(toolbox, session, "render", doc="d1", slides=[1, 2, 1, 2, 1]).error.code == "limit"
 
 
+def test_render_says_which_text_its_image_leaves_out(toolbox, monkeypatch):
+    """Production: without pptx2svg-fonts on a host with no CJK font, Japanese vanished
+    from the render and nothing said so.  Simulated in this process: no bundle, neither
+    Office's faces nor the host's font folders (the worker pool runs the render here, so
+    the patches reach it)."""
+    pytest.importorskip("pptx2svg.glyphs")
+    monkeypatch.setenv("PPTX2SVG_OFFICE_FONTS", "0")
+    monkeypatch.setattr("pptx2svg.fonts.bundle_dir", lambda: None)
+    monkeypatch.setattr("pptx2svg.glyphs.system_font_dirs", lambda: [])
+    monkeypatch.setattr(toolbox.pool, "run",
+                        lambda fn, *args, timeout=None, **kwargs: fn(*args, **kwargs))
+    session = toolbox.session(clock=CLOCK)
+    session.open((FIXTURE_DIR / "real-financial-report.pptx").read_bytes(), "results.pptx")
+    first = ok(call(toolbox, session, "render", doc="d1", slides=[1], width=320)).data
+    cjk = [item for item in first["missing_glyphs"] if item["script"] == "CJK"]
+    assert cjk and all(item["slide"] == "s:256" and item["sample"] for item in cjk)
+    assert "PowerPoint draws it" in first["missing_glyphs_note"]
+    again = ok(call(toolbox, session, "render", doc="d1", slides=[1], width=320)).data
+    assert again["cached"] == [1] and again["missing_glyphs"] == first["missing_glyphs"]
+
+
 def test_check_and_save_behind_the_gate(toolbox, session):
     ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
         {"preset": "textbox", "box": {"x": 100, "y": 200, "w": 94, "h": 29}, "text": "Kick-off"},
@@ -474,6 +496,24 @@ def test_save_lists_the_fit_and_collision_facts_left_as_facts_not_a_refusal(tool
     assert left["overflows"] == found["overflows"] and left["overflows"]
     assert "still in the deck" in saved.summary and "collisions" in saved.summary
     assert len(session.take_outputs()) == 2
+
+
+def test_a_table_grown_past_the_slide_is_a_fact_that_says_where_to_split_it(toolbox, session):
+    # Production feedback: a 12x3 table of wrapping text, cut off at the slide's bottom while
+    # every check came back clean.
+    text = "A longer cell text that wraps onto two or three lines in this column width"
+    added = ok(call(toolbox, session, "ppt_add_table", doc="d1", slide="s:256",
+                    box={"x": 36, "y": 108, "w": 888, "h": 346}, rows=12, columns=3,
+                    data=[[f"R{r}C{c}: {text}" for c in (1, 2, 3)] for r in range(1, 13)]))
+    (table,) = added.created
+    (fact,) = [entry for entry in added.checks["off_slide"] if entry["shape"] == table]
+    assert fact["rows_past"] == [7, 12] and fact["rows_fit"] == 6 and fact["past"] > 300
+    assert "next slide" in added.checks["rows_note"]
+    assert ok(call(toolbox, session, "check", doc="d1", slides=[1])).data["off_slide"] \
+        == added.checks["off_slide"]
+    saved = ok(call(toolbox, session, "save_document", doc="d1", name="out.pptx",
+                    format="pptx"))
+    assert saved.data["unresolved"]["off_slide"] == added.checks["off_slide"]
 
 
 @pytest.mark.skipif(not SPIKE_P8_A1.exists(), reason="the spike's p8 A1 deck is not here")

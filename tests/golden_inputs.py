@@ -6,7 +6,10 @@ The trial's own builder (recovered from its coordinator's transcript), run again
 repository's fixtures, writes ``<root>/<task>/input/...``.  p1's template is the committed
 ``fixtures/generated/trial/company-template.potx`` (built from a deck that embeds fonts, so
 it is not rebuilt here), and p3's deck is also committed there; both are read in place.
-Pillow draws p5's logos and photo, imported only for p5.  The graphics tasks start from
+p5's deck and new logo are committed there as well, so its golden replays a fixed input
+rather than whatever the installed Pillow draws: :func:`p5_draw` drew them (Pillow, imported
+only there, draws the logos and the photo), and ``python tests/golden_inputs.py --draw
+<root> p5-rebrand`` draws them again.  The graphics tasks start from
 the committed ``fixtures/generated/trial/halden-proposal-draft.pptx`` (trial 2's draft, as
 the spike used it); o1 and m1 retitle one slide of it, as the spike's builder did.  The text
 is invented.
@@ -273,6 +276,18 @@ Annual customer review 2026
 
 
 def p5() -> None:
+    """The committed p5 inputs, as :func:`p5_draw` drew them."""
+    folder = out("p5-rebrand")
+    for name in P5_FILES:
+        (folder / name).write_bytes((FIX / "generated" / "trial" / name).read_bytes())
+
+
+#: p5's inputs, committed in ``fixtures/generated/trial``.
+P5_FILES = ("customer-review.pptx", "new-logo.png")
+
+
+def p5_draw() -> None:
+    """Draw p5's inputs from scratch: the builder the committed files came from."""
     folder = out("p5-rebrand")
     tmp = folder.parent
     logo(folder / "new-logo.png", (600, 240), (21, 96, 130), "KESTREL")
@@ -513,15 +528,23 @@ BUILDERS = {"p2-quarterly-update": p2, "p3-split-slide": p3, "p4-process-diagram
             "p12-theme-rebrand": p12}
 
 
-def build(task: str, root: Path) -> Path:
-    """Write ``task``'s inputs under ``root/<task>/input``; returns that folder."""
+#: Builders that draw from scratch what is otherwise committed (``--draw``).
+DRAWERS = {"p5-rebrand": p5_draw}
+
+
+def build(task: str, root: Path, *, draw: bool = False) -> Path:
+    """Write ``task``'s inputs under ``root/<task>/input``; returns that folder.  ``draw``
+    draws a committed input again (:data:`DRAWERS`) instead of copying it."""
     global INPUTS
     INPUTS = Path(root)
-    BUILDERS[task]()
+    (DRAWERS.get(task, BUILDERS[task]) if draw else BUILDERS[task])()
     return INPUTS / task / "input"
 
 
 if __name__ == "__main__":
-    target = Path(sys.argv[1])
-    for name in sys.argv[2:] or list(BUILDERS):
-        print("built", build(name, target))
+    args = sys.argv[1:]
+    draw = "--draw" in args
+    args = [arg for arg in args if arg != "--draw"]
+    target = Path(args[0])
+    for name in args[1:] or list(BUILDERS):
+        print("built", build(name, target, draw=draw))

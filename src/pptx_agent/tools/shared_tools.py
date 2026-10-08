@@ -13,7 +13,7 @@ from typing import Any
 from ooxml_edit.tools import Result, ToolError, page_list, shared
 
 from .common import KIND, facts, library_errors, numbers, slide_id_of, validate_delta
-from .render import png_size, render_slides
+from .render import png_size, render_slides_reporting
 
 #: Slides a render may hold, and the default width (1280 px: 1,196 Claude tokens at 16:9).
 MAX_RENDER = 4
@@ -189,17 +189,27 @@ def render(call, doc, slides=None, pages=None, width=None):
     missing = [n for n in wanted
                if entry.render_cache.get((entry.version, ids[n], width)) is None]
     if missing:
-        images = call.run(render_slides, deck.to_bytes(), missing, width)
-        for number, png in zip(missing, images):
-            entry.render_cache.put((entry.version, ids[number], width), png)
-    described = []
+        images, lost = call.run(render_slides_reporting, deck.to_bytes(), missing, width)
+        for number, png, left_out in zip(missing, images, lost):
+            entry.render_cache.put((entry.version, ids[number], width), (png, left_out))
+    described, unrendered = [], []
     for number in wanted:
-        png = entry.render_cache.get((entry.version, ids[number], width))
+        png, left_out = entry.render_cache.get((entry.version, ids[number], width))
         w, h = png_size(png)
         image = call.image(png, w, h, label=f"slide {number} (s:{ids[number]})")
         described.append(image.describe())
-    return Result(summary=f"Rendered slide(s) {', '.join(map(str, wanted))}",
-                  data={"cached": [n for n in wanted if n not in missing]})
+        unrendered += [{"slide": f"s:{ids[number]}", **item} for item in left_out]
+    data: dict[str, Any] = {"cached": [n for n in wanted if n not in missing]}
+    if unrendered:
+        data["missing_glyphs"] = unrendered
+        data["missing_glyphs_note"] = MISSING_GLYPHS_NOTE
+    return Result(summary=f"Rendered slide(s) {', '.join(map(str, wanted))}", data=data)
+
+
+#: What a ``missing_glyphs`` fact means for the model reading the image.
+MISSING_GLYPHS_NOTE = ("the image leaves this text out: the renderer has no font for it "
+                       "(pptx2svg-fonts not installed?). The deck is unchanged and "
+                       "PowerPoint draws it; do not edit the text because the image lacks it")
 
 
 #: What ``check`` can report on a deck.

@@ -6,6 +6,19 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A table whose rows grow past the slide is reported. A row's stored height is only a
+  minimum; `drawn_bounds` used the stored heights, so a 12-row table of wrapping text cut
+  off at the slide's bottom passed every check. Rows are now measured with pptx2svg's
+  table layout (`pptx2svg.table_row_heights`), an empty paragraph drawn as a line, and
+  held to PowerPoint's PDF (`tools/table_rows_probe.py`, five tables, every row within
+  0.1 pt). `Table.drawn_row_heights`, `Table.rows_fitting()` (`RowsFit`: how many rows fit
+  above a line, to paginate a table) and an `off_slide` fact with `rows_past` and
+  `rows_fit` in every changing call, `check` and `save_document`.
+- `render` says which text its image leaves out for want of a font (`missing_glyphs`:
+  face, script, sample; pptx2svg's `glyphs-missing`), with a note that the deck is
+  unchanged. The README installs `pptx2svg-fonts` and says what it holds.
+- Golden p5 replays a committed input (`tests/fixtures/generated/trial`) instead of
+  drawing it with the installed Pillow.
 - `undo` takes `scope`, a slide (`256`, `s:256`): only that slide's latest change is undone,
   with what the slide owns (notes, charts, media), and later changes on other slides stay;
   refused with `entangled` when the change shares a part with a later one (two added slides

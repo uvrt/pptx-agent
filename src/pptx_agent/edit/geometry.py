@@ -188,8 +188,10 @@ def bounding_box(points: list[Point]) -> tuple[int, int, int, int]:
     return round(left), round(top), round(max(xs) - left), round(max(ys) - top)
 
 
-def drawn_bounds(shape: "Shape") -> tuple[int, int, int, int] | None:
-    """See :attr:`Shape.drawn_bounds`."""
+def drawn_bounds(shape: "Shape", *, row_heights: "list[int] | None" = None
+                 ) -> tuple[int, int, int, int] | None:
+    """See :attr:`Shape.drawn_bounds`.  A table's rows are ``row_heights`` when given, else
+    measured (:func:`.fit.table_heights`)."""
     points = route(shape)
     if points is None:
         points = frame_corners(shape)
@@ -198,8 +200,12 @@ def drawn_bounds(shape: "Shape") -> tuple[int, int, int, int] | None:
     left, top, width, height = bounding_box(points)
     if shape.kind == "graphic_frame" and shape.has_table:
         # PowerPoint draws a table from its grid, not its frame: the columns' widths and
-        # the rows' heights (a row can still grow to fit its text).
-        columns, rows = sum(shape.table.column_widths), sum(shape.table.row_heights)
+        # the rows' heights, each grown to fit its text -- ``a:tr@h`` is only a minimum.
+        if row_heights is None:
+            from .fit import table_heights
+
+            row_heights = table_heights(shape)
+        columns, rows = sum(shape.table.column_widths), sum(row_heights)
         width, height = columns or width, rows or height
     return left, top, width, height
 
