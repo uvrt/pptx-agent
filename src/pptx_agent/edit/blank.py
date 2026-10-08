@@ -775,6 +775,7 @@ def build(width: int, height: int, *, language: str, created: datetime,
         for path, data in [("[Content_Types].xml", content_types_xml(overrides))] + parts:
             entry = zipfile.ZipInfo(path, date_time=(1980, 1, 1, 0, 0, 0))
             entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.create_system = 3  # ZipInfo stamps the platform; the same bytes everywhere
             archive.writestr(entry, data)
     return buffer.getvalue()
 

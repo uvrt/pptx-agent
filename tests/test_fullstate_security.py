@@ -77,7 +77,7 @@ def test_the_parser_would_not_expand_entities_even_past_the_precheck(tmp_path):
     secret = tmp_path / "secret.txt"
     secret.write_text("TOP-SECRET")
     for document in (b'<!DOCTYPE x [<!ENTITY e "expanded">]><x>&e;</x>',
-                     f'<!DOCTYPE x [<!ENTITY e SYSTEM "file://{secret}">]><x>&e;</x>'.encode()):
+                     f'<!DOCTYPE x [<!ENTITY e SYSTEM "{secret.as_uri()}">]><x>&e;</x>'.encode()):
         root = etree.fromstring(document, _parser())
         assert root.text is None and len(root) == 1  # an unexpanded entity reference
         assert b"expanded" not in etree.tostring(root) and b"TOP-SECRET" not in etree.tostring(root)

@@ -540,7 +540,7 @@ def test_a_comment_before_the_next_heading_still_names_its_placeholder():
 def test_images_are_found_in_a_directory_by_a_callable_or_a_path(tmp_path):
     (tmp_path / "m.png").write_bytes(MARKER)
     for images, source in ((tmp_path, "m.png"), (lambda src: ORANGE, "any"),
-                           (None, str(tmp_path / "m.png"))):
+                           (None, (tmp_path / "m.png").as_posix())):
         document = Document.new(created=CREATED)
         document.insert_outline(f"# P\n\n![p]({source})\n", images=images)
         picture = next(s for s in document.slides[0].shapes if s.kind == "picture")

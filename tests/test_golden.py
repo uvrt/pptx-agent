@@ -93,8 +93,10 @@ def test_a_golden_transcript_replays_to_a_passing_check(path, inputs, tmp_path):
     deck.write_bytes(output.data)
     check = GOLDEN / "grading" / f"check_{task.split('-')[0]}.py"
     proc = subprocess.run([sys.executable, str(check), str(deck)], capture_output=True,
-                          text=True, env={**os.environ, "GOLDEN_INPUTS": str(inputs)},
+                          text=True, encoding="utf-8",
+                          env={**os.environ, "GOLDEN_INPUTS": str(inputs), "PYTHONUTF8": "1"},
                           timeout=600)
+    assert proc.stdout, proc.stderr
     report = json.loads(proc.stdout)
     failed = [r for r in report["results"] if not r["ok"]]
     assert not failed, failed

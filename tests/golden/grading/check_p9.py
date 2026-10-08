@@ -19,7 +19,7 @@ EM = 0.55
 
 
 def body(c, out: Path):
-    rows = [line.split(",") for line in CSV.read_text().split("\n") if line]
+    rows = [line.split(",") for line in CSV.read_text(encoding="utf-8").split("\n") if line]
     quarters = [r[0] for r in rows[1:]]
     want = {name: [float(r[k]) for r in rows[1:]] for k, name in enumerate(rows[0]) if k}
     deck = Document.open(out)
