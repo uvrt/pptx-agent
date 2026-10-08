@@ -85,7 +85,7 @@ def _add(call, target, chart_type, categories, data, box, width, values, number_
         raise ToolError("limit", "at most 10,000 chart values", field="data")
     host = slide_at(call.document, target, field="target")
     x, y, w, h = box_emu(box)
-    legend = None if position == "none" else (position or "bottom")
+    legend = None if position == "none" else (position or "default")
     frame = host.add_chart(chart_type, labels, [dict(entry) for entry in data], x, y, w, h,
                            title=text, legend=legend, number_format=number_format)
     if ref:

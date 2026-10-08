@@ -25,7 +25,7 @@ def deck_with_slide():
 
 
 @pytest.mark.parametrize("kind", ["column", "stacked_column", "bar", "stacked_bar", "line",
-                                  "pie", "scatter"])
+                                  "pie", "scatter", "radar"])
 def test_a_new_chart_on_a_slide(kind):
     deck, slide = deck_with_slide()
     categories = [1, 2, 3, 4] if kind == "scatter" else ["Q1", "Q2", "Q3", "Q4"]
@@ -120,6 +120,21 @@ def test_edit_chart_add_names_what_is_missing(session, change, field):
     result = box.dispatch(current, "edit_chart", arguments)
     assert not result.ok and result.error.code == "invalid_arguments"
     assert result.error.field == field
+
+
+def test_edit_chart_adds_a_radar_with_powerpoint_s_legend_at_the_top(session):
+    box, current = session
+    added = box.dispatch(current, "edit_chart", {**ADD, "chart_type": "radar"})
+    assert added.ok, added.to_json()
+    chart = current.entry("d1").document.shape("256.3").chart
+    assert chart.chart_type == "radar" and "gap_width" not in added.data
+    legend = chart._root().find(".//{http://schemas.openxmlformats.org/drawingml/2006/chart}"
+                                "legendPos")
+    assert legend.get("val") == "t"
+    moved = box.dispatch(current, "edit_chart", {**ADD, "chart_type": "radar", "ref": "r",
+                                                  "position": "bottom"})
+    assert moved.ok
+    assert moved.data["type"] == "radar"
 
 
 def test_a_gap_width_on_a_line_chart_is_refused(session):

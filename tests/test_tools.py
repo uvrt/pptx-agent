@@ -32,7 +32,8 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: took the place of a separate ppt_add_chart; the core is unchanged.  Post-T4 lowered it:
 #: ppt_layout, ppt_scale, ppt_copy, ppt_align and place went (no model called them) and
 #: ppt_comments came, list_documents went (13,158 -> 10,221 estimated; the core unchanged
-#: at 3,352, about 4,961 counted by the 1.48 proxy).
+#: at 3,352, about 4,961 counted by the 1.48 proxy).  The radar chart type in edit_chart's
+#: enum added 3 (10,224); the guard stays.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 5500

@@ -30,7 +30,7 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Z-order, group, ungroup, duplicate, delete | `ppt_arrange` | |
 | Pictures: insert, replace | `ppt_add_picture` | from an image blob; replacing keeps the frame, height or width |
 | Tables: new; cells, rows, columns, merges, widths, heights, fill, borders | `ppt_add_table`, `ppt_edit_table` | cells by row and column or by their labels |
-| Charts: new from data; read; values, categories, series, titles, axis titles, legend, data labels, gap width | `edit_chart` | column, stacked column, bar, stacked bar, line, pie, scatter; the embedded workbook changes with the chart |
+| Charts: new from data; read; values, categories, series, titles, axis titles, legend, data labels, gap width | `edit_chart` | column, stacked column, bar, stacked bar, line, pie, scatter, radar (lines, as PowerPoint inserts one; not the filled or marker radar); the embedded workbook changes with the chart |
 | SmartArt: node text, adding and removing nodes | `edit_smartart` | diagrams already in the deck; PowerPoint lays the diagram out again on opening |
 | The theme's colours and fonts | `ppt_set_theme` | every theme reference in the deck follows |
 | Document properties | `set_properties` | title, author, language, subject |

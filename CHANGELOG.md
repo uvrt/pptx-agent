@@ -4,6 +4,14 @@ pptx-agent has not been released to PyPI. The public repository starts from a si
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## Unreleased
+
+- `edit_chart` `add` makes a radar chart (`chart_type: "radar"`), as PowerPoint inserts one:
+  lines in the theme's accents, the legend at the top (measured on Office for Mac 16).
+  Without `position`, a new chart's legend is where the application puts it. Needs
+  ooxml-edit 0.11.0.
+- Golden p13 (a vendor comparison on a slide): a radar chart from a CSV.
+
 ## 0.0.1 -- 2026-10-08 (initial public release)
 
 Developed 2026-09-12 and 2026-10-01 to 2026-10-08:
