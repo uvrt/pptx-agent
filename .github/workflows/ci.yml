@@ -33,6 +33,9 @@ jobs:
           # missing-glyph warning this branch uses (uvrt/pptx2svg#20). Back to @main once it
           # is merged, before this is.
           python -m pip install "pptx2svg[png] @ git+https://github.com/uvrt/pptx2svg@prod-feedback"
+          # The fonts a render draws with, as the README installs them: without them a runner
+          # with no CJK font leaves the fixtures' Japanese out of every PNG (and says so).
+          python -m pip install "pptx2svg-fonts @ git+https://github.com/uvrt/pptx2svg@main#subdirectory=packages/pptx2svg-fonts"
           python -m pip install -e .[dev,png]
 
       # The PowerPoint oracle tests are opt-in (`-m oracle`) and need macOS with

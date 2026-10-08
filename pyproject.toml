@@ -49,7 +49,8 @@ dependencies = ["lxml>=4.9", "ooxml-common>=0.5.0", "ooxml-edit>=0.12.0", "markd
 # Rendering is delegated to pptx2svg; it is optional so the edit layer can be used headless.
 render = ["pptx2svg>=0.1"]
 png = ["pptx2svg[png]>=0.1"]
-dev = ["pytest>=7", "lxml>=4.9", "pptx2svg>=0.1"]
+# Pillow: golden p5's grader compares the logos (tests/golden/grading/check_p5.py).
+dev = ["pytest>=7", "lxml>=4.9", "pptx2svg>=0.1", "pillow>=10"]
 
 [project.urls]
 Homepage = "https://github.com/uvrt/pptx-agent"
