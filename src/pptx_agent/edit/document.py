@@ -3375,12 +3375,15 @@ class Document(CommentOps):
         """Render to PNG via pptx2svg.  Requires ``pip install pptx-agent[png]``.  ``slides``
         as :meth:`render_svg`.
 
+        ``warnings=[]`` collects pptx2svg's warnings -- among them ``glyphs-missing``, text
+        the image leaves out because no font the renderer has can draw it.
+
         For example::
 
             pngs = deck.render_png([1], width=1280)
         """
         pptx2svg = _require_renderer()
-        render_keys = {"width", "height", "font_mapping", "measurer"}
+        render_keys = {"width", "height", "font_mapping", "measurer", "warnings"}
         convert_options = pptx2svg.ConvertOptions(
             slide_numbers=self._numbers(slides),
             **{k: v for k, v in options.items() if k in render_keys}

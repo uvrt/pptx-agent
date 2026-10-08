@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import FIXTURE_DIR
 from ooxml_edit.tools import Toolbox, shared
 from ooxml_edit.tools.adapters import anthropic_problems, openai_problems
 
@@ -403,6 +404,27 @@ def test_render_takes_slides_and_caches_by_version(toolbox, session):
     assert fresh.data["cached"] == []
     assert call(toolbox, session, "render", doc="d1").error.field == "slides"
     assert call(toolbox, session, "render", doc="d1", slides=[1, 2, 1, 2, 1]).error.code == "limit"
+
+
+def test_render_says_which_text_its_image_leaves_out(toolbox, monkeypatch):
+    """Production: without pptx2svg-fonts on a host with no CJK font, Japanese vanished
+    from the render and nothing said so.  Simulated in this process: no bundle, neither
+    Office's faces nor the host's font folders (the worker pool runs the render here, so
+    the patches reach it)."""
+    pytest.importorskip("pptx2svg.glyphs")
+    monkeypatch.setenv("PPTX2SVG_OFFICE_FONTS", "0")
+    monkeypatch.setattr("pptx2svg.fonts.bundle_dir", lambda: None)
+    monkeypatch.setattr("pptx2svg.glyphs.system_font_dirs", lambda: [])
+    monkeypatch.setattr(toolbox.pool, "run",
+                        lambda fn, *args, timeout=None, **kwargs: fn(*args, **kwargs))
+    session = toolbox.session(clock=CLOCK)
+    session.open((FIXTURE_DIR / "real-financial-report.pptx").read_bytes(), "results.pptx")
+    first = ok(call(toolbox, session, "render", doc="d1", slides=[1], width=320)).data
+    cjk = [item for item in first["missing_glyphs"] if item["script"] == "CJK"]
+    assert cjk and all(item["slide"] == "s:256" and item["sample"] for item in cjk)
+    assert "PowerPoint draws it" in first["missing_glyphs_note"]
+    again = ok(call(toolbox, session, "render", doc="d1", slides=[1], width=320)).data
+    assert again["cached"] == [1] and again["missing_glyphs"] == first["missing_glyphs"]
 
 
 def test_check_and_save_behind_the_gate(toolbox, session):

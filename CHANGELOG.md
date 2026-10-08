@@ -14,6 +14,9 @@ snapshot commit; the development history before it is summarised here.
   0.1 pt). `Table.drawn_row_heights`, `Table.rows_fitting()` (`RowsFit`: how many rows fit
   above a line, to paginate a table) and an `off_slide` fact with `rows_past` and
   `rows_fit` in every changing call, `check` and `save_document`.
+- `render` says which text its image leaves out for want of a font (`missing_glyphs`:
+  face, script, sample; pptx2svg's `glyphs-missing`), with a note that the deck is
+  unchanged. The README installs `pptx2svg-fonts` and says what it holds.
 - Golden p5 replays a committed input (`tests/fixtures/generated/trial`) instead of
   drawing it with the installed Pillow.
 - `edit_chart` `add` makes a radar chart (`chart_type: "radar"`), as PowerPoint inserts one:

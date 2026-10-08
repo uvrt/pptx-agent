@@ -15,7 +15,7 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Read slides | `ppt_read_slides` (`outline`, `geometry`, `svg`) | outline Markdown with ids; every shape's box, fill, outline and text; a compact SVG view |
 | Read a text input (CSV, Markdown, plain text) | `read_blob` | a page at a time |
 | Find and replace text | `find_text`, `replace_text` | slides, notes, tables and SmartArt; `expect: one` or `all` |
-| Look at slides | `render` | PNG, at most 4 a call |
+| Look at slides | `render` | PNG, at most 4 a call; says which text the image leaves out for want of a font (`missing_glyphs`) |
 | Fit, collisions, validation, design facts | `check` | overflows, collisions (`boxes` too), shapes off the slide, problem facts, design facts, validation |
 | Undo and redo | `undo` | one call is one step; refs come back with the state |
 | Several calls as one step | `batch` | in order, all or nothing, checks once at the end |
