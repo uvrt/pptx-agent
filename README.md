@@ -9,6 +9,9 @@ render it back to an image, repeat.
 The agent never writes XML or SVG. It looks at pixels, understands structure through inspection,
 mutates a semantic model, and looks again.
 
+To give a model the deck as tool calls (Claude, or OpenAI's Responses and Chat Completions
+APIs): [using the tools with a model provider](src/pptx_agent/tools/README.md).
+
 ## Install
 
 Not on PyPI yet. Python 3.10+. The siblings install from git:
@@ -71,7 +74,7 @@ PowerPoint) and skip elsewhere, including CI.
 - [docs/FEATURES.md](docs/FEATURES.md) -- what works today
 - [docs/DESIGN.md](docs/DESIGN.md) -- the three layers, live XML views, stable ids, prior art
 - [docs/PROFILE.md](docs/PROFILE.md) -- the SVG profile
-- [SUPPORTED.md](src/pptx_agent/tools/SUPPORTED.md), [GUIDANCE.md](src/pptx_agent/tools/GUIDANCE.md) -- the agent tools
+- [tools/README.md](src/pptx_agent/tools/README.md), [SUPPORTED.md](src/pptx_agent/tools/SUPPORTED.md), [GUIDANCE.md](src/pptx_agent/tools/GUIDANCE.md) -- the agent tools
 - [ROADMAP.md](ROADMAP.md) -- the working plan and what has been measured
 - [CHANGELOG.md](CHANGELOG.md), [CONTRIBUTING.md](CONTRIBUTING.md) (running the tests)
 

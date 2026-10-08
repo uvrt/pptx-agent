@@ -10,13 +10,17 @@ code, no files, no XML::
     session = toolbox.session(clock=fixed_clock)
     d1 = session.open(deck_bytes, name="q3-review.pptx")
     tools = toolbox.definitions("anthropic", groups="core")
+    openai_tools = toolbox.definitions("openai-responses")   # or "openai-chat"
     result = toolbox.dispatch(session, "describe", {"doc": "d1"})
+
+How to run them with each provider (Claude, OpenAI Responses, Chat Completions):
+``README.md`` in this package.
 
 What is here (the tool layer's roadmap numbers them):
 
 * the shared tools' deck handlers (:mod:`.shared_tools`) and the session tools every format
-  shares: ``open_document``, ``new_document``, ``save_document``, ``list_documents``,
-  ``close_document``, ``undo``, ``find_text``, ``replace_text``, ``render``, ``check``,
+  shares: ``open_document``, ``new_document``, ``save_document``, ``close_document``,
+  ``read_blob``, ``undo``, ``find_text``, ``replace_text``, ``render``, ``check``,
   ``set_properties`` and ``batch``;
 * the shared ``describe``'s deck handler and ``ppt_read_slides`` (:mod:`.read`);
 * text: ``ppt_set_text`` (speaker notes too) and ``ppt_format_text`` (table cells too);
