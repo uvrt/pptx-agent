@@ -1,0 +1,167 @@
+{
+ "task": "p10-review-comments",
+ "inputs": [
+  {
+   "file": "input/harbor-lane-q2-review.pptx",
+   "as": "document",
+   "sha256": "7a2d602ba6f1c9b1aafd34b569e65c0f35e4bf81f6dd4b7fca9e216ac867be0d"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_comments",
+   "arguments": {
+    "doc": "d1",
+    "action": "list"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "find_text",
+   "arguments": {
+    "doc": "d1",
+    "text": "2,140"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_comments",
+   "arguments": {
+    "doc": "d1",
+    "action": "add",
+    "author": "Joost de Vries",
+    "items": [
+     {
+      "target": "256.13",
+      "text": "Please confirm 2,140 against the audited Q2 close before this goes out."
+     },
+     {
+      "target": "s:258",
+      "text": "The segment slide has no source line. Add 'Source: management accounts, Q2 FY2026'."
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "c:399EDD48",
+     "c:2F745BDC"
+    ]
+   }
+  },
+  {
+   "tool": "ppt_comments",
+   "arguments": {
+    "doc": "d1",
+    "action": "reply",
+    "author": "Joost de Vries",
+    "items": [
+     {
+      "comment": "c:DFD71416",
+      "text": "Keep all three: the board asked for net margin in Q1.",
+      "resolve": true
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "c:48250625"
+    ]
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "harbor-lane-q2-review.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "harbor-lane-q2-review.pptx",
+  "sha256": "6c3c70411c3b2a35448a79e7daf1d74da6ae108842d130acdb662f25b7fd4961",
+  "calls": 7
+ },
+ "sizes": [
+  {
+   "tool": "describe",
+   "arguments": 12,
+   "result": 2681,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "ppt_comments",
+   "arguments": 28,
+   "result": 506,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "find_text",
+   "arguments": 27,
+   "result": 403,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "ppt_comments",
+   "arguments": 276,
+   "result": 301,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "ppt_comments",
+   "arguments": 168,
+   "result": 302,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "check",
+   "arguments": 12,
+   "result": 3514,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "save_document",
+   "arguments": 64,
+   "result": 604,
+   "images": 0,
+   "image_tokens": 0
+  }
+ ],
+ "check": {
+  "total": 17,
+  "passed": 17
+ }
+}

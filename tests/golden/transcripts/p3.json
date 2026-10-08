@@ -1,0 +1,468 @@
+{
+ "task": "p3-split-slide",
+ "inputs": [
+  {
+   "root": "fixtures",
+   "file": "generated/trial/pilot-retrospective.pptx",
+   "as": "document",
+   "sha256": "ea2c5453e264914b79f4286ed5bd13b1e8426687424b16ff42f75b438b19b03f"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_read_slides",
+   "arguments": {
+    "doc": "d1",
+    "detail": "outline",
+    "slides": [
+     3
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_add_shape",
+   "arguments": {
+    "doc": "d1",
+    "slide": "s:258",
+    "measure": true,
+    "items": [
+     {
+      "preset": "rect",
+      "like": "258.3",
+      "box": {
+       "x": 0,
+       "y": 0,
+       "w": 828,
+       "h": 0
+      },
+      "paragraphs": [
+       {
+        "runs": [
+         {
+          "text": "Planning",
+          "size": 22
+         }
+        ],
+        "level": 0
+       },
+       {
+        "runs": [
+         {
+          "text": "The scope was agreed two weeks after the pilot started",
+          "size": 19
+         }
+        ],
+        "level": 1
+       },
+       {
+        "runs": [
+         {
+          "text": "Estimates for data migration were 40% too low",
+          "size": 19
+         }
+        ],
+        "level": 1
+       },
+       {
+        "runs": [
+         {
+          "text": "Weekly planning sessions worked well once they started",
+          "size": 19
+         }
+        ],
+        "level": 1
+       },
+       {
+        "runs": [
+         {
+          "text": "Delivery",
+          "size": 22
+         }
+        ],
+        "level": 0
+       },
+       {
+        "runs": [
+         {
+          "text": "Releasing every two weeks kept stakeholders engaged",
+          "size": 19
+         }
+        ],
+        "level": 1
+       },
+       {
+        "runs": [
+         {
+          "text": "Manual testing slowed down the last three releases",
+          "size": 19
+         }
+        ],
+        "level": 1
+       },
+       {
+        "runs": [
+         {
+          "text": "The rollback plan was never tested",
+          "size": 19
+         }
+        ],
+        "level": 1
+       },
+       {
+        "runs": [
+         {
+          "text": "People",
+          "size": 22
+         }
+        ],
+        "level": 0
+       },
+       {
+        "runs": [
+         {
+          "text": "Two key developers left in month four",
+          "size": 19
+         }
+        ],
+        "level": 1
+       },
+       {
+        "runs": [
+         {
+          "text": "Pairing new joiners with experienced staff shortened onboarding",
+          "size": 19
+         }
+        ],
+        "level": 1
+       },
+       {
+        "runs": [
+         {
+          "text": "Business testers were only available on Fridays",
+          "size": 19
+         }
+        ],
+        "level": 1
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_manage_slides",
+   "arguments": {
+    "doc": "d1",
+    "action": "duplicate",
+    "slide": "s:258",
+    "ref": "second"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "s:260"
+    ],
+    "refs": {
+     "second": "s:260"
+    }
+   }
+  },
+  {
+   "tool": "ppt_read_slides",
+   "arguments": {
+    "doc": "d1",
+    "detail": "geometry",
+    "slides": [
+     4
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "258.2",
+         "text": "Lessons learned (1 of 2)"
+        },
+        {
+         "target": "258.3",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Planning",
+             "size": 22
+            }
+           ],
+           "level": 0
+          },
+          {
+           "runs": [
+            {
+             "text": "The scope was agreed two weeks after the pilot started",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Estimates for data migration were 40% too low",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Weekly planning sessions worked well once they started",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Delivery",
+             "size": 22
+            }
+           ],
+           "level": 0
+          },
+          {
+           "runs": [
+            {
+             "text": "Releasing every two weeks kept stakeholders engaged",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Manual testing slowed down the last three releases",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "The rollback plan was never tested",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "People",
+             "size": 22
+            }
+           ],
+           "level": 0
+          },
+          {
+           "runs": [
+            {
+             "text": "Two key developers left in month four",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Pairing new joiners with experienced staff shortened onboarding",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Business testers were only available on Fridays",
+             "size": 19
+            }
+           ],
+           "level": 1
+          }
+         ]
+        },
+        {
+         "target": "260.2",
+         "text": "Lessons learned (2 of 2)"
+        },
+        {
+         "target": "260.3",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Tooling",
+             "size": 22
+            }
+           ],
+           "level": 0
+          },
+          {
+           "runs": [
+            {
+             "text": "The shared test environment was often down",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Moving the backlog to one board removed duplicate work",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Monitoring dashboards arrived too late to help",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Customers",
+             "size": 22
+            }
+           ],
+           "level": 0
+          },
+          {
+           "runs": [
+            {
+             "text": "Pilot customers liked the self-service invoices most",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Support calls fell by 18% in the pilot group",
+             "size": 19
+            }
+           ],
+           "level": 1
+          },
+          {
+           "runs": [
+            {
+             "text": "Customers asked for a mobile app in almost every interview",
+             "size": 19
+            }
+           ],
+           "level": 1
+          }
+         ]
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "258/notes",
+         "text": "Planning: the late scope agreement is the root cause of most of the slippage.\nDelivery: the fortnightly releases are the thing to keep; the untested rollback is the thing to fix first.\nPeople: the two departures cost us about six weeks."
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "$second/notes",
+         "text": "Tooling: we will ask for a dedicated test environment in the next phase.\nCustomers: the 18% fall in support calls is the strongest evidence for a full rollout."
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "pilot-retrospective.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "pilot-retrospective.pptx",
+  "sha256": "0b768ee2300d179b48117c5f11f4441d1d8627bd5ed6943c4c8b67510464ad43",
+  "calls": 8
+ },
+ "check": {
+  "total": 13,
+  "passed": 13
+ }
+}

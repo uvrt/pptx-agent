@@ -1,0 +1,1180 @@
+{
+ "task": "m1-priority-matrix",
+ "inputs": [
+  {
+   "file": "input/halden-proposal-draft.pptx",
+   "as": "document",
+   "sha256": "fd81fc1bbd2fa159cb71d2a87704b9fa2c11eab7b94d1a31f1c3af986f1765af"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "258.2",
+         "text": "Four quick wins combine high savings with easy implementation and should lead wave 1"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:258",
+       "items": [
+        {
+         "preset": "rect",
+         "line": {
+          "color": "none"
+         },
+         "fill": "bg2",
+         "box": {
+          "x": 110.0,
+          "y": 112.0,
+          "w": 270.0,
+          "h": 173.0
+         }
+        },
+        {
+         "preset": "rect",
+         "line": {
+          "color": "none"
+         },
+         "fill": "accent1 lumMod=20% lumOff=80%",
+         "box": {
+          "x": 380.0,
+          "y": 112.0,
+          "w": 270.0,
+          "h": 173.0
+         }
+        },
+        {
+         "preset": "rect",
+         "line": {
+          "color": "none"
+         },
+         "fill": "bg2",
+         "box": {
+          "x": 110.0,
+          "y": 285.0,
+          "w": 270.0,
+          "h": 173.0
+         }
+        },
+        {
+         "preset": "rect",
+         "line": {
+          "color": "none"
+         },
+         "fill": "bg2",
+         "box": {
+          "x": 380.0,
+          "y": 285.0,
+          "w": 270.0,
+          "h": 173.0
+         }
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_connector",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:258",
+       "items": [
+        {
+         "kind": "straight",
+         "line": {
+          "color": "bg1",
+          "width": 2
+         },
+         "from": {
+          "x": 380.0,
+          "y": 458.0
+         },
+         "to": {
+          "x": 380.0,
+          "y": 112.0
+         }
+        },
+        {
+         "kind": "straight",
+         "line": {
+          "color": "bg1",
+          "width": 2
+         },
+         "from": {
+          "x": 110.0,
+          "y": 285.0
+         },
+         "to": {
+          "x": 650.0,
+          "y": 285.0
+         }
+        },
+        {
+         "kind": "straight",
+         "line": {
+          "color": "tx2",
+          "width": 1.25,
+          "end": "triangle"
+         },
+         "from": {
+          "x": 110.0,
+          "y": 458.0
+         },
+         "to": {
+          "x": 650.0,
+          "y": 458.0
+         }
+        },
+        {
+         "kind": "straight",
+         "line": {
+          "color": "tx2",
+          "width": 1.25,
+          "end": "triangle"
+         },
+         "from": {
+          "x": 110.0,
+          "y": 458.0
+         },
+         "to": {
+          "x": 110.0,
+          "y": 112.0
+         }
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:258",
+       "items": [
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Strategic bets",
+             "size": 12,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "box": {
+          "x": 116.0,
+          "y": 118.0,
+          "w": 110.0,
+          "h": 20.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Quick wins",
+             "size": 12,
+             "bold": true,
+             "color": "accent1"
+            }
+           ],
+           "align": "right"
+          }
+         ],
+         "box": {
+          "x": 534.0,
+          "y": 118.0,
+          "w": 110.0,
+          "h": 20.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Deprioritise",
+             "size": 12,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "box": {
+          "x": 116.0,
+          "y": 432.0,
+          "w": 110.0,
+          "h": 20.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Fill-ins",
+             "size": 12,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "right"
+          }
+         ],
+         "box": {
+          "x": 534.0,
+          "y": 432.0,
+          "w": 110.0,
+          "h": 20.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent2",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b0",
+         "box": {
+          "x": 506.0,
+          "y": 154.9,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent2",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b1",
+         "box": {
+          "x": 290.0,
+          "y": 137.6,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent2",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b2",
+         "box": {
+          "x": 533.0,
+          "y": 224.1,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent1",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b3",
+         "box": {
+          "x": 236.0,
+          "y": 206.8,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent1",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b4",
+         "box": {
+          "x": 560.0,
+          "y": 327.9,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent1",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b5",
+         "box": {
+          "x": 425.0,
+          "y": 379.8,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent1",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b6",
+         "box": {
+          "x": 587.0,
+          "y": 258.7,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent4",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b7",
+         "box": {
+          "x": 452.0,
+          "y": 189.5,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent4",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b8",
+         "box": {
+          "x": 209.0,
+          "y": 345.2,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent4",
+         "line": {
+          "color": "bg1",
+          "width": 1
+         },
+         "ref": "b9",
+         "box": {
+          "x": 317.0,
+          "y": 397.1,
+          "w": 18.0,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Ease of implementation (0 = hard, 10 = easy)",
+             "size": 10,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 110.0,
+          "y": 468.0,
+          "w": 540.0,
+          "h": 16.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Savings potential (0 = low, 10 = high)",
+             "size": 10,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "ref": "ytitle",
+         "box": {
+          "x": -43.0,
+          "y": 277.0,
+          "w": 230.0,
+          "h": 16.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Spend type",
+             "size": 10,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "box": {
+          "x": 690.0,
+          "y": 250.0,
+          "w": 140.0,
+          "h": 16.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent2",
+         "line": {
+          "color": "none"
+         },
+         "box": {
+          "x": 692.0,
+          "y": 276.0,
+          "w": 12.0,
+          "h": 12.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Direct materials",
+             "size": 10,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "box": {
+          "x": 710.0,
+          "y": 274.0,
+          "w": 130.0,
+          "h": 16.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent1",
+         "line": {
+          "color": "none"
+         },
+         "box": {
+          "x": 692.0,
+          "y": 298.0,
+          "w": 12.0,
+          "h": 12.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Indirect",
+             "size": 10,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "box": {
+          "x": 710.0,
+          "y": 296.0,
+          "w": 130.0,
+          "h": 16.0
+         }
+        },
+        {
+         "preset": "ellipse",
+         "fill": "accent4",
+         "line": {
+          "color": "none"
+         },
+         "box": {
+          "x": 692.0,
+          "y": 320.0,
+          "w": 12.0,
+          "h": 12.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Logistics",
+             "size": 10,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "box": {
+          "x": 710.0,
+          "y": 318.0,
+          "w": 130.0,
+          "h": 16.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          }
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Source: Meridian Partners diagnostic, scores agreed with category owners in week 3.",
+             "size": 8,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "box": {
+          "x": 28.8,
+          "y": 488.0,
+          "w": 902.4,
+          "h": 14.0
+         }
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_set_shape",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "$ytitle",
+         "rotation": 270
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:258",
+       "items": [
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 527.0,
+          "y": 155.9,
+          "w": 87.04,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Cement & binders",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 193.29,
+          "y": 138.6,
+          "w": 93.71,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Steel reinforcement",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "right"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 554.0,
+          "y": 225.1,
+          "w": 53.7,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Packaging",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 257.0,
+          "y": 207.8,
+          "w": 82.03,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Energy contracts",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 581.0,
+          "y": 328.9,
+          "w": 63.12,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "MRO spares",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 446.0,
+          "y": 380.8,
+          "w": 67.95,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "IT & telecoms",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 482.52,
+          "y": 259.7,
+          "w": 101.48,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Professional services",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "right"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 473.0,
+          "y": 190.5,
+          "w": 73.72,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Inbound freight",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 230.0,
+          "y": 346.2,
+          "w": 65.55,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Warehousing",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 250.3,
+          "y": 398.1,
+          "w": 63.7,
+          "h": 16.0
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Fleet leasing",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "right"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "258.3",
+     "258.4",
+     "258.5",
+     "258.6",
+     "258.7",
+     "258.8",
+     "258.9",
+     "258.10",
+     "258.11",
+     "258.12",
+     "258.13",
+     "258.14",
+     "258.15",
+     "258.16",
+     "258.17",
+     "258.18",
+     "258.19",
+     "258.20",
+     "258.21",
+     "258.22",
+     "258.23",
+     "258.24",
+     "258.25",
+     "258.26",
+     "258.27",
+     "258.28",
+     "258.29",
+     "258.30",
+     "258.31",
+     "258.32",
+     "258.33",
+     "258.34",
+     "258.35",
+     "258.36",
+     "258.37",
+     "258.38",
+     "258.39",
+     "258.40",
+     "258.41",
+     "258.42",
+     "258.43",
+     "258.44"
+    ],
+    "refs": {
+     "b0": "258.15",
+     "b1": "258.16",
+     "b2": "258.17",
+     "b3": "258.18",
+     "b4": "258.19",
+     "b5": "258.20",
+     "b6": "258.21",
+     "b7": "258.22",
+     "b8": "258.23",
+     "b9": "258.24",
+     "ytitle": "258.26"
+    }
+   }
+  },
+  {
+   "tool": "render",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     3
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     3
+    ],
+    "boxes": true,
+    "include": [
+     "fit",
+     "collisions",
+     "facts",
+     "validate"
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "halden-proposal-matrix.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "halden-proposal-matrix.pptx",
+  "sha256": "bfb3b52fbfc1c6fb63e08a6baa7df04bd21592c87a1faac7fe3ab96c8ed34158",
+  "calls": 5
+ },
+ "sizes": [
+  {
+   "tool": "describe",
+   "arguments": 12,
+   "result": 7183,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "batch",
+   "arguments": 8237,
+   "result": 2103,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "render",
+   "arguments": 25,
+   "result": 316,
+   "images": 1,
+   "image_tokens": 1196
+  },
+  {
+   "tool": "check",
+   "arguments": 88,
+   "result": 1740,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "save_document",
+   "arguments": 65,
+   "result": 330,
+   "images": 0,
+   "image_tokens": 0
+  }
+ ],
+ "check": {
+  "total": 22,
+  "passed": 22
+ }
+}

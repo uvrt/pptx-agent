@@ -1,0 +1,463 @@
+{
+ "task": "p4-process-diagram",
+ "inputs": [
+  {
+   "file": "input/order-to-cash.pptx",
+   "as": "document",
+   "sha256": "7e5772bc2ccc00e0fa2f45efe8440349e2b46b712d4ac3d2de233d9de1a69a9c"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_add_shape",
+   "arguments": {
+    "doc": "d1",
+    "slide": "s:257",
+    "measure": true,
+    "items": [
+     {
+      "preset": "diamond",
+      "box": {
+       "x": 0,
+       "y": 0,
+       "w": 104,
+       "h": 0
+      },
+      "paragraphs": [
+       {
+        "runs": [
+         {
+          "text": "Credit check",
+          "size": 14
+         }
+        ],
+        "align": "center"
+       }
+      ]
+     },
+     {
+      "preset": "roundRect",
+      "box": {
+       "x": 0,
+       "y": 0,
+       "w": 104,
+       "h": 0
+      },
+      "paragraphs": [
+       {
+        "runs": [
+         {
+          "text": "Payment received",
+          "size": 14
+         }
+        ],
+        "align": "center"
+       }
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:257",
+       "items": [
+        {
+         "preset": "roundRect",
+         "box": {
+          "x": 66,
+          "y": 202,
+          "w": 104,
+          "h": 56
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Order received",
+             "size": 14
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "fill": "accent1",
+         "ref": "order"
+        },
+        {
+         "preset": "diamond",
+         "box": {
+          "x": 207.6,
+          "y": 188,
+          "w": 120,
+          "h": 84
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Credit check",
+             "size": 14
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "fill": "accent2",
+         "ref": "credit"
+        },
+        {
+         "preset": "roundRect",
+         "box": {
+          "x": 365.2,
+          "y": 202,
+          "w": 104,
+          "h": 56
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Pick and pack",
+             "size": 14
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "fill": "accent1",
+         "ref": "pick"
+        },
+        {
+         "preset": "roundRect",
+         "box": {
+          "x": 506.8,
+          "y": 202,
+          "w": 104,
+          "h": 56
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Ship order",
+             "size": 14
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "fill": "accent1",
+         "ref": "ship"
+        },
+        {
+         "preset": "roundRect",
+         "box": {
+          "x": 648.4,
+          "y": 202,
+          "w": 104,
+          "h": 56
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Send invoice",
+             "size": 14
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "fill": "accent1",
+         "ref": "invoice"
+        },
+        {
+         "preset": "roundRect",
+         "box": {
+          "x": 790,
+          "y": 202,
+          "w": 104,
+          "h": 56
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Payment received",
+             "size": 14
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "fill": "accent1",
+         "ref": "paid"
+        },
+        {
+         "preset": "roundRect",
+         "box": {
+          "x": 207.6,
+          "y": 330,
+          "w": 120,
+          "h": 56
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Notify customer",
+             "size": 14
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "fill": "accent3",
+         "ref": "notify"
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 330.4,
+          "y": 210,
+          "w": 32,
+          "h": 15
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Pass",
+             "size": 12
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 0,
+           "right": 0,
+           "bottom": 0
+          }
+         },
+         "ref": "pass"
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 272,
+          "y": 293,
+          "w": 32,
+          "h": 15
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Fail",
+             "size": 12
+            }
+           ]
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 0,
+           "right": 0,
+           "bottom": 0
+          }
+         },
+         "ref": "fail"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_connector",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "kind": "straight",
+         "from": {
+          "shape": "$order"
+         },
+         "to": {
+          "shape": "$credit"
+         },
+         "line": {
+          "end": "triangle",
+          "width": 1.5
+         }
+        },
+        {
+         "kind": "straight",
+         "from": {
+          "shape": "$credit"
+         },
+         "to": {
+          "shape": "$pick"
+         },
+         "line": {
+          "end": "triangle",
+          "width": 1.5
+         }
+        },
+        {
+         "kind": "straight",
+         "from": {
+          "shape": "$pick"
+         },
+         "to": {
+          "shape": "$ship"
+         },
+         "line": {
+          "end": "triangle",
+          "width": 1.5
+         }
+        },
+        {
+         "kind": "straight",
+         "from": {
+          "shape": "$ship"
+         },
+         "to": {
+          "shape": "$invoice"
+         },
+         "line": {
+          "end": "triangle",
+          "width": 1.5
+         }
+        },
+        {
+         "kind": "straight",
+         "from": {
+          "shape": "$invoice"
+         },
+         "to": {
+          "shape": "$paid"
+         },
+         "line": {
+          "end": "triangle",
+          "width": 1.5
+         }
+        },
+        {
+         "kind": "straight",
+         "from": {
+          "shape": "$credit"
+         },
+         "to": {
+          "shape": "$notify"
+         },
+         "line": {
+          "end": "triangle",
+          "width": 1.5
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "257.3",
+     "257.4",
+     "257.5",
+     "257.6",
+     "257.7",
+     "257.8",
+     "257.9",
+     "257.10",
+     "257.11",
+     "257.12",
+     "257.13",
+     "257.14",
+     "257.15",
+     "257.16",
+     "257.17"
+    ],
+    "refs": {
+     "order": "257.3",
+     "credit": "257.4",
+     "pick": "257.5",
+     "ship": "257.6",
+     "invoice": "257.7",
+     "paid": "257.8",
+     "notify": "257.9",
+     "pass": "257.10",
+     "fail": "257.11"
+    }
+   }
+  },
+  {
+   "tool": "render",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     2
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     2
+    ],
+    "boxes": true
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "order-to-cash.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "order-to-cash.pptx",
+  "sha256": "1bdaa0563cd117e9cb94c0c2b8de4f9313d43d7bbf76baefc10a582c44f72b6a",
+  "calls": 6
+ },
+ "check": {
+  "total": 19,
+  "passed": 19
+ }
+}

@@ -1,0 +1,262 @@
+{
+ "task": "p1-outline-deck",
+ "inputs": [
+  {
+   "root": "fixtures",
+   "file": "generated/trial/company-template.potx",
+   "as": "blob",
+   "sha256": "b6be5df5cd7eaed8cee3b796769358f94a078a6a8a5508cb828692d9efc0341b"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "new_document",
+   "arguments": {
+    "kind": "pptx",
+    "template_blob": "b1",
+    "name": "project-harbour.pptx",
+    "title": "Project Harbour"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "d1"
+    ]
+   }
+  },
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_add_slide",
+      "arguments": {
+       "doc": "d1",
+       "layout": "TITLE",
+       "title": "Project Harbour",
+       "notes": "Welcome everyone. Today we ask for a decision on the delivery option for Project Harbour.",
+       "ref": "s1"
+      }
+     },
+     {
+      "tool": "ppt_add_slide",
+      "arguments": {
+       "doc": "d1",
+       "layout": "TITLE_AND_BODY",
+       "title": "Why change now",
+       "notes": "The cost figure comes from the finance review in June. Stress that the staffing risk is the most urgent.",
+       "ref": "s2",
+       "body": "Depot routing still runs on spreadsheets built in 2014\nRescheduled deliveries cost us EUR 2.3 million last year\nTwo of five depots lose their routing lead in 2027\nCustomers now expect a two-hour delivery window"
+      }
+     },
+     {
+      "tool": "ppt_add_slide",
+      "arguments": {
+       "doc": "d1",
+       "layout": "TITLE_AND_BODY",
+       "title": "What we heard from the depots",
+       "notes": "We interviewed 46 people across all five depots in August and September.",
+       "ref": "s3",
+       "body": "Planning\n  - Plans are rebuilt by hand every morning\n  - Late orders break the plan\nDrivers\n  - No live view of traffic or road closures\n  - Paper delivery notes still in use at three depots\nCustomers\n  - Delivery windows are too wide"
+      }
+     },
+     {
+      "tool": "ppt_add_slide",
+      "arguments": {
+       "doc": "d1",
+       "layout": "BIG_NUMBER",
+       "title": "38%",
+       "notes": "This is the single number to remember. The industry benchmark is around 15 percent.",
+       "ref": "s4",
+       "body": "of deliveries were rescheduled at least once in 2025"
+      }
+     },
+     {
+      "tool": "ppt_add_slide",
+      "arguments": {
+       "doc": "d1",
+       "layout": "TITLE_AND_TWO_COLUMNS",
+       "title": "Options considered",
+       "notes": "Option B looks cheaper but carries the staffing risk from slide 2.",
+       "ref": "s5",
+       "body": "Option A: buy a routing platform\nLive in 9 months\nEUR 1.4 million over three years"
+      }
+     },
+     {
+      "tool": "ppt_add_slide",
+      "arguments": {
+       "doc": "d1",
+       "layout": "TITLE_ONLY",
+       "title": "Costs and benefits of Option A (EUR thousand)",
+       "notes": "Option A pays back during year 2. Savings come mostly from fewer rescheduled deliveries.",
+       "ref": "s6"
+      }
+     },
+     {
+      "tool": "ppt_add_slide",
+      "arguments": {
+       "doc": "d1",
+       "layout": "TITLE_AND_BODY",
+       "title": "Timeline",
+       "notes": "The pilot depot was chosen because it has the highest rescheduling rate.",
+       "ref": "s7",
+       "body": "November 2026: select the vendor\nJanuary 2027: pilot at the Eastport depot\nApril 2027: roll out to all depots\nSeptember 2027: retire the old spreadsheets"
+      }
+     },
+     {
+      "tool": "ppt_add_slide",
+      "arguments": {
+       "doc": "d1",
+       "layout": "TITLE_AND_BODY",
+       "title": "Decision requested",
+       "notes": "We need the decision today to keep the November vendor selection on track.",
+       "ref": "s8",
+       "body": "Approve Option A and a budget of EUR 1.4 million\nAppoint a business owner for routing\nReview progress at the January committee"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "s:256",
+     "s:257",
+     "s:258",
+     "s:259",
+     "s:260",
+     "s:261",
+     "s:262",
+     "s:263"
+    ],
+    "refs": {
+     "s1": "s:256",
+     "s2": "s:257",
+     "s3": "s:258",
+     "s4": "s:259",
+     "s5": "s:260",
+     "s6": "s:261",
+     "s7": "s:262",
+     "s8": "s:263"
+    }
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "256.3",
+         "text": "Modernising field logistics. Steering committee, 12 October 2026"
+        },
+        {
+         "target": "260.4",
+         "text": "Option B: extend our in-house planner\nLive in 18 months\nEUR 1.1 million over three years"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_table",
+      "arguments": {
+       "doc": "d1",
+       "slide": "$s6",
+       "box": {
+        "x": 57,
+        "y": 164,
+        "w": 605,
+        "h": 150
+       },
+       "rows": 5,
+       "columns": 4,
+       "ref": "costs",
+       "data": [
+        [
+         "Item",
+         "Year 1",
+         "Year 2",
+         "Year 3"
+        ],
+        [
+         "Licences",
+         "380",
+         "380",
+         "380"
+        ],
+        [
+         "Implementation",
+         "210",
+         "40",
+         "0"
+        ],
+        [
+         "Savings",
+         "-150",
+         "-900",
+         "-1,250"
+        ],
+        [
+         "Net",
+         "440",
+         "-480",
+         "-870"
+        ]
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "261.3"
+    ],
+    "refs": {
+     "costs": "261.3"
+    }
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "project-harbour.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "project-harbour.pptx",
+  "sha256": "a43e4bebcc400138022063688c12439a57ed574214a81ff737b15d46321da78e",
+  "calls": 6
+ },
+ "check": {
+  "total": 17,
+  "passed": 17
+ }
+}

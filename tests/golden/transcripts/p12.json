@@ -1,0 +1,131 @@
+{
+ "task": "p12-theme-rebrand",
+ "inputs": [
+  {
+   "file": "input/patient-review.pptx",
+   "as": "document",
+   "sha256": "17f8d390cc987027fccad22c2f446a91b0701833062c44814615c60c85f46161"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_set_theme",
+   "arguments": {
+    "doc": "d1",
+    "colors": [
+     {
+      "slot": "accent1",
+      "hex": "#0B6E4F"
+     },
+     {
+      "slot": "accent2",
+      "hex": "#E09F3E"
+     },
+     {
+      "slot": "dk2",
+      "hex": "#1B2A41"
+     },
+     {
+      "slot": "lt2",
+      "hex": "#F4F1EA"
+     }
+    ],
+    "fonts": {
+     "major": "Lora",
+     "minor": "Source Sans 3"
+    }
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "render",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     1,
+     3
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "patient-review.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "patient-review.pptx",
+  "sha256": "b51b2d3ed3f46da00baa4e8e9e64a219590b545fadc2a94e68bb3f4cd064c209",
+  "calls": 5
+ },
+ "sizes": [
+  {
+   "tool": "describe",
+   "arguments": 12,
+   "result": 7194,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "ppt_set_theme",
+   "arguments": 204,
+   "result": 732,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "render",
+   "arguments": 27,
+   "result": 440,
+   "images": 2,
+   "image_tokens": 2392
+  },
+  {
+   "tool": "check",
+   "arguments": 12,
+   "result": 346,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "save_document",
+   "arguments": 57,
+   "result": 314,
+   "images": 0,
+   "image_tokens": 0
+  }
+ ],
+ "check": {
+  "total": 9,
+  "passed": 9
+ }
+}

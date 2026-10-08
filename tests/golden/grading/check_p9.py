@@ -1,0 +1,96 @@
+"""P9: a chart slide of quarterly revenue by region from a CSV: theme colours, data labels in
+EUR m that fit their columns, a one-line takeaway title."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # common.py beside it
+from common import main, norm, title_of  # noqa: E402
+
+from pptx_agent import Document  # noqa: E402
+
+FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "generated" / "trial"
+INPUT = FIXTURES / "business-review-2026.pptx"
+CSV = FIXTURES / "quarterly-revenue-2026.csv"
+C = "{http://schemas.openxmlformats.org/drawingml/2006/chart}"
+A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+EMU = 12700
+#: A data label's width: characters x 0.55 em at its size (Arial-like digits are 0.556 em).
+EM = 0.55
+
+
+def body(c, out: Path):
+    rows = [line.split(",") for line in CSV.read_text().split("\n") if line]
+    quarters = [r[0] for r in rows[1:]]
+    want = {name: [float(r[k]) for r in rows[1:]] for k, name in enumerate(rows[0]) if k}
+    deck = Document.open(out)
+    src = Document.open(INPUT)
+    c.check("validate() clean", not deck.validate(), [str(p) for p in deck.validate()])
+    titles = [title_of(s) for s in deck.slides]
+    c.check("5 slides, the new one 4th", len(titles) == 5 and titles[2] == "Results by region"
+            and titles[4] == "Next steps", titles)
+    if len(titles) != 5:
+        return
+    slide = deck.slides[3]
+    title = next((sh for sh in slide.shapes if sh.placeholder
+                  and sh.placeholder[0] in ("title", "ctrTitle")), None)
+    text = title.text if title is not None else ""
+    c.check("a title on one line", bool(norm(text)) and "\n" not in text and "\v" not in text, text)
+    fit = title.text_fit() if title is not None else None
+    c.check("the title fits on one line as drawn", fit is not None and tuple(fit.lines) == (1,)
+            and not fit.overflows, fit)
+    c.check("a takeaway, not a label", any(r in text for r in want) and
+            norm(text).lower() not in {"revenue by region", "quarterly revenue by region"}, text)
+    frames = [s for s in slide.shapes if s.kind == "graphic_frame" and s.chart is not None]
+    c.check("one chart", len(frames) == 1, len(frames))
+    if not frames:
+        return
+    frame = frames[0]
+    chart = frame.chart
+    root = chart._root()
+    bar = root.find(f"{C}chart/{C}plotArea/{C}barChart")
+    c.check("a clustered column chart", bar is not None and bar.find(f"{C}barDir").get("val") == "col"
+            and bar.find(f"{C}grouping").get("val") == "clustered", chart.chart_types)
+    c.check("quarters as categories, in order", list(chart.categories) == quarters, chart.categories)
+    got = {s.name: [float(v) for v in s.values] for s in chart.series}
+    c.check("one series per region, CSV values exactly", got == want, got)
+    book = chart.workbook_values()
+    c.check("Edit Data holds the drawn values", book is not None and book["categories"] == quarters
+            and {s["name"]: s["values"] for s in book["series"]} == want, book)
+    fills = []
+    for ser in bar.findall(f"{C}ser"):
+        fill = ser.find(f"{C}spPr/{A}solidFill")
+        fills.append(None if fill is None else fill[0].tag.split("}")[1])
+    c.check("theme colours (schemeClr) on every series", fills and all(f == "schemeClr" for f in fills),
+            fills)
+    labels = chart.data_labels
+    c.check("data labels on every series", labels and all(entry["shown"] for entry in labels), labels)
+    code = labels[0]["format"] if labels else None
+    c.check("labels in EUR million, one decimal: €12.4m",
+            code is not None and all(entry["format"] == code for entry in labels)
+            and "€" in code and "m" in code.replace("€", "") and "0.0" in code, code)
+    size = None
+    for node in root.iter(f"{A}defRPr"):
+        if node.getparent().getparent().getparent().getparent().tag == f"{C}dLbls" and node.get("sz"):
+            size = int(node.get("sz")) / 100
+    widest = max(len(f"€{v:.1f}m") for values in want.values() for v in values)
+    label = widest * EM * (size or 18)
+    gap = chart.gap_width or 150
+    plot = frame.width / EMU * 0.9  # the plot area: about 90% of the frame's width
+    column = plot / len(quarters) / (len(want) + gap / 100)
+    c.check("no label wider than its column", label <= column, f"label {label:.1f} pt, column {column:.1f} pt")
+    left, top, width, height = slide.content_area
+    page_w, page_h = deck.slide_size
+    box = (frame.left, frame.top, frame.left + frame.width, frame.top + frame.height)
+    c.check("the chart is below the title and on the slide",
+            box[1] >= title.top + title.height - EMU and box[3] <= page_h and box[2] <= page_w
+            and box[0] >= 0, box)
+    c.check("the chart fills most of the content area",
+            frame.width * frame.height >= 0.6 * width * height, (frame.width, frame.height, width, height))
+    c.check("nothing overlaps or leaves the slide", not deck.overflows(slides=[4]), deck.overflows(slides=[4]))
+    same = all(deck.to_outline(slides=[i]).split("\n", 1)[1] == src.to_outline(slides=[j]).split("\n", 1)[1]
+               for i, j in ((1, 1), (2, 2), (3, 3), (5, 4)))
+    c.check("other slides unchanged", same)
+
+
+if __name__ == "__main__":
+    main("p9-revenue-chart", body)

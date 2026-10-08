@@ -1,0 +1,167 @@
+{
+ "task": "p11-update-smartart",
+ "inputs": [
+  {
+   "file": "input/delivery-process.pptx",
+   "as": "document",
+   "sha256": "f5a370b48d0d44a947dc97d7b9707da58786eefec4c91916661f25c0606dc3df"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_read_slides",
+   "arguments": {
+    "doc": "d1",
+    "detail": "outline"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "edit_smartart",
+      "arguments": {
+       "doc": "d1",
+       "target": "256.3",
+       "action": "set_text",
+       "node": 0,
+       "text": "Discover"
+      }
+     },
+     {
+      "tool": "edit_smartart",
+      "arguments": {
+       "doc": "d1",
+       "target": "256.3",
+       "action": "set_text",
+       "node": 1,
+       "text": "Plan"
+      }
+     },
+     {
+      "tool": "edit_smartart",
+      "arguments": {
+       "doc": "d1",
+       "target": "256.3",
+       "action": "set_text",
+       "node": 2,
+       "text": "Build"
+      }
+     },
+     {
+      "tool": "edit_smartart",
+      "arguments": {
+       "doc": "d1",
+       "target": "256.3",
+       "action": "add_node",
+       "text": "Ship"
+      }
+     },
+     {
+      "tool": "edit_smartart",
+      "arguments": {
+       "doc": "d1",
+       "target": "257.3",
+       "action": "add_child",
+       "node": 0,
+       "text": "Lower cost"
+      }
+     },
+     {
+      "tool": "edit_smartart",
+      "arguments": {
+       "doc": "d1",
+       "target": "257.3",
+       "action": "set_text",
+       "node": 5,
+       "text": "Slow reviews"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_read_slides",
+   "arguments": {
+    "doc": "d1",
+    "detail": "outline"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "delivery-process.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "delivery-process.pptx",
+  "sha256": "f5380a633d4ba3a9784ca087d1d2800c765956dabb4785a4d38d6b2e3151bb61",
+  "calls": 5
+ },
+ "sizes": [
+  {
+   "tool": "describe",
+   "arguments": 12,
+   "result": 2277,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "ppt_read_slides",
+   "arguments": 31,
+   "result": 507,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "batch",
+   "arguments": 680,
+   "result": 1896,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "ppt_read_slides",
+   "arguments": 31,
+   "result": 535,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "save_document",
+   "arguments": 59,
+   "result": 318,
+   "images": 0,
+   "image_tokens": 0
+  }
+ ],
+ "check": {
+  "total": 11,
+  "passed": 11
+ }
+}

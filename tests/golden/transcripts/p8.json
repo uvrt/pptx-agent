@@ -1,0 +1,1441 @@
+{
+ "task": "p8-engagement-plan",
+ "inputs": [
+  {
+   "file": "input/halden-proposal-draft.pptx",
+   "as": "document",
+   "sha256": "9b2639c49317af6b6820c2bfd2dfaeb41c37772a116bda318b9a33be116446fe"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "258.2",
+         "text": "Signed wave-1 savings by mid-February, with four SteerCo decisions keeping the programme on track"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:258",
+       "items": [
+        {
+         "preset": "rect",
+         "fill": "bg2",
+         "line": {
+          "color": "none"
+         },
+         "box": {
+          "x": 28.8,
+          "y": 198.0,
+          "w": 902.4,
+          "h": 53.6
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "bg2",
+         "line": {
+          "color": "none"
+         },
+         "box": {
+          "x": 28.8,
+          "y": 305.2,
+          "w": 902.4,
+          "h": 53.6
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "bg2",
+         "line": {
+          "color": "none"
+         },
+         "box": {
+          "x": 28.8,
+          "y": 412.4,
+          "w": 902.4,
+          "h": 53.6
+         }
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_connector",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:258",
+       "items": [
+        {
+         "kind": "straight",
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "from": {
+          "x": 326.04,
+          "y": 198.0
+         },
+         "to": {
+          "x": 326.04,
+          "y": 466.0
+         }
+        },
+        {
+         "kind": "straight",
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "from": {
+          "x": 481.08,
+          "y": 198.0
+         },
+         "to": {
+          "x": 481.08,
+          "y": 466.0
+         }
+        },
+        {
+         "kind": "straight",
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "from": {
+          "x": 636.12,
+          "y": 198.0
+         },
+         "to": {
+          "x": 636.12,
+          "y": 466.0
+         }
+        },
+        {
+         "kind": "straight",
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "from": {
+          "x": 776.16,
+          "y": 198.0
+         },
+         "to": {
+          "x": 776.16,
+          "y": 466.0
+         }
+        },
+        {
+         "kind": "straight",
+         "ref": "board",
+         "line": {
+          "color": "accent4",
+          "width": 1.5,
+          "dash": "dash"
+         },
+         "from": {
+          "x": 588.61,
+          "y": 198.0
+         },
+         "to": {
+          "x": 588.61,
+          "y": 466.0
+         }
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:258",
+       "items": [
+        {
+         "preset": "rect",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Nov 2026",
+             "size": 10,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 176.0,
+          "y": 104.0,
+          "w": 150.04,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Dec 2026",
+             "size": 10,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 326.04,
+          "y": 104.0,
+          "w": 155.04,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Jan 2027",
+             "size": 10,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 481.08,
+          "y": 104.0,
+          "w": 155.04,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Feb 2027",
+             "size": 10,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 636.12,
+          "y": 104.0,
+          "w": 140.04,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Mar 2027",
+             "size": 10,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 776.16,
+          "y": 104.0,
+          "w": 155.04,
+          "h": 18.0
+         }
+        },
+        {
+         "preset": "homePlate",
+         "fill": "accent1 lumMod=20% lumOff=80%",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Diagnose",
+             "size": 10,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "adjustments": [
+          {
+           "name": "adj",
+           "value": 30000
+          }
+         ],
+         "box": {
+          "x": 181.0,
+          "y": 126.0,
+          "w": 95.03,
+          "h": 20.0
+         }
+        },
+        {
+         "preset": "homePlate",
+         "fill": "accent1 lumMod=40% lumOff=60%",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Design",
+             "size": 10,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "adjustments": [
+          {
+           "name": "adj",
+           "value": 30000
+          }
+         ],
+         "box": {
+          "x": 286.03,
+          "y": 126.0,
+          "w": 130.03,
+          "h": 20.0
+         }
+        },
+        {
+         "preset": "homePlate",
+         "fill": "accent1",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Negotiate",
+             "size": 10,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "adjustments": [
+          {
+           "name": "adj",
+           "value": 30000
+          }
+         ],
+         "box": {
+          "x": 496.08,
+          "y": 126.0,
+          "w": 200.05,
+          "h": 20.0
+         }
+        },
+        {
+         "preset": "homePlate",
+         "fill": "accent1 lumMod=50%",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Embed",
+             "size": 10,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "adjustments": [
+          {
+           "name": "adj",
+           "value": 30000
+          }
+         ],
+         "box": {
+          "x": 706.14,
+          "y": 126.0,
+          "w": 95.03,
+          "h": 20.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Spend & baseline",
+             "size": 10,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 28.8,
+          "y": 210.8,
+          "w": 140.0,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Category strategy",
+             "size": 10,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 28.8,
+          "y": 264.4,
+          "w": 140.0,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Negotiations",
+             "size": 10,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 28.8,
+          "y": 318.0,
+          "w": 140.0,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Operating model",
+             "size": 10,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 28.8,
+          "y": 371.6,
+          "w": 140.0,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Change & capability",
+             "size": 10,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 1,
+           "right": 2,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 28.8,
+          "y": 425.2,
+          "w": 140.0,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "accent1 lumMod=20% lumOff=80%",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Spend cube",
+             "size": 9,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 181.0,
+          "y": 210.8,
+          "w": 95.03,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "accent1",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Savings tracking",
+             "size": 9,
+             "bold": false,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 496.08,
+          "y": 210.8,
+          "w": 305.08,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "accent1 lumMod=20% lumOff=80%",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Category deep dives",
+             "size": 9,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 251.02,
+          "y": 264.4,
+          "w": 165.04,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "accent1",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Wave-2 preparation",
+             "size": 9,
+             "bold": false,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 601.11,
+          "y": 264.4,
+          "w": 165.04,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "accent1",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Wave-1 RFQs",
+             "size": 9,
+             "bold": false,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 496.08,
+          "y": 318.0,
+          "w": 95.03,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "accent1",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Supplier negotiations",
+             "size": 9,
+             "bold": false,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 601.11,
+          "y": 318.0,
+          "w": 95.03,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "accent1 lumMod=40% lumOff=60%",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Target model design",
+             "size": 9,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 321.04,
+          "y": 371.6,
+          "w": 95.03,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "accent1 lumMod=50%",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Transition and hand-over",
+             "size": 9,
+             "bold": false,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 706.14,
+          "y": 371.6,
+          "w": 95.03,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "rect",
+         "fill": "accent1",
+         "line": {
+          "color": "none"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Category manager coaching",
+             "size": 9,
+             "bold": false,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 3,
+           "top": 1,
+           "right": 3,
+           "bottom": 1
+          },
+          "anchor": "middle"
+         },
+         "box": {
+          "x": 531.09,
+          "y": 425.2,
+          "w": 235.06,
+          "h": 28.0
+         }
+        },
+        {
+         "preset": "diamond",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "ref": "ms0",
+         "box": {
+          "x": 177.5,
+          "y": 154.0,
+          "w": 12.0,
+          "h": 12.0
+         }
+        },
+        {
+         "preset": "diamond",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "ref": "ms1",
+         "box": {
+          "x": 267.53,
+          "y": 154.0,
+          "w": 12.0,
+          "h": 12.0
+         }
+        },
+        {
+         "preset": "diamond",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "ref": "ms2",
+         "box": {
+          "x": 407.56,
+          "y": 154.0,
+          "w": 12.0,
+          "h": 12.0
+         }
+        },
+        {
+         "preset": "diamond",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "ref": "ms3",
+         "box": {
+          "x": 687.64,
+          "y": 154.0,
+          "w": 12.0,
+          "h": 12.0
+         }
+        },
+        {
+         "preset": "diamond",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "ref": "ms4",
+         "box": {
+          "x": 792.66,
+          "y": 154.0,
+          "w": 12.0,
+          "h": 12.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Note: programme weeks exclude the holiday break, 21 Dec 2026 to 1 Jan 2027. Dates as agreed with the Halden PMO on 9 October 2026.",
+             "size": 8,
+             "bold": false,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 1,
+           "right": 0,
+           "bottom": 1
+          }
+         },
+         "box": {
+          "x": 28.8,
+          "y": 489.0,
+          "w": 902.4,
+          "h": 14.0
+         }
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:258",
+       "items": [
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 192.5,
+          "y": 152.6,
+          "w": 36.84,
+          "h": 14.8
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Kick-off",
+             "size": 9,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 282.53,
+          "y": 149.2,
+          "w": 83.04,
+          "h": 25.6
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "SteerCo 1: savings hypothesis",
+             "size": 9,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 422.56,
+          "y": 149.2,
+          "w": 93.05,
+          "h": 25.6
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "SteerCo 2: wave plan approved",
+             "size": 9,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 702.64,
+          "y": 167.2,
+          "w": 106.04,
+          "h": 25.6
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "SteerCo 3: first contracts signed",
+             "size": 9,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 807.66,
+          "y": 150.6,
+          "w": 62.02,
+          "h": 14.8
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Final SteerCo",
+             "size": 9,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:258",
+       "items": [
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 556.11,
+          "y": 468.0,
+          "w": 65.0,
+          "h": 14.8
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Board update",
+             "size": 9,
+             "bold": true,
+             "color": "accent4"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 2,
+           "top": 2,
+           "right": 2,
+           "bottom": 2
+          },
+          "wrap": true,
+          "autofit": "none"
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "258.3",
+     "258.4",
+     "258.5",
+     "258.6",
+     "258.7",
+     "258.8",
+     "258.9",
+     "258.10",
+     "258.11",
+     "258.12",
+     "258.13",
+     "258.14",
+     "258.15",
+     "258.16",
+     "258.17",
+     "258.18",
+     "258.19",
+     "258.20",
+     "258.21",
+     "258.22",
+     "258.23",
+     "258.24",
+     "258.25",
+     "258.26",
+     "258.27",
+     "258.28",
+     "258.29",
+     "258.30",
+     "258.31",
+     "258.32",
+     "258.33",
+     "258.34",
+     "258.35",
+     "258.36",
+     "258.37",
+     "258.38",
+     "258.39",
+     "258.40",
+     "258.41",
+     "258.42",
+     "258.43",
+     "258.44",
+     "258.45"
+    ],
+    "refs": {
+     "board": "258.10",
+     "ms0": "258.34",
+     "ms1": "258.35",
+     "ms2": "258.36",
+     "ms3": "258.37",
+     "ms4": "258.38"
+    }
+   }
+  },
+  {
+   "tool": "render",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     3
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     3
+    ],
+    "boxes": true,
+    "include": [
+     "fit",
+     "collisions",
+     "facts",
+     "validate"
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "halden-proposal-plan.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "halden-proposal-plan.pptx",
+  "sha256": "5a8484a2c3f1cb90cabbdd1900e0773d3d9495714071eef26c234e6890ac2981",
+  "calls": 5
+ },
+ "sizes": [
+  {
+   "tool": "describe",
+   "arguments": 12,
+   "result": 7184,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "batch",
+   "arguments": 10739,
+   "result": 2002,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "render",
+   "arguments": 25,
+   "result": 316,
+   "images": 1,
+   "image_tokens": 1196
+  },
+  {
+   "tool": "check",
+   "arguments": 88,
+   "result": 2698,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "save_document",
+   "arguments": 63,
+   "result": 326,
+   "images": 0,
+   "image_tokens": 0
+  }
+ ],
+ "check": {
+  "total": 37,
+  "passed": 37
+ }
+}

@@ -1,0 +1,1065 @@
+{
+ "task": "p7-phased-approach",
+ "inputs": [
+  {
+   "file": "input/halden-proposal-draft.pptx",
+   "as": "document",
+   "sha256": "9b2639c49317af6b6820c2bfd2dfaeb41c37772a116bda318b9a33be116446fe"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_add_shape",
+   "arguments": {
+    "doc": "d1",
+    "slide": "s:257",
+    "measure": true,
+    "items": [
+     {
+      "preset": "textbox",
+      "box": {
+       "x": 0,
+       "y": 0,
+       "w": 216.6,
+       "h": 0
+      },
+      "paragraphs": [
+       {
+        "runs": [
+         {
+          "text": "Build the group spend cube from ERP data for all six plants",
+          "size": 12,
+          "color": "tx2"
+         }
+        ],
+        "bullet": "bullet",
+        "align": "left",
+        "space_after": 6
+       },
+       {
+        "runs": [
+         {
+          "text": "Interview 25 category owners and plant managers",
+          "size": 12,
+          "color": "tx2"
+         }
+        ],
+        "bullet": "bullet",
+        "align": "left",
+        "space_after": 6
+       },
+       {
+        "runs": [
+         {
+          "text": "Benchmark prices for the top 15 categories",
+          "size": 12,
+          "color": "tx2"
+         }
+        ],
+        "bullet": "bullet",
+        "align": "left",
+        "space_after": 6
+       },
+       {
+        "runs": [
+         {
+          "text": "Size the savings potential by category",
+          "size": 12,
+          "color": "tx2"
+         }
+        ],
+        "bullet": "bullet",
+        "align": "left",
+        "space_after": 6
+       }
+      ],
+      "frame": {
+       "insets": {
+        "left": 4,
+        "top": 2,
+        "right": 4,
+        "bottom": 2
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "257.2",
+         "text": "A 16-week programme takes Halden from a spend baseline to signed savings and a procurement function that sustains them"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:257",
+       "items": [
+        {
+         "preset": "chevron",
+         "ref": "chev",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "adjustments": [
+          {
+           "name": "adj",
+           "value": 28000
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 18,
+           "top": 3,
+           "right": 12,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Diagnose",
+             "size": 13,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Weeks 1–3",
+             "size": 10.5,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 28.8,
+          "y": 108.0,
+          "w": 216.6,
+          "h": 52.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "ref": "acts",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Build the group spend cube from ERP data for all six plants",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Interview 25 category owners and plant managers",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Benchmark prices for the top 15 categories",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Size the savings potential by category",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 4,
+           "top": 2,
+           "right": 4,
+           "bottom": 2
+          }
+         },
+         "box": {
+          "x": 28.8,
+          "y": 176.0,
+          "w": 216.6,
+          "h": 168.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "dels",
+         "fill": "bg2",
+         "line": {
+          "color": "accent1",
+          "width": 1
+         },
+         "frame": {
+          "insets": {
+           "left": 8,
+           "top": 6,
+           "right": 8,
+           "bottom": 6
+          },
+          "anchor": "top"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Deliverables",
+             "size": 12,
+             "bold": true,
+             "color": "accent1"
+            }
+           ],
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Spend cube and cost baseline",
+             "size": 11,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Savings hypothesis by category",
+             "size": 11,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          }
+         ],
+         "box": {
+          "x": 28.8,
+          "y": 358.0,
+          "w": 216.6,
+          "h": 112.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Source: Halden Group ERP spend data FY2025; Meridian Partners procurement benchmarks. Timeline indicative, subject to data access in week 1.",
+             "size": 8,
+             "color": "tx2"
+            }
+           ]
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 1,
+           "right": 0,
+           "bottom": 1
+          }
+         },
+         "box": {
+          "x": 28.8,
+          "y": 488.0,
+          "w": 902.4,
+          "h": 14.0
+         }
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:257",
+       "items": [
+        {
+         "preset": "chevron",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "adjustments": [
+          {
+           "name": "adj",
+           "value": 28000
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 18,
+           "top": 3,
+           "right": 12,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Diagnose",
+             "size": 13,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Weeks 1–3",
+             "size": 10.5,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 257.4,
+          "y": 108.0,
+          "w": 216.6,
+          "h": 52.0
+         },
+         "ref": "chev1"
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Build the group spend cube from ERP data for all six plants",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Interview 25 category owners and plant managers",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Benchmark prices for the top 15 categories",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Size the savings potential by category",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 4,
+           "top": 2,
+           "right": 4,
+           "bottom": 2
+          }
+         },
+         "box": {
+          "x": 257.4,
+          "y": 176.0,
+          "w": 216.6,
+          "h": 168.0
+         },
+         "ref": "acts1"
+        },
+        {
+         "preset": "rect",
+         "fill": "bg2",
+         "line": {
+          "color": "accent1",
+          "width": 1
+         },
+         "frame": {
+          "insets": {
+           "left": 8,
+           "top": 6,
+           "right": 8,
+           "bottom": 6
+          },
+          "anchor": "top"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Deliverables",
+             "size": 12,
+             "bold": true,
+             "color": "accent1"
+            }
+           ],
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Spend cube and cost baseline",
+             "size": 11,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Savings hypothesis by category",
+             "size": 11,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          }
+         ],
+         "box": {
+          "x": 257.4,
+          "y": 358.0,
+          "w": 216.6,
+          "h": 112.0
+         },
+         "ref": "dels1"
+        },
+        {
+         "preset": "chevron",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "adjustments": [
+          {
+           "name": "adj",
+           "value": 28000
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 18,
+           "top": 3,
+           "right": 12,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Diagnose",
+             "size": 13,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Weeks 1–3",
+             "size": 10.5,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 486.0,
+          "y": 108.0,
+          "w": 216.6,
+          "h": 52.0
+         },
+         "ref": "chev2"
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Build the group spend cube from ERP data for all six plants",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Interview 25 category owners and plant managers",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Benchmark prices for the top 15 categories",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Size the savings potential by category",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 4,
+           "top": 2,
+           "right": 4,
+           "bottom": 2
+          }
+         },
+         "box": {
+          "x": 486.0,
+          "y": 176.0,
+          "w": 216.6,
+          "h": 168.0
+         },
+         "ref": "acts2"
+        },
+        {
+         "preset": "rect",
+         "fill": "bg2",
+         "line": {
+          "color": "accent1",
+          "width": 1
+         },
+         "frame": {
+          "insets": {
+           "left": 8,
+           "top": 6,
+           "right": 8,
+           "bottom": 6
+          },
+          "anchor": "top"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Deliverables",
+             "size": 12,
+             "bold": true,
+             "color": "accent1"
+            }
+           ],
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Spend cube and cost baseline",
+             "size": 11,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Savings hypothesis by category",
+             "size": 11,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          }
+         ],
+         "box": {
+          "x": 486.0,
+          "y": 358.0,
+          "w": 216.6,
+          "h": 112.0
+         },
+         "ref": "dels2"
+        },
+        {
+         "preset": "chevron",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "adjustments": [
+          {
+           "name": "adj",
+           "value": 28000
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 18,
+           "top": 3,
+           "right": 12,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Diagnose",
+             "size": 13,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Weeks 1–3",
+             "size": 10.5,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 714.6,
+          "y": 108.0,
+          "w": 216.6,
+          "h": 52.0
+         },
+         "ref": "chev3"
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Build the group spend cube from ERP data for all six plants",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Interview 25 category owners and plant managers",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Benchmark prices for the top 15 categories",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Size the savings potential by category",
+             "size": 12,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 4,
+           "top": 2,
+           "right": 4,
+           "bottom": 2
+          }
+         },
+         "box": {
+          "x": 714.6,
+          "y": 176.0,
+          "w": 216.6,
+          "h": 168.0
+         },
+         "ref": "acts3"
+        },
+        {
+         "preset": "rect",
+         "fill": "bg2",
+         "line": {
+          "color": "accent1",
+          "width": 1
+         },
+         "frame": {
+          "insets": {
+           "left": 8,
+           "top": 6,
+           "right": 8,
+           "bottom": 6
+          },
+          "anchor": "top"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Deliverables",
+             "size": 12,
+             "bold": true,
+             "color": "accent1"
+            }
+           ],
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Spend cube and cost baseline",
+             "size": 11,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          },
+          {
+           "runs": [
+            {
+             "text": "Savings hypothesis by category",
+             "size": 11,
+             "color": "tx2"
+            }
+           ],
+           "bullet": "bullet",
+           "align": "left",
+           "space_after": 6
+          }
+         ],
+         "box": {
+          "x": 714.6,
+          "y": 358.0,
+          "w": 216.6,
+          "h": 112.0
+         },
+         "ref": "dels3"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "$chev1",
+         "text": "Design\nWeeks 4–7"
+        },
+        {
+         "target": "$acts1",
+         "text": "Prioritise eight wave-1 categories\nWrite category strategies and negotiation plans\nDesign the target procurement operating model"
+        },
+        {
+         "target": "$dels1",
+         "text": "Deliverables\nEight category strategies\nTarget operating model\nWave plan approved by the SteerCo"
+        },
+        {
+         "target": "$chev2",
+         "text": "Negotiate\nWeeks 8–13"
+        },
+        {
+         "target": "$acts2",
+         "text": "Run RFQs and supplier negotiations for wave 1\nTrack savings in a weekly war room\nPrepare the wave-2 categories\nCoach category managers on the job"
+        },
+        {
+         "target": "$dels2",
+         "text": "Deliverables\nSigned supplier agreements\nSavings tracker validated by Finance"
+        },
+        {
+         "target": "$chev3",
+         "text": "Embed\nWeeks 14–16"
+        },
+        {
+         "target": "$acts3",
+         "text": "Hand over to the new procurement organisation\nSet up procurement KPIs and governance\nAgree the wave-2 roadmap"
+        },
+        {
+         "target": "$dels3",
+         "text": "Deliverables\nSavings sign-off\nProcurement KPI dashboard\n12-month roadmap"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "257.3",
+     "257.4",
+     "257.5",
+     "257.6",
+     "257.7",
+     "257.8",
+     "257.9",
+     "257.10",
+     "257.11",
+     "257.12",
+     "257.13",
+     "257.14",
+     "257.15"
+    ],
+    "refs": {
+     "chev": "257.3",
+     "acts": "257.4",
+     "dels": "257.5",
+     "chev1": "257.7",
+     "acts1": "257.8",
+     "dels1": "257.9",
+     "chev2": "257.10",
+     "acts2": "257.11",
+     "dels2": "257.12",
+     "chev3": "257.13",
+     "acts3": "257.14",
+     "dels3": "257.15"
+    }
+   }
+  },
+  {
+   "tool": "render",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     2
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     2
+    ],
+    "boxes": true,
+    "include": [
+     "fit",
+     "collisions",
+     "facts",
+     "validate"
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "halden-proposal-approach.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "halden-proposal-approach.pptx",
+  "sha256": "eedbd29f4162e7e757789c2057a44f19b4c74f01f0782da4d0a7df3e8ddd720c",
+  "calls": 6
+ },
+ "sizes": [
+  {
+   "tool": "describe",
+   "arguments": 12,
+   "result": 7184,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "ppt_add_shape",
+   "arguments": 754,
+   "result": 572,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "batch",
+   "arguments": 8589,
+   "result": 1454,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "render",
+   "arguments": 25,
+   "result": 316,
+   "images": 1,
+   "image_tokens": 1196
+  },
+  {
+   "tool": "check",
+   "arguments": 88,
+   "result": 1086,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "save_document",
+   "arguments": 67,
+   "result": 334,
+   "images": 0,
+   "image_tokens": 0
+  }
+ ],
+ "check": {
+  "total": 33,
+  "passed": 33
+ }
+}

@@ -1,0 +1,180 @@
+{
+ "task": "p6-restructure-deck",
+ "inputs": [
+  {
+   "file": "input/website-relaunch.pptx",
+   "as": "document",
+   "sha256": "cdda7651712a7be4a68a776bac92de070a55e68a6423c84173d790456b152613"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_manage_slides",
+      "arguments": {
+       "doc": "d1",
+       "action": "delete",
+       "slide": "s:263"
+      }
+     },
+     {
+      "tool": "ppt_manage_slides",
+      "arguments": {
+       "doc": "d1",
+       "action": "move",
+       "slide": "s:260",
+       "to": 4
+      }
+     },
+     {
+      "tool": "ppt_add_slide",
+      "arguments": {
+       "doc": "d1",
+       "layout": "Section Header",
+       "at": 4,
+       "title": "Part 2: Delivery",
+       "ref": "part2"
+      }
+     },
+     {
+      "tool": "ppt_manage_slides",
+      "arguments": {
+       "doc": "d1",
+       "action": "duplicate",
+       "slide": "s:261",
+       "ref": "eng"
+      }
+     },
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "257.3",
+         "text": "Goals\nBudget\nTimeline\nTeam\nRisks\nQuestions"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "s:265",
+     "s:266"
+    ],
+    "removed": [
+     "s:263"
+    ],
+    "refs": {
+     "part2": "s:265",
+     "eng": "s:266"
+    }
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_arrange",
+      "arguments": {
+       "doc": "d1",
+       "targets": [
+        "265.3"
+       ],
+       "action": "delete"
+      }
+     },
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "266.2",
+         "text": "Team: engineering"
+        },
+        {
+         "target": "266.3",
+         "text": "Lead: Priya Nair\nTwo backend developers\nTwo frontend developers"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "$eng/notes",
+         "text": "Engineering works from the Utrecht office."
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "removed": [
+     "265.3"
+    ]
+   }
+  },
+  {
+   "tool": "ppt_read_slides",
+   "arguments": {
+    "doc": "d1",
+    "detail": "outline"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "website-relaunch.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "website-relaunch.pptx",
+  "sha256": "d9c340f3a66f8c69a000494901d487513a1d9b32038fdbe700a52e7de28bdbe2",
+  "calls": 6
+ },
+ "check": {
+  "total": 14,
+  "passed": 14
+ }
+}

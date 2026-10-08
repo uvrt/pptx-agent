@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pptx-agent"
+version = "0.0.1"
+description = "An AI-editable PowerPoint layer: inspect, mutate and re-render .pptx decks losslessly"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Evert Koks" }]
+keywords = ["pptx", "powerpoint", "ooxml", "agent", "llm", "editing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Office Suites",
+    "Topic :: Text Processing :: Markup :: XML",
+]
+# ooxml-edit is the format-neutral editing core (the OPC package, ordered insertion, undo,
+# id stamping), extracted from this repository with its history so a docx editor can share it.
+# Since 0.2.0 it also carries the chart, embedded-workbook and SmartArt editing, in the
+# optional ooxml_edit.charts subpackage; edit/chart.py adapts a slide's graphic frame to it.
+# It is not on PyPI yet: install it first, from a sibling checkout
+# (`pip install -e ../ooxml-edit`) or from GitHub
+# (`pip install "ooxml-edit @ git+https://github.com/uvrt/ooxml-edit@main"`).
+# markdown-it-py reads the Markdown outline (E6) in docx-agent's dialect: CommonMark with GFM
+# tables and strikethrough.  mdit-py-plugins carries the rest of that dialect (docx-agent's
+# footnotes), which a slide has no place for; it is declared so the two stay one dialect.
+# ooxml-common is the format-neutral reading core pptx2svg is built on; it is a core
+# dependency because the package kinds (validate, saving a template as a deck) and the text
+# measurement come from it, rendering or not.  Like ooxml-edit, install it from a sibling
+# checkout (`pip install -e ../ooxml-common`) or from GitHub until it is on PyPI.
+# ooxml-edit 0.7.0 carries the shared tool definitions, refs and batch that pptx_agent.tools
+# builds on (ooxml_edit.tools.shared), optional nested descriptions, deferred loading by
+# default, DocumentFormat.strict_first, the shared describe, edit_chart's read action and
+# Tool.reads (a changing tool's reading mode).  0.10.0: SmartArt model ids made from the
+# edit (the goldens' bytes repeat), and list_documents gone from the shared tools.
+dependencies = ["lxml>=4.9", "ooxml-common>=0.5.0", "ooxml-edit>=0.10.0", "markdown-it-py>=3.0",
+                "mdit-py-plugins>=0.4"]
+
+[project.optional-dependencies]
+# Rendering is delegated to pptx2svg; it is optional so the edit layer can be used headless.
+render = ["pptx2svg>=0.1"]
+png = ["pptx2svg[png]>=0.1"]
+dev = ["pytest>=7", "lxml>=4.9", "pptx2svg>=0.1"]
+
+[project.urls]
+Homepage = "https://github.com/uvrt/pptx-agent"
+Repository = "https://github.com/uvrt/pptx-agent"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pptx_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The oracle drives the real PowerPoint application; opt in with `pytest -m oracle`.
+addopts = "-m 'not oracle'"
+markers = ["oracle: needs macOS with Microsoft PowerPoint installed and automation granted",
+           "provider: calls a model provider's API online; skipped without its API key"]

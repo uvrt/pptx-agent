@@ -1,0 +1,192 @@
+{
+ "task": "p9-revenue-chart",
+ "inputs": [
+  {
+   "root": "fixtures",
+   "file": "generated/trial/business-review-2026.pptx",
+   "as": "document",
+   "sha256": "a7718991dbfe36bbcaac5a41dac40dda58d15e5e7d94af1c43d0375607c52952"
+  },
+  {
+   "root": "fixtures",
+   "file": "generated/trial/quarterly-revenue-2026.csv",
+   "as": "blob",
+   "sha256": "977e11638b60fdeb12c706935d93e440aa1f9c25044d81e3959316c6a9175b78"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "read_blob",
+   "arguments": {
+    "blob": "b1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_add_slide",
+   "arguments": {
+    "doc": "d1",
+    "layout": "Title Only",
+    "at": 4,
+    "title": "North drove half of 2026's growth",
+    "ref": "chart_slide"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "s:260"
+    ],
+    "refs": {
+     "chart_slide": "s:260"
+    }
+   }
+  },
+  {
+   "tool": "edit_chart",
+   "arguments": {
+    "doc": "d1",
+    "target": "$chart_slide",
+    "action": "add",
+    "chart_type": "column",
+    "categories": [
+     "Q1 2026",
+     "Q2 2026",
+     "Q3 2026",
+     "Q4 2026"
+    ],
+    "data": [
+     {
+      "name": "North",
+      "values": [
+       12.4,
+       14.9,
+       16.3,
+       17.8
+      ]
+     },
+     {
+      "name": "South",
+      "values": [
+       9.8,
+       10.2,
+       10.9,
+       11.6
+      ]
+     },
+     {
+      "name": "East",
+      "values": [
+       7.1,
+       7.4,
+       8.0,
+       8.3
+      ]
+     },
+     {
+      "name": "West",
+      "values": [
+       5.2,
+       6.8,
+       7.5,
+       8.1
+      ]
+     }
+    ],
+    "box": {
+     "x": 66,
+     "y": 144,
+     "w": 828,
+     "h": 367
+    },
+    "number_format": "#,##0.0",
+    "position": "bottom",
+    "ref": "chart"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "260.3"
+    ],
+    "refs": {
+     "chart": "260.3"
+    }
+   }
+  },
+  {
+   "tool": "edit_chart",
+   "arguments": {
+    "doc": "d1",
+    "target": "$chart",
+    "action": "show_data_labels",
+    "number_format": "\"€\"#,##0.0\"m\""
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "render",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     4
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "edit_chart",
+   "arguments": {
+    "doc": "d1",
+    "target": "$chart",
+    "action": "set_gap_width",
+    "value": 50
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "business-review-2026.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "business-review-2026.pptx",
+  "sha256": "54afc2a354ca829e0c6a370f9555b1769b343ebd0fdb17046e097ec3e2b7e609",
+  "calls": 9
+ },
+ "check": {
+  "total": 19,
+  "passed": 19
+ }
+}

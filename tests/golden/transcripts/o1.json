@@ -1,0 +1,983 @@
+{
+ "task": "o1-governance-chart",
+ "inputs": [
+  {
+   "file": "input/halden-proposal-draft.pptx",
+   "as": "document",
+   "sha256": "8474221760019916d8d02e078a5bf4c8251f29f8806b42eea067a733f7259943"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "257.2",
+         "text": "A lean governance structure gives the CEO one steering committee and four accountable workstream leads"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:257",
+       "items": [
+        {
+         "preset": "rect",
+         "ref": "steer",
+         "fill": "dk2",
+         "line": {
+          "color": "none"
+         },
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Steering Committee",
+             "size": 12,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Group CEO (chair), CFO, COO and Meridian partner; meets monthly",
+             "size": 10,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 299.99,
+          "y": 112.0,
+          "w": 360.0,
+          "h": 50.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "lead",
+         "fill": "accent1",
+         "line": {
+          "color": "none"
+         },
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Programme Lead",
+             "size": 12,
+             "bold": true,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Ingrid Solberg, Group Procurement Director",
+             "size": 10,
+             "color": "bg1"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 329.99,
+          "y": 198.0,
+          "w": 300.0,
+          "h": 50.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "pmo",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "accent1",
+          "width": 1.25
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "PMO",
+             "size": 12,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Savings tracking, risks and reporting; meets weekly",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 690.0,
+          "y": 198.0,
+          "w": 230.0,
+          "h": 50.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "ws0",
+         "line": {
+          "color": "none"
+         },
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "fill": "accent1 lumMod=20% lumOff=80%",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Spend & Baseline",
+             "size": 12,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Lead: Erik Dahl, Finance",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 28.8,
+          "y": 292.0,
+          "w": 213.6,
+          "h": 50.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r0_0",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Spend data analyst",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 45.6,
+          "y": 362.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r0_1",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Plant controllers (6)",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 45.6,
+          "y": 402.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "ws1",
+         "line": {
+          "color": "none"
+         },
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "fill": "accent1 lumMod=20% lumOff=80%",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Category Strategy",
+             "size": 12,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Lead: Maria Berg, Procurement",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 258.4,
+          "y": 292.0,
+          "w": 213.6,
+          "h": 50.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r1_0",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Category managers (8)",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 275.2,
+          "y": 362.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r1_1",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Technical specialists",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 275.2,
+          "y": 402.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r1_2",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Meridian category experts",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 275.2,
+          "y": 442.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "ws2",
+         "line": {
+          "color": "none"
+         },
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "fill": "accent1 lumMod=20% lumOff=80%",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Negotiations",
+             "size": 12,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Lead: Jonas Lind, Procurement",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 488.0,
+          "y": 292.0,
+          "w": 213.6,
+          "h": 50.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r2_0",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Negotiation team",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 504.8,
+          "y": 362.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r2_1",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Legal counsel",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 504.8,
+          "y": 402.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "ws3",
+         "line": {
+          "color": "none"
+         },
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "fill": "accent1 lumMod=20% lumOff=80%",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Operating Model & Change",
+             "size": 12,
+             "bold": true,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          },
+          {
+           "runs": [
+            {
+             "text": "Lead: Sofie Nyberg, HR",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 717.6,
+          "y": 292.0,
+          "w": 213.6,
+          "h": 50.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r3_0",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "HR business partner",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 734.4,
+          "y": 362.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r3_1",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Change manager",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 734.4,
+          "y": 402.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "rect",
+         "ref": "r3_2",
+         "fill": "bg1",
+         "frame": {
+          "insets": {
+           "left": 6,
+           "top": 3,
+           "right": 6,
+           "bottom": 3
+          },
+          "anchor": "middle"
+         },
+         "line": {
+          "color": "bg2 lumMod=75%",
+          "width": 0.75
+         },
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Training coordinator",
+             "size": 10,
+             "color": "tx2"
+            }
+           ],
+           "align": "center"
+          }
+         ],
+         "box": {
+          "x": 734.4,
+          "y": 442.0,
+          "w": 180.0,
+          "h": 30.0
+         }
+        },
+        {
+         "preset": "textbox",
+         "paragraphs": [
+          {
+           "runs": [
+            {
+             "text": "Note: names as proposed by Halden; roles to be confirmed at SteerCo 1.",
+             "size": 8,
+             "color": "tx2"
+            }
+           ],
+           "align": "left"
+          }
+         ],
+         "frame": {
+          "insets": {
+           "left": 0,
+           "top": 1,
+           "right": 0,
+           "bottom": 1
+          }
+         },
+         "box": {
+          "x": 28.8,
+          "y": 488.0,
+          "w": 902.4,
+          "h": 14.0
+         }
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_connector",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "kind": "straight",
+         "from": {
+          "shape": "$steer"
+         },
+         "to": {
+          "shape": "$lead"
+         },
+         "line": {
+          "color": "tx2",
+          "width": 1
+         }
+        },
+        {
+         "kind": "straight",
+         "from": {
+          "shape": "$lead"
+         },
+         "to": {
+          "shape": "$pmo"
+         },
+         "line": {
+          "color": "tx2",
+          "width": 1
+         }
+        },
+        {
+         "kind": "elbow",
+         "from": {
+          "shape": "$lead"
+         },
+         "to": {
+          "shape": "$ws0"
+         },
+         "line": {
+          "color": "tx2",
+          "width": 1
+         }
+        },
+        {
+         "kind": "elbow",
+         "from": {
+          "shape": "$lead"
+         },
+         "to": {
+          "shape": "$ws1"
+         },
+         "line": {
+          "color": "tx2",
+          "width": 1
+         }
+        },
+        {
+         "kind": "elbow",
+         "from": {
+          "shape": "$lead"
+         },
+         "to": {
+          "shape": "$ws2"
+         },
+         "line": {
+          "color": "tx2",
+          "width": 1
+         }
+        },
+        {
+         "kind": "elbow",
+         "from": {
+          "shape": "$lead"
+         },
+         "to": {
+          "shape": "$ws3"
+         },
+         "line": {
+          "color": "tx2",
+          "width": 1
+         }
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "257.3",
+     "257.4",
+     "257.5",
+     "257.6",
+     "257.7",
+     "257.8",
+     "257.9",
+     "257.10",
+     "257.11",
+     "257.12",
+     "257.13",
+     "257.14",
+     "257.15",
+     "257.16",
+     "257.17",
+     "257.18",
+     "257.19",
+     "257.20",
+     "257.21",
+     "257.22",
+     "257.23",
+     "257.24",
+     "257.25",
+     "257.26"
+    ],
+    "refs": {
+     "steer": "257.3",
+     "lead": "257.4",
+     "pmo": "257.5",
+     "ws0": "257.6",
+     "r0_0": "257.7",
+     "r0_1": "257.8",
+     "ws1": "257.9",
+     "r1_0": "257.10",
+     "r1_1": "257.11",
+     "r1_2": "257.12",
+     "ws2": "257.13",
+     "r2_0": "257.14",
+     "r2_1": "257.15",
+     "ws3": "257.16",
+     "r3_0": "257.17",
+     "r3_1": "257.18",
+     "r3_2": "257.19"
+    }
+   }
+  },
+  {
+   "tool": "render",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     2
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     2
+    ],
+    "boxes": true,
+    "include": [
+     "fit",
+     "collisions",
+     "facts",
+     "validate"
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "halden-proposal-governance.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "halden-proposal-governance.pptx",
+  "sha256": "48ffb5232b1ba409822687dda1fdefd2b3176658938ef30f93101b373cc5b6d9",
+  "calls": 5
+ },
+ "sizes": [
+  {
+   "tool": "describe",
+   "arguments": 12,
+   "result": 7192,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "batch",
+   "arguments": 7241,
+   "result": 1517,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "render",
+   "arguments": 25,
+   "result": 316,
+   "images": 1,
+   "image_tokens": 1196
+  },
+  {
+   "tool": "check",
+   "arguments": 88,
+   "result": 1339,
+   "images": 0,
+   "image_tokens": 0
+  },
+  {
+   "tool": "save_document",
+   "arguments": 69,
+   "result": 338,
+   "images": 0,
+   "image_tokens": 0
+  }
+ ],
+ "check": {
+  "total": 27,
+  "passed": 27
+ }
+}

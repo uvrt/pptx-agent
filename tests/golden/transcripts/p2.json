@@ -1,0 +1,360 @@
+{
+ "task": "p2-quarterly-update",
+ "inputs": [
+  {
+   "file": "input/harbor-lane-q2-results.pptx",
+   "as": "document",
+   "sha256": "94984a3fdff47f4cace5cd12e24054e72a5b934c741ac3d77a14b903317cc93e"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_read_slides",
+   "arguments": {
+    "doc": "d1",
+    "detail": "outline"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "edit_chart",
+   "arguments": {
+    "doc": "d1",
+    "target": "257.25",
+    "action": "read"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "edit_chart",
+   "arguments": {
+    "doc": "d1",
+    "target": "257.29",
+    "action": "read"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "edit_chart",
+   "arguments": {
+    "doc": "d1",
+    "target": "258.9",
+    "action": "read"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "edit_chart",
+   "arguments": {
+    "doc": "d1",
+    "target": "258.13",
+    "action": "read"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "256.13",
+         "text": "2,165"
+        },
+        {
+         "target": "256.15",
+         "text": "▲ 10.0%"
+        },
+        {
+         "target": "256.17",
+         "text": "262"
+        },
+        {
+         "target": "256.19",
+         "text": "▲ 18.0%"
+        },
+        {
+         "target": "256.21",
+         "text": "184"
+        },
+        {
+         "target": "256.23",
+         "text": "▲ 16.5%"
+        },
+        {
+         "target": "256.29",
+         "text": "12.1%"
+        },
+        {
+         "target": "256.30",
+         "text": "+0.8pt YoY"
+        },
+        {
+         "target": "257.12",
+         "text": "49.2%"
+        },
+        {
+         "target": "257.16",
+         "text": "50.4%"
+        },
+        {
+         "target": "257.20",
+         "text": "50.4%"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "replace_text",
+      "arguments": {
+       "doc": "d1",
+       "find": "margin of 10.7%",
+       "replace": "margin of 12.0%",
+       "expect": "one"
+      }
+     },
+     {
+      "tool": "ppt_edit_table",
+      "arguments": {
+       "doc": "d1",
+       "target": "257.3#5",
+       "action": "set_cells",
+       "cells": [
+        {
+         "row_label": "Revenue",
+         "col_label": "Q2 actual",
+         "text": "EUR 2,165m"
+        },
+        {
+         "row_label": "Revenue",
+         "col_label": "Change",
+         "text": "+197m"
+        },
+        {
+         "row_label": "Revenue",
+         "col_label": "Change %",
+         "text": "+10.0%"
+        },
+        {
+         "row_label": "Operating profit",
+         "col_label": "Q2 actual",
+         "text": "EUR 262m"
+        },
+        {
+         "row_label": "Operating profit",
+         "col_label": "Change",
+         "text": "+40m"
+        },
+        {
+         "row_label": "Operating profit",
+         "col_label": "Change %",
+         "text": "+18.0%"
+        },
+        {
+         "row_label": "Net profit",
+         "col_label": "Q2 actual",
+         "text": "EUR 184m"
+        },
+        {
+         "row_label": "Net profit",
+         "col_label": "Change",
+         "text": "+26m"
+        },
+        {
+         "row_label": "Net profit",
+         "col_label": "Change %",
+         "text": "+16.5%"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_edit_table",
+      "arguments": {
+       "doc": "d1",
+       "target": "258.4#3",
+       "action": "set_cells",
+       "cells": [
+        {
+         "row_label": "Road freight",
+         "col_label": "Share",
+         "text": "45.3%"
+        },
+        {
+         "row_label": "Warehousing",
+         "col_label": "Share",
+         "text": "28.6%"
+        },
+        {
+         "row_label": "Air & sea",
+         "col_label": "Share",
+         "text": "18.0%"
+        },
+        {
+         "row_label": "Other & adjustments",
+         "col_label": "Revenue",
+         "text": "EUR 175m"
+        },
+        {
+         "row_label": "Other & adjustments",
+         "col_label": "Share",
+         "text": "8.1%"
+        },
+        {
+         "row_label": "Other & adjustments",
+         "col_label": "Op. profit",
+         "text": "EUR 21m"
+        },
+        {
+         "row_label": "Other & adjustments",
+         "col_label": "Margin",
+         "text": "12.0%"
+        },
+        {
+         "row_label": "Total",
+         "col_label": "Revenue",
+         "text": "EUR 2,165m"
+        },
+        {
+         "row_label": "Total",
+         "col_label": "Op. profit",
+         "text": "EUR 262m"
+        },
+        {
+         "row_label": "Total",
+         "col_label": "Margin",
+         "text": "12.1%"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "257.25",
+       "action": "set_value",
+       "series": "Revenue (EUR m)",
+       "category": "Q2 FY26",
+       "value": 2165
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "257.25",
+       "action": "set_value",
+       "series": "Op. profit (EUR m)",
+       "category": "Q2 FY26",
+       "value": 262
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "257.29",
+       "action": "set_value",
+       "series": "Operating margin (%)",
+       "category": "Q2 FY26",
+       "value": 12.1
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "257.29",
+       "action": "set_value",
+       "series": "Gross margin (%)",
+       "category": "Q2 FY26",
+       "value": 29.7
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "258.9",
+       "action": "set_value",
+       "series": "Current",
+       "category": "Other",
+       "value": 175
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "258.13",
+       "action": "set_values",
+       "series": "Share of revenue",
+       "values": [
+        45.3,
+        28.6,
+        18.0,
+        8.1
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "harbor-lane-q2-results-restated.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "harbor-lane-q2-results-restated.pptx",
+  "sha256": "eef0088268283d661ccfd388dd6a100c0deb559f0216b0062d8dd7c472da7685",
+  "calls": 9
+ },
+ "check": {
+  "total": 39,
+  "passed": 39
+ }
+}
