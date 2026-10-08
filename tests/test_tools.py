@@ -34,7 +34,9 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: ppt_layout, ppt_scale, ppt_copy, ppt_align and place went (no model called them) and
 #: ppt_comments came, list_documents went (13,158 -> 10,221 estimated; the core unchanged
 #: at 3,352, about 4,961 counted by the 1.48 proxy).  The radar chart type in edit_chart's
-#: enum added 3 (10,224); the guard stays.
+#: enum added 3 (10,224); the guard stays.  ooxml-edit 0.12's optional scope on the shared
+#: undo (undo by slide) added 34 to the core (3,352 -> 3,386, about 5,011 counted by the
+#: proxy, within 5,500) and to every definition (10,257); budget and guard stay.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 5500
@@ -383,6 +385,34 @@ def test_undo_gives_back_the_original_bytes(toolbox, session):
             items=[{"target": "256.2", "text": "Changed"}]))
     ok(call(toolbox, session, "undo", doc="d1", steps=2))
     assert entry.document.to_bytes() == original
+
+
+def test_undo_by_slide_leaves_the_other_slides_changes(toolbox, session):
+    entry = session.entry("d1")
+    original = entry.document.to_bytes()
+    ok(call(toolbox, session, "ppt_set_text", doc="d1", items=[{"target": "256.2", "text": "A"}]))
+    ok(call(toolbox, session, "ppt_set_text", doc="d1", items=[{"target": "257.2", "text": "B"}]))
+    ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rect", "box": {"x": 40, "y": 160, "w": 200, "h": 60}, "text": "C"}]))
+    undone = ok(call(toolbox, session, "undo", doc="d1", scope="257"))
+    assert undone.data["scope"] == "257"
+    deck = entry.document
+    assert [s.title for s in deck.slides] == ["A", "Detail"] and len(deck.slides[0].shapes) == 2
+    ok(call(toolbox, session, "undo", doc="d1", scope="s:256", steps=2))
+    assert entry.document.to_bytes() == original
+    ok(call(toolbox, session, "undo", doc="d1", scope="257", redo=True))
+    assert [s.title for s in entry.document.slides] == ["Plan", "B"]
+    missing = call(toolbox, session, "undo", doc="d1", scope="s:999")
+    assert missing.error.code == "not_found" and missing.error.field == "scope"
+
+
+def test_undo_by_slide_refuses_a_change_entangled_with_a_later_one(toolbox, session):
+    first = ok(call(toolbox, session, "ppt_add_slide", doc="d1", layout="Title Only", title="X"))
+    ok(call(toolbox, session, "ppt_add_slide", doc="d1", layout="Title Only", title="Y"))
+    refused = call(toolbox, session, "undo", doc="d1", scope=str(first.data["slide"]))
+    assert refused.error.code == "entangled"
+    assert any(part.endswith("presentation.xml") for part in refused.error.details["shared"])
+    assert len(session.entry("d1").document.slides) == 4
 
 
 def test_a_key_makes_a_retry_safe(toolbox, session):

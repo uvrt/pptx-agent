@@ -19,6 +19,10 @@ snapshot commit; the development history before it is summarised here.
   unchanged. The README installs `pptx2svg-fonts` and says what it holds.
 - Golden p5 replays a committed input (`tests/fixtures/generated/trial`) instead of
   drawing it with the installed Pillow.
+- `undo` takes `scope`, a slide (`256`, `s:256`): only that slide's latest change is undone,
+  with what the slide owns (notes, charts, media), and later changes on other slides stay;
+  refused with `entangled` when the change shares a part with a later one (two added slides
+  share the presentation part). For parallel loops, one per slide. Needs ooxml-edit 0.12.0.
 - `edit_chart` `add` makes a radar chart (`chart_type: "radar"`), as PowerPoint inserts one:
   lines in the theme's accents, the legend at the top (measured on Office for Mac 16).
   Without `position`, a new chart's legend is where the application puts it. Needs
