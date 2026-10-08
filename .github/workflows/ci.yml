@@ -30,7 +30,7 @@ jobs:
           python -m pip install "ooxml-common @ git+https://github.com/uvrt/ooxml-common@main"
           python -m pip install "ooxml-edit @ git+https://github.com/uvrt/ooxml-edit@main"
           # TEMPORARY: pptx2svg's prod-feedback branch carries table_row_heights and the
-          # missing-glyph warning this branch uses (uvrt/pptx2svg PR). Back to @main once it
+          # missing-glyph warning this branch uses (uvrt/pptx2svg#20). Back to @main once it
           # is merged, before this is.
           python -m pip install "pptx2svg[png] @ git+https://github.com/uvrt/pptx2svg@prod-feedback"
           python -m pip install -e .[dev,png]
