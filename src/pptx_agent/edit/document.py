@@ -516,8 +516,9 @@ class Shape(ShapeFactory):
         """``(left, top, width, height)`` on the slide of what is *drawn*: the frame turned
         by its rotation and flips and those of every enclosing group, and for a connector
         the box around its route (:attr:`route`) -- not its frame, which PowerPoint writes
-        rotated and can reach far past the line.  A table's height includes rows grown past
-        the frame.  :meth:`Document.overflows` checks these.  See :mod:`.geometry`.
+        rotated and can reach far past the line.  A table's height is its rows' as drawn,
+        each grown to fit its text (:attr:`Table.drawn_row_heights`; the stored heights
+        without pptx2svg).  :meth:`Document.overflows` checks these.  See :mod:`.geometry`.
 
         For example::
 

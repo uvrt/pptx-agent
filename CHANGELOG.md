@@ -6,6 +6,16 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A table whose rows grow past the slide is reported. A row's stored height is only a
+  minimum; `drawn_bounds` used the stored heights, so a 12-row table of wrapping text cut
+  off at the slide's bottom passed every check. Rows are now measured with pptx2svg's
+  table layout (`pptx2svg.table_row_heights`), an empty paragraph drawn as a line, and
+  held to PowerPoint's PDF (`tools/table_rows_probe.py`, five tables, every row within
+  0.1 pt). `Table.drawn_row_heights`, `Table.rows_fitting()` (`RowsFit`: how many rows fit
+  above a line, to paginate a table) and an `off_slide` fact with `rows_past` and
+  `rows_fit` in every changing call, `check` and `save_document`.
+- Golden p5 replays a committed input (`tests/fixtures/generated/trial`) instead of
+  drawing it with the installed Pillow.
 - `edit_chart` `add` makes a radar chart (`chart_type: "radar"`), as PowerPoint inserts one:
   lines in the theme's accents, the legend at the top (measured on Office for Mac 16).
   Without `position`, a new chart's legend is where the application puts it. Needs

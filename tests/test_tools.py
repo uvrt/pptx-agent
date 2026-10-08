@@ -446,6 +446,24 @@ def test_save_lists_the_fit_and_collision_facts_left_as_facts_not_a_refusal(tool
     assert len(session.take_outputs()) == 2
 
 
+def test_a_table_grown_past_the_slide_is_a_fact_that_says_where_to_split_it(toolbox, session):
+    # Production feedback: a 12x3 table of wrapping text, cut off at the slide's bottom while
+    # every check came back clean.
+    text = "A longer cell text that wraps onto two or three lines in this column width"
+    added = ok(call(toolbox, session, "ppt_add_table", doc="d1", slide="s:256",
+                    box={"x": 36, "y": 108, "w": 888, "h": 346}, rows=12, columns=3,
+                    data=[[f"R{r}C{c}: {text}" for c in (1, 2, 3)] for r in range(1, 13)]))
+    (table,) = added.created
+    (fact,) = [entry for entry in added.checks["off_slide"] if entry["shape"] == table]
+    assert fact["rows_past"] == [7, 12] and fact["rows_fit"] == 6 and fact["past"] > 300
+    assert "next slide" in added.checks["rows_note"]
+    assert ok(call(toolbox, session, "check", doc="d1", slides=[1])).data["off_slide"] \
+        == added.checks["off_slide"]
+    saved = ok(call(toolbox, session, "save_document", doc="d1", name="out.pptx",
+                    format="pptx"))
+    assert saved.data["unresolved"]["off_slide"] == added.checks["off_slide"]
+
+
 @pytest.mark.skipif(not SPIKE_P8_A1.exists(), reason="the spike's p8 A1 deck is not here")
 def test_check_with_boxes_reports_the_spikes_p8_a1_label_overlap(toolbox):
     session = toolbox.session(clock=CLOCK)

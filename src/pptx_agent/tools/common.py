@@ -295,6 +295,10 @@ ALLOWANCE_NOTE = ("fits while needed > available: up to 'allowance' pt is the em
 NEAR_WRAP_NOTE = ("near_wrap: a line has under 0.16 pt to spare; PowerPoint may break it "
                   "where this measurement does not: give it a few points")
 
+ROWS_NOTE = ("rows_past: a table's rows grow to fit their text and PowerPoint cuts off what "
+             "passes the slide's bottom; keep rows_fit rows and move the rest to a table on "
+             "the next slide, or shorten the text")
+
 
 def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
           include: Iterable[str] = ("fit", "collisions")) -> dict[str, Any]:
@@ -324,7 +328,10 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
                     entry["area"] = round(problem.amount / EMU_PER_POINT ** 2, 1)
                 collisions.append(entry)
             elif problem.kind == "off_slide" and "fit" in wanted:
-                off_slide.append({"shape": problem.shape, "past": pt(problem.amount)})
+                entry = {"shape": problem.shape, "past": pt(problem.amount)}
+                if problem.rows is not None:
+                    entry.update(rows_past=list(problem.rows), rows_fit=problem.rows_fit)
+                off_slide.append(entry)
         if "fit" in wanted:
             for address, fit in fits.items():
                 if fit.near_wrap:
@@ -342,6 +349,8 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
         if allowance:
             out["within_allowance"] = allowance
             out["allowance_note"] = ALLOWANCE_NOTE
+        if any("rows_past" in entry for entry in off_slide):
+            out["rows_note"] = ROWS_NOTE
     if "collisions" in wanted:
         out["collisions"] = collisions
     return out

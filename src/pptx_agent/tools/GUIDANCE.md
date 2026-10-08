@@ -19,7 +19,7 @@ the deck as PowerPoint will show it, with shape addresses:
 | `within_allowance` | every changing call | over by less than the empty bottom of the last line: not an overflow (`allowance_note` says why) |
 | `near_wrap` | every changing call | a line with under 0.16 pt to spare: PowerPoint may break it where the measurement does not |
 | `collisions` | every changing call, `check` | text over text, a line through text (`crossing`, pt), boxes overlapping (`check` with `boxes: true`) |
-| `off_slide` | every changing call, `check` | a shape past the slide's edge, by how much |
+| `off_slide` | every changing call, `check` | a shape past the slide's edge, by how much; for a table whose rows grew past the bottom, `rows_past` (first and last, 1-based) and `rows_fit` -- where to split it (`rows_note`) |
 | `layout` | changing calls that touched shapes | at most five: a box 1-3 pt off the line its like neighbours are on; one uneven gap in a row of like boxes; a paragraph size unlike its like boxes'; a label much farther from its marker than the others of its kind. Each carries `fix`, the exact call that makes it agree (`ppt_set_shape 256.6 y=150`) |
 | `validate` | every changing call, `check` | validation problems the call added (`new`) or removed (`fixed`) against the deck as opened |
 | `unresolved` | `save_document` | the overflows, collisions and off-slide shapes still in the deck when it was saved (the save goes ahead) |

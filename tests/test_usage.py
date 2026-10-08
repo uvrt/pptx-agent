@@ -52,7 +52,8 @@ def test_the_guide_has_the_common_tasks():
 @pytest.mark.parametrize("title,code", _examples(), ids=[t for t, _ in _examples()])
 def test_the_example_runs(title, code, tmp_path, monkeypatch, capsys):
     if any(name in code for name in ("render_png", "render_svg", "text_fit", "overflows",
-                                     "collisions", "measure_text", "fit_height")):
+                                     "collisions", "measure_text", "fit_height",
+                                     "rows_fitting")):
         pytest.importorskip("pptx2svg")
     shutil.copy(FIXTURE_DIR / "real-financial-report.pptx", tmp_path / "results.pptx")
     shutil.copy(FIXTURE_DIR / "powerpoint-smartart.pptx", tmp_path / "smartart.pptx")

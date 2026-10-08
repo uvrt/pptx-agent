@@ -1,0 +1,20 @@
+{
+ "about": "Row heights PowerPoint drew, EMU, read from its PDF export of tools/table_rows_probe.py's deck (PowerPoint 16.106 for Mac, 2026-10-08): the fills of each table's first column. Measurements only; the PDF is not kept.",
+ "cases": [
+  {"name": "wrap12",
+   "stored": [365760, 365760, 365760, 365760, 365760, 365760, 365760, 365760, 365760, 365760, 365760, 365760],
+   "drawn": [914400, 914400, 914400, 914400, 914400, 914400, 914400, 914400, 914400, 914400, 914400, 914400]},
+  {"name": "sizes",
+   "stored": [228600, 228600, 228600, 228600, 228600, 228600],
+   "drawn": [396240, 518160, 1005840, 1798320, 3139440, 365760]},
+  {"name": "margins",
+   "stored": [274320, 274320, 274320, 274320, 274320],
+   "drawn": [731520, 822960, 1005840, 1188720, 1188720]},
+  {"name": "mixed",
+   "stored": [1097280, 274320, 731520, 182880, 548640, 274320],
+   "drawn": [1097280, 731520, 944880, 365760, 822960, 594360]},
+  {"name": "faces",
+   "stored": [274320, 274320],
+   "drawn": [944880, 1920240]}
+ ]
+}

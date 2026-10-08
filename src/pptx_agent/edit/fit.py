@@ -200,7 +200,11 @@ class Overflow:
       inside it, EMU -- or, only when asked for (``boxes=True``), ``"box"``: the boxes of
       two shapes holding text overlap although their text does not; ``amount`` is the
       area, EMU²;
-    * ``"off_slide"``: the shape is drawn past the slide's edge by ``amount`` EMU.
+    * ``"off_slide"``: the shape is drawn past the slide's edge by ``amount`` EMU.  For a
+      table whose rows, grown to fit their text, run past the slide's bottom edge,
+      ``detail`` is ``"rows"``, ``rows`` the first and last row past it (1-based) and
+      ``rows_fit`` how many rows fit above it -- where to split the table
+      (:meth:`Table.rows_fitting`).
 
     ``slide`` is the ``sldId``, ``shape`` the shape id.
 
@@ -217,6 +221,8 @@ class Overflow:
     other: str | None = None
     fit: TextFit | None = None
     detail: str | None = None
+    rows: tuple[int, int] | None = None
+    rows_fit: int | None = None
 
     def __str__(self) -> str:
         if self.kind == "text":
@@ -226,7 +232,131 @@ class Overflow:
                 return (f"[overlap] s:{self.slide} line {self.shape} crosses the text of "
                         f"{self.other} for {self.amount:,} EMU")
             return f"[overlap] s:{self.slide} {self.shape} over {self.other}"
+        if self.rows is not None:
+            first, last = self.rows
+            span = f"row {first}" if first == last else f"rows {first}-{last}"
+            return (f"[off_slide] s:{self.slide} {self.shape}: {span} past the slide's bottom "
+                    f"by {self.amount:,} EMU; {self.rows_fit} row(s) fit")
         return f"[off_slide] s:{self.slide} {self.shape}: {self.amount:,} EMU past the edge"
+
+
+@dataclass(frozen=True)
+class RowsFit:
+    """How many of a table's rows fit above a line on the slide (:meth:`Table.rows_fitting`).
+
+    ``heights`` is each row's height as PowerPoint draws it, EMU: its stored height
+    (``a:tr@h``, a minimum) or, when more, what its text needs -- the same measurement
+    pptx2svg draws with (:func:`table_heights`).  ``top`` is the table's top edge on the
+    slide, ``bottom`` the line asked about, ``count`` how many rows, from the first, end
+    at or above it, and ``past`` how far the last row's bottom edge is below it (``0`` when
+    every row fits).
+
+    For example::
+
+        rows = table.rows_fitting()                 # against the slide's bottom edge
+        if rows.count < len(rows.heights):
+            print(f"rows {rows.count + 1} to {len(rows.heights)} go on the next slide")
+    """
+
+    count: int
+    heights: tuple[int, ...]
+    top: int
+    bottom: int
+
+    @property
+    def bottoms(self) -> tuple[int, ...]:
+        """Each row's bottom edge on the slide, EMU.
+
+        For example::
+
+            table.rows_fitting().bottoms[-1]        # where the table ends
+        """
+        out, y = [], self.top
+        for height in self.heights:
+            y += height
+            out.append(y)
+        return tuple(out)
+
+    @property
+    def past(self) -> int:
+        """How far the table's bottom edge is below :attr:`bottom`, EMU; ``0`` when it fits.
+
+        For example::
+
+            table.rows_fitting().past               # 0
+        """
+        return max(0, self.top + sum(self.heights) - self.bottom)
+
+
+def table_heights(shape: "Shape", measured: "_Measured | None" = None) -> list[int]:
+    """Each row's height as PowerPoint draws the table, EMU: ``a:tr@h`` -- a minimum -- or
+    what the row's text needs when that is more, laid out by pptx2svg's table layout
+    (:func:`pptx2svg.table_row_heights`) with this module's measurement.  The stored
+    heights without pptx2svg."""
+    stored = shape.table.row_heights
+    try:
+        import pptx2svg
+    except ImportError:                       # pragma: no cover - the extras-less install
+        return stored
+    rows = getattr(pptx2svg, "table_row_heights", None)
+    if rows is None:
+        raise ImportError("measuring a table's rows needs a pptx2svg with table_row_heights; "
+                          "upgrade pptx2svg")
+    measured = measured or _Measured(shape._slide)
+    element, _ = measured.element(shape)
+    if element is None or getattr(element, "table", None) is None:
+        return stored
+    drawn = rows(_with_empty_lines(element.table), measured.context)
+    if len(drawn) != len(stored):
+        return stored
+    return [max(int(height), round(grown)) for height, grown in zip(stored, drawn)]
+
+
+#: Stands in for an empty paragraph's line: no width, the paragraph's end-of-paragraph size.
+_EMPTY_LINE = "\u200b"
+
+
+def _with_empty_lines(table):
+    """The resolved table with every empty paragraph holding a zero-width run at its
+    end-of-paragraph size, so its line is laid out.
+
+    PowerPoint draws an empty cell's paragraph as a line: measured
+    (``tools/table_rows_probe.py``, ``tests/fixtures/table-rows-probe.json``), a row of
+    empty cells stored 14.4 pt and 18 pt tall is drawn 28.8 pt -- one 18 pt Aptos line, 21.6
+    pt, and the cell's 0.05 in top and bottom margins -- while pptx2svg's table layout lets
+    a row with no text keep its stored height."""
+    import copy
+
+    scene = _engine().model
+    out = copy.deepcopy(table)
+    for row in out.rows:
+        for cell in row.cells:
+            body = cell.text_body
+            if body is None:
+                continue
+            for paragraph in body.paragraphs:
+                if not any(run.text for run in paragraph.runs):
+                    properties = paragraph.end_para_run_properties or scene.RunProperties()
+                    paragraph.runs = [scene.TextRun(_EMPTY_LINE, properties)]
+    return out
+
+
+def rows_fitting(shape: "Shape", bottom: int | None = None,
+                 measured: "_Measured | None" = None) -> RowsFit:
+    """See :meth:`Table.rows_fitting`."""
+    from .geometry import drawn_bounds
+
+    heights = table_heights(shape, measured)
+    bounds = drawn_bounds(shape, row_heights=heights)
+    top = bounds[1] if bounds is not None else (shape.top or 0)
+    limit = shape._slide.document.slide_size[1] if bottom is None else int(bottom)
+    count, y = 0, top
+    for height in heights:
+        y += height
+        if y > limit + _TOLERANCE:
+            break
+        count += 1
+    return RowsFit(count, tuple(heights), top, limit)
 
 
 # -- the layout ------------------------------------------------------------------------------
@@ -787,7 +917,13 @@ def _items(slide: "Slide", measured_ref: list, fits: dict) -> list[_Item]:
 
     items = []
     for order, shape in enumerate(_flatten(slide.shapes)):
-        bounds = shape.drawn_bounds
+        if shape.kind == "graphic_frame" and shape.has_table:
+            if measured_ref[0] is None:
+                measured_ref[0] = _Measured(slide)
+            bounds = geometry.drawn_bounds(
+                shape, row_heights=table_heights(shape, measured_ref[0]))
+        else:
+            bounds = shape.drawn_bounds
         if bounds is None:
             continue
         element = None
@@ -906,8 +1042,19 @@ def slide_report(slide: "Slide", *, collisions_only: bool = False,
         for item in items:
             x0, y0, x1, y1 = item.box
             past = max(-x0, -y0, x1 - width, y1 - height)
-            if past > _TOLERANCE:
-                out.append(Overflow("off_slide", slide.slide_id, item.shape.id, round(past)))
+            if past <= _TOLERANCE:
+                continue
+            shape = item.shape
+            if (shape.kind == "graphic_frame" and shape.has_table and y1 - height == past
+                    and y0 < height):
+                # Rows grown past the bottom edge: which, and how many fit -- where to split.
+                rows = rows_fitting(shape, height, measured_ref[0])
+                total = len(rows.heights)
+                out.append(Overflow("off_slide", slide.slide_id, shape.id, round(past),
+                                    detail="rows", rows=(rows.count + 1, total),
+                                    rows_fit=rows.count))
+            else:
+                out.append(Overflow("off_slide", slide.slide_id, shape.id, round(past)))
     return out, fits
 
 
@@ -940,5 +1087,6 @@ def _flatten(shapes):
     return out
 
 
-__all__ = ["Overflow", "TextFit", "TextMeasure", "WRAP_MARGIN", "fit_box", "fit_height",
-           "measure", "measure_text", "overflows", "slide_problems", "slide_report"]
+__all__ = ["Overflow", "RowsFit", "TextFit", "TextMeasure", "WRAP_MARGIN", "fit_box",
+           "fit_height", "measure", "measure_text", "overflows", "rows_fitting",
+           "slide_problems", "slide_report", "table_heights"]
