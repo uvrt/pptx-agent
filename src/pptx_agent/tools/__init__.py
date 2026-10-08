@@ -140,6 +140,23 @@ def _summary(deck) -> dict:
             "next": "call describe"}
 
 
+#: Relationships a slide's undo scope does not follow: to what other slides share (layouts,
+#: masters, themes), to other slides, and back up to the presentation.
+_SHARED_RELATIONSHIPS = ("/slideLayout", "/slideMaster", "/slide", "/notesMaster", "/theme",
+                         "/handoutMaster", "/presentation", "/commentAuthors")
+
+
+def _slide_scope(deck, scope: str) -> list[str]:
+    """``undo``'s ``scope`` on a deck: the slide (``256``, ``s:256``) and what it owns -- its
+    relationships, notes, charts and their workbooks, diagrams, comments, media."""
+    from .common import slide, slide_id_of
+
+    number = slide_id_of(str(scope))
+    target = slide(deck, str(number) if number is not None else str(scope), field="scope")
+    return deck.package.reachable_parts(
+        target.part_path, lambda rel: not rel.type.endswith(_SHARED_RELATIONSHIPS))
+
+
 FORMAT = DocumentFormat(
     kind=KIND, open=_open, detect=detect, problems=lambda deck: deck.validate(),
     warnings=(TemplateOpenedWarning, MarkdownEscapeWarning, ChartDataWarning, OutlineWarning,
@@ -147,7 +164,8 @@ FORMAT = DocumentFormat(
     prompt=PROMPT,
     errors={LabelError: ("label_not_found", lambda exc: exc.candidates[:50]),
             ChartDataError: "refused", FullStateError: "refused"},
-    summary=_summary, checks=checks, strict_first=STRICT_FIRST)
+    summary=_summary, checks=checks, strict_first=STRICT_FIRST,
+    undo_scope=_slide_scope, restored=lambda deck: deck._reset_caches())
 
 GROUPS = [*shared.GROUPS,
           ToolGroup(text.TEXT_GROUP, "Formatting text: runs, paragraphs, frames, table cells."),
