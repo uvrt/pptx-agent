@@ -42,7 +42,7 @@ classifiers = [
 # default, DocumentFormat.strict_first, the shared describe, edit_chart's read action and
 # Tool.reads (a changing tool's reading mode).  0.10.0: SmartArt model ids made from the
 # edit (the goldens' bytes repeat), and list_documents gone from the shared tools.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.5.0", "ooxml-edit>=0.10.0", "markdown-it-py>=3.0",
+dependencies = ["lxml>=4.9", "ooxml-common>=0.5.0", "ooxml-edit>=0.11.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

@@ -216,22 +216,23 @@ class ShapeFactory:
 
     def add_chart(self, chart_type: str, categories, series, left: int, top: int, width: int,
                   height: int, *, title: str | None = None, axis_titles: Mapping | None = None,
-                  legend: str | None = "bottom", number_format: str | None = None,
+                  legend: str | None = "default", number_format: str | None = None,
                   name: str | None = None) -> "Shape":
         """A new chart from data, in a graphic frame at ``left``/``top`` (EMU), as PowerPoint
         inserts one: the chart part and an embedded workbook that holds the same numbers, so
         Edit Data opens them (ooxml-edit's :func:`~ooxml_edit.charts.add_chart`).
 
         ``chart_type`` is ``column``, ``stacked_column``, ``bar``, ``stacked_bar``, ``line``,
-        ``pie`` or ``scatter``; ``categories`` the category labels (a scatter chart's x
+        ``pie``, ``scatter`` or ``radar``; ``categories`` the category labels (a scatter chart's x
         values); ``series`` ``[{"name": ..., "values": [...]}]``, one value per category
         (``None`` is a blank); data that cannot be charted raises
         :class:`~pptx_agent.ChartDataError` before anything changes.  ``title``, ``axis_titles`` (``{"category", "value"}``),
-        ``legend`` (``bottom``, ``right``, ``top``, ``left``, ``top_right`` or ``None``) and
+        ``legend`` (``bottom``, ``right``, ``top``, ``left``, ``top_right``, ``None``, or
+        ``default``: PowerPoint's, at the bottom, a radar chart's at the top) and
         ``number_format`` (an Excel format code for the values) are optional.  It looks as
         PowerPoint's new chart of that type looks, in the deck's theme (measured: accents in
-        order, 18.62 pt title, 11.97 pt labels, legend at the bottom, no fill).  Edit it with
-        :attr:`Shape.chart`.  One undo step.
+        order, 18.62 pt title, 11.97 pt labels, legend at the bottom -- a radar's at the top --,
+        no fill).  Edit it with :attr:`Shape.chart`.  One undo step.
 
         For example::
 

@@ -1,0 +1,165 @@
+{
+ "task": "p13-vendor-radar",
+ "inputs": [
+  {
+   "root": "fixtures",
+   "file": "generated/trial/wms-vendor-selection.pptx",
+   "as": "document",
+   "sha256": "7e8d7582c1922d5baba257d9265bb66503fe5fb9c5c1a82b4773ff29d979d8ac"
+  },
+  {
+   "root": "fixtures",
+   "file": "generated/trial/wms-vendor-scores.csv",
+   "as": "blob",
+   "sha256": "1bb99ba07ed6c04a0db06307b77ed25f9c18fb13ae27cfd92689157e3f4fee63"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "read_blob",
+   "arguments": {
+    "blob": "b1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_add_slide",
+   "arguments": {
+    "doc": "d1",
+    "layout": "Title Only",
+    "at": 4,
+    "title": "Northwind leads on scale and integration",
+    "ref": "radar_slide"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "s:260"
+    ],
+    "refs": {
+     "radar_slide": "s:260"
+    }
+   }
+  },
+  {
+   "tool": "edit_chart",
+   "arguments": {
+    "doc": "d1",
+    "target": "$radar_slide",
+    "action": "add",
+    "chart_type": "radar",
+    "categories": [
+     "Functional fit",
+     "Integration",
+     "Usability",
+     "Scalability",
+     "Support",
+     "Total cost"
+    ],
+    "data": [
+     {
+      "name": "Kestrel",
+      "values": [
+       4.5,
+       3.9,
+       4.2,
+       4.0,
+       3.6,
+       3.2
+      ]
+     },
+     {
+      "name": "Northwind",
+      "values": [
+       3.8,
+       4.4,
+       3.5,
+       4.7,
+       4.1,
+       3.9
+      ]
+     },
+     {
+      "name": "Stackyard",
+      "values": [
+       4.1,
+       3.2,
+       4.6,
+       3.4,
+       4.3,
+       4.4
+      ]
+     }
+    ],
+    "box": {
+     "x": 66,
+     "y": 144,
+     "w": 828,
+     "h": 367
+    },
+    "ref": "radar"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "260.3"
+    ],
+    "refs": {
+     "radar": "260.3"
+    }
+   }
+  },
+  {
+   "tool": "render",
+   "arguments": {
+    "doc": "d1",
+    "slides": [
+     4
+    ]
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "wms-vendor-selection.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "wms-vendor-selection.pptx",
+  "sha256": "0938218546d207e15d167fcb1b863ff958c41cd1df41ffaeafb8c7e104047908",
+  "calls": 7
+ },
+ "check": {
+  "total": 17,
+  "passed": 17
+ }
+}
