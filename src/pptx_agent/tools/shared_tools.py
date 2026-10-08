@@ -1,7 +1,7 @@
 """The shared tools' PowerPoint handlers: new, save, find, replace, render, check, properties.
 
 Their definitions are :mod:`ooxml_edit.tools.shared`'s, one per tool for every format; this
-module adds what a deck does.  ``open_document``, ``list_documents``, ``close_document``,
+module adds what a deck does.  ``open_document``, ``close_document``, ``read_blob``,
 ``undo`` and ``batch`` need nothing format-specific and come with the shared module.
 """
 

@@ -13,8 +13,8 @@ declared once and positions are asked of it::
     score.position(7)
 
 A scale knows no axis: the same one serves x or y, and a reversed range (``540 -> 140``)
-runs upwards.  It knows no unit either; the tools give points, ``ppt_draw`` its SVG's user
-units.  Three kinds:
+runs upwards.  It knows no unit either; the tools give points, :mod:`.svgprofile` its SVG's
+user units.  Three kinds:
 
 * :class:`LinearScale` -- numbers, ``min`` to ``max``;
 * :class:`DateScale` -- whole days, ``start`` to ``end`` **inclusive**, optionally
