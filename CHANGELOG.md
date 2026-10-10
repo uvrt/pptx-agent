@@ -6,6 +6,19 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- `render` and `check` name slides by id as well as number: `slides` takes `s:257`, a
+  `$ref` (the dispatcher replaces it) or a number from 1 (also written `"2"`, as a strict
+  decoder writes it now that the items are strings), so a loop renders the slide it read
+  even after another loop added or moved slides. Each image is still labelled with both,
+  `slide 3 (s:257)`. A shape's address or an id the deck lacks is refused on `slides[i]`
+  (`invalid_arguments` / `not_found`, listing the ids). Production feedback round 3 (A2).
+- `render` rasterises, and `check` measures, a snapshot with the deck's lock let go: the
+  bytes and version are taken under the lock, the worker draws them (or a copy of the deck
+  opened from them is measured and validated) while other calls may edit the deck, and the
+  images and facts are cached under the snapshot's version, which the result reports. An
+  edit to slide 2 no longer waits for a render of slide 1 (the `a6` repro with worker
+  processes: 333 ms -> about 60 ms; its own time alone). Inside a batch, unchanged. Needs
+  ooxml-edit 0.14.0 (A6).
 - Python 3.14 and 3.15: CI runs the suite on both, on Linux, macOS and Windows, and the
   classifiers declare them. `requires-python` stays `>=3.10`. Python 3.14 made
   `forkserver` Linux's default start method (`fork` before); the worker pool names `spawn`

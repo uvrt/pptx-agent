@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ooxml_edit.tools import Result, ToolError, page_list, shared
+from ooxml_edit.tools import Result, ToolError, collect_warnings, page_list, shared
 
 from .common import KIND, facts, library_errors, numbers, slide_id_of, validate_delta
 from ..edit.document import font_dirs_of
@@ -186,21 +186,26 @@ def render(call, doc, slides=None, pages=None, width=None):
     wanted = numbers(deck, slides)
     width = width or DEFAULT_WIDTH
     entry = call.entry
+    version = entry.version
     ids = {n: deck.slides[n - 1].slide_id for n in wanted}
     # The font folders, resolved here (the session's, else OOXML_FONT_DIRS) and handed to
     # the worker, which sees neither; they key the cache, so renders with different
     # folders do not mix.
     fonts = font_dirs_of(deck)
     missing = [n for n in wanted
-               if entry.render_cache.get((entry.version, ids[n], width, fonts)) is None]
+               if entry.render_cache.get((version, ids[n], width, fonts)) is None]
     if missing:
-        images, lost = call.run(render_slides_reporting, deck.to_bytes(), missing, width,
-                                list(fonts))
+        # The deck's bytes are the snapshot, taken under the lock; the rasteriser works on
+        # them with the lock let go, so another call may edit the deck meanwhile.  What is
+        # drawn, numbered and cached is this version's (the result's version).
+        data = deck.to_bytes()
+        images, lost = call.run_unlocked(render_slides_reporting, data, missing, width,
+                                         list(fonts))
         for number, png, left_out in zip(missing, images, lost):
-            entry.render_cache.put((entry.version, ids[number], width, fonts), (png, left_out))
+            entry.render_cache.put((version, ids[number], width, fonts), (png, left_out))
     described, unrendered = [], []
     for number in wanted:
-        png, left_out = entry.render_cache.get((entry.version, ids[number], width, fonts))
+        png, left_out = entry.render_cache.get((version, ids[number], width, fonts))
         w, h = png_size(png)
         image = call.image(png, w, h, label=f"slide {number} (s:{ids[number]})")
         described.append(image.describe())
@@ -238,18 +243,30 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
     chosen = numbers(deck, slides)
     ids = [deck.slides[n - 1].slide_id for n in chosen]
     entry = call.entry
+    version = entry.version
     key = ("check", tuple(ids), tuple(sorted(set(wanted))), bool(boxes), font_dirs_of(deck))
-    data = entry.check_cache.get((entry.version, key))
+    data = entry.check_cache.get((version, key))
     if data is None:
-        data = {"slides": [f"s:{sid}" for sid in ids]}
-        data.update(facts(deck, ids, boxes=boxes, include=wanted))
-        if "facts" in wanted or "design" in wanted:
-            data.update(slide_facts_json(deck, ids, problems="facts" in wanted))
-        if "validate" in wanted:
-            problems = deck.validate()
+        target = deck
+        if call.may_unlock:
+            # Measuring is the slow part: it runs on a copy of this version, opened from the
+            # bytes taken under the lock, with the lock let go -- so an edit elsewhere in the
+            # deck does not wait for it.  Inside a batch it runs on the deck, under the lock.
+            data_bytes, font_dirs = deck.to_bytes(), deck.font_dirs
+        with call.unlocked() as released:
+            if released:
+                with collect_warnings():          # said when the deck was opened, not now
+                    target = type(deck).open(data_bytes)
+                target.font_dirs = font_dirs
+            data = {"slides": [f"s:{sid}" for sid in ids]}
+            data.update(facts(target, ids, boxes=boxes, include=wanted))
+            if "facts" in wanted or "design" in wanted:
+                data.update(slide_facts_json(target, ids, problems="facts" in wanted))
+            problems = target.validate() if "validate" in wanted else None
+        if problems is not None:
             data["validate"] = {"problems": [str(p) for p in problems],
                                 **validate_delta(entry, problems)}
-        entry.check_cache.put((entry.version, key), data)
+        entry.check_cache.put((version, key), data)
     if notes:
         data = {**data, "notes": notes}
     count = sum(len(data.get(k) or []) for k in ("overflows", "collisions", "off_slide"))
