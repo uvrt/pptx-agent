@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import re
+
 import pytest
 
 from pptx_agent import Document
@@ -220,3 +223,59 @@ def test_slide_shapes_lists_members_after_their_group():
     assert ids.index(group.id) + 1 == ids.index(a.id) and ids.index(b.id) == ids.index(a.id) + 1
     assert c.id in ids
     assert {s.id for s in slide.shapes if s.parent_group is None} == {group.id, c.id}
+
+
+def _agenda(grouped: bool) -> Document:
+    """Two rows of a picture and two overlapping text boxes, grouped per row or not."""
+    from images import MARKER
+
+    deck = Document.new()
+    slide = deck.add_slide("Title Only")
+    slide.title = "Agenda"
+    for k, label in enumerate(["First item", "Second item"]):
+        y = 1828800 + k * 700000
+        picture = slide.add_picture(MARKER, 900000, y, 400000, 400000)
+        text = slide.add_textbox(1500000, y, 3000000, 400000)
+        text.set_text(label)
+        over = slide.add_textbox(1600000, y + 100000, 3000000, 400000)
+        over.set_text("Overlap " + label)
+        if grouped:
+            slide.group([picture, text, over], name=f"Row {k + 1}")
+    return deck
+
+
+def test_what_is_measured_of_a_slide_is_measured_once_per_shape_grouped_or_not():
+    """Round 3 (D3): ``slide.shapes`` lists a group and then its members, so a reader that
+    also walks the groups meets each member twice.  Every reader agrees on the two decks."""
+    from ooxml_edit.tools import Toolbox
+
+    from pptx_agent.tools import FORMAT, GROUPS, TOOLS
+
+    seen = []
+    for grouped in (False, True):
+        deck = _agenda(grouped)
+        slide = deck.slides[0]
+        with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS, workers=0) as toolbox:
+            session = toolbox.session()
+            doc = session.open(deck.to_bytes(), "agenda.pptx")
+            found = toolbox.dispatch(session, "check", {"doc": doc, "include": [
+                "fit", "collisions", "facts", "design"]}).data
+        design = slide.design_facts().to_json()
+        # The groups take ids, so the members' differ: name each by its text, or kind.
+        names = {shape.id: shape.text or shape.kind for shape in slide.shapes
+                 if shape.kind != "group"}
+        facts = json.dumps({
+            "collisions": sorted((c["detail"], c["shape"], c["other"])
+                                 for c in found["collisions"]),
+            "design": found["facts"][0]["design"],
+            "vocabulary": design["vocabulary"],
+            "text_sizes": design["text_sizes"],
+            "find": [block.address for block in deck.find_text("item")],
+            "outline": [deck.to_outline().count(name) for name in names.values()],
+            "shapes": len(names),
+        }, sort_keys=True)
+        seen.append(re.sub(r"\b256\.\d+\b", lambda m: names.get(m.group(0), m.group(0)), facts))
+    assert seen[0] == seen[1]
+    found = json.loads(seen[0])
+    assert len(found["collisions"]) == 2 and len(found["find"]) == 4 and found["shapes"] == 7
+    assert sorted(found["outline"]) == [1, 1, 1, 2, 2, 2, 2]  # "First item" is in two texts
