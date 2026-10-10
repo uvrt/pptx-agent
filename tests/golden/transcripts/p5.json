@@ -5,7 +5,8 @@
    "root": "fixtures",
    "file": "generated/trial/customer-review.pptx",
    "as": "document",
-   "sha256": "697f2724d7aa28ed6f745072a7f7559577d71f856fb259e4f6119b939019ca81"
+   "sha256": "697f2724d7aa28ed6f745072a7f7559577d71f856fb259e4f6119b939019ca81",
+   "content_sha256": "fc1c13f8dd6fd900a7678465de40474f8ec9f78888a990eea69fc9ef8ae02af0"
   },
   {
    "root": "fixtures",
@@ -212,7 +213,8 @@
  "output": {
   "name": "customer-review.pptx",
   "sha256": "1e00bbc9e96da2def591524e494f01140872bab3e781c8cb25f28b76aa07e526",
-  "calls": 6
+  "calls": 6,
+  "content_sha256": "aab5c772919ebed19eee1d67c8bedf571eb1ba79971d3714df8297d7fd9c0b44"
  },
  "check": {
   "total": 13,

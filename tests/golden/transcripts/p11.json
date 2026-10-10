@@ -4,7 +4,8 @@
   {
    "file": "input/delivery-process.pptx",
    "as": "document",
-   "sha256": "f5a370b48d0d44a947dc97d7b9707da58786eefec4c91916661f25c0606dc3df"
+   "sha256": "f5a370b48d0d44a947dc97d7b9707da58786eefec4c91916661f25c0606dc3df",
+   "content_sha256": "2f535d8c79825a4142ce1b382e8bc4f08b802afa4462ae4ba56771475478aa85"
   }
  ],
  "calls": [
@@ -121,7 +122,8 @@
  "output": {
   "name": "delivery-process.pptx",
   "sha256": "f5380a633d4ba3a9784ca087d1d2800c765956dabb4785a4d38d6b2e3151bb61",
-  "calls": 5
+  "calls": 5,
+  "content_sha256": "42fffb9a55767467cc3b58dc55114c7b61862263411baf9ee376f75bbabe4ee9"
  },
  "sizes": [
   {

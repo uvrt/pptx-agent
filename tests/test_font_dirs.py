@@ -11,7 +11,10 @@ a family nothing else answers to, so no system copy can stand in for it.
 from __future__ import annotations
 
 import json
+import multiprocessing
 import os
+import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -120,3 +123,25 @@ def test_the_definitions_and_prompt_do_not_change(folder):
         for provider in ("anthropic", "openai-responses"):
             assert json.dumps(plain.definitions(provider)) == json.dumps(configured.definitions(provider))
         assert plain.system_prompt() == configured.system_prompt()
+
+
+# Python 3.14 made forkserver Linux's default start method (fork before).  The toolbox's
+# pool names spawn itself; under each method this platform has, the render and the folders
+# handed to it cross to the worker the same.  fork only on Linux: macOS' system libraries
+# are not safe to fork with threads running.
+_METHODS = [method for method in multiprocessing.get_all_start_methods()
+            if method != "fork" or sys.platform.startswith("linux")]
+
+
+@pytest.mark.parametrize("method", _METHODS)
+def test_the_worker_sees_the_folder_under(method, deck_bytes, folder):
+    direct = Document.open(deck_bytes)
+    direct.font_dirs = (str(folder),)
+    drawn = direct.render_png([1], width=640)[0]
+    with warnings.catch_warnings():
+        # fork() with threads running is a DeprecationWarning since 3.12; this test asks.
+        warnings.simplefilter("ignore", DeprecationWarning)
+        with _box(workers=1, start_method=method, font_dirs=[folder]) as box:
+            overflows, image = _check_and_render(box, deck_bytes)
+            assert not box.pool.in_process
+    assert overflows and image == drawn

@@ -4,7 +4,8 @@
   {
    "file": "input/website-relaunch.pptx",
    "as": "document",
-   "sha256": "cdda7651712a7be4a68a776bac92de070a55e68a6423c84173d790456b152613"
+   "sha256": "cdda7651712a7be4a68a776bac92de070a55e68a6423c84173d790456b152613",
+   "content_sha256": "a7cec414108f8f3212ecafdb79faf836edd2fada20f2064bdbfa615030025759"
   }
  ],
  "calls": [
@@ -171,7 +172,8 @@
  "output": {
   "name": "website-relaunch.pptx",
   "sha256": "d9c340f3a66f8c69a000494901d487513a1d9b32038fdbe700a52e7de28bdbe2",
-  "calls": 6
+  "calls": 6,
+  "content_sha256": "d64043d7db4f78bfcc01b889b1bfe3ed60bd5190db463770011960ca73f2d2ab"
  },
  "check": {
   "total": 14,

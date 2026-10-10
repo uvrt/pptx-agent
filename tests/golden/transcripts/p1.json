@@ -5,7 +5,8 @@
    "root": "fixtures",
    "file": "generated/trial/company-template.potx",
    "as": "blob",
-   "sha256": "b6be5df5cd7eaed8cee3b796769358f94a078a6a8a5508cb828692d9efc0341b"
+   "sha256": "b6be5df5cd7eaed8cee3b796769358f94a078a6a8a5508cb828692d9efc0341b",
+   "content_sha256": "cb7bc60e7fef67a47af0a7eac8d9970f2c219c2229bb85546016a94097bdeff1"
   }
  ],
  "calls": [
@@ -253,7 +254,8 @@
  "output": {
   "name": "project-harbour.pptx",
   "sha256": "a43e4bebcc400138022063688c12439a57ed574214a81ff737b15d46321da78e",
-  "calls": 6
+  "calls": 6,
+  "content_sha256": "36672b0cf920a7d7ef77091df013e66214481511ad5b87beb6b8c4fe313097c2"
  },
  "check": {
   "total": 17,

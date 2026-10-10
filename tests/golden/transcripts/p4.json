@@ -4,7 +4,8 @@
   {
    "file": "input/order-to-cash.pptx",
    "as": "document",
-   "sha256": "7e5772bc2ccc00e0fa2f45efe8440349e2b46b712d4ac3d2de233d9de1a69a9c"
+   "sha256": "7e5772bc2ccc00e0fa2f45efe8440349e2b46b712d4ac3d2de233d9de1a69a9c",
+   "content_sha256": "0ce333e851a3a4846caf4024daf415844b3845b147808f7e6c978f3790dbd0f6"
   }
  ],
  "calls": [
@@ -454,7 +455,8 @@
  "output": {
   "name": "order-to-cash.pptx",
   "sha256": "1bdaa0563cd117e9cb94c0c2b8de4f9313d43d7bbf76baefc10a582c44f72b6a",
-  "calls": 6
+  "calls": 6,
+  "content_sha256": "4429586528d3bc907454283e7a29687cfa8babe278666f51d98aa70535fa8390"
  },
  "check": {
   "total": 19,

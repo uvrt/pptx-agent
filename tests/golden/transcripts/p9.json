@@ -5,7 +5,8 @@
    "root": "fixtures",
    "file": "generated/trial/business-review-2026.pptx",
    "as": "document",
-   "sha256": "a7718991dbfe36bbcaac5a41dac40dda58d15e5e7d94af1c43d0375607c52952"
+   "sha256": "a7718991dbfe36bbcaac5a41dac40dda58d15e5e7d94af1c43d0375607c52952",
+   "content_sha256": "7057106c575b9cc3d6e05ed6685ee9325259c4035fef311952d5452628b6aabf"
   },
   {
    "root": "fixtures",
@@ -183,7 +184,8 @@
  "output": {
   "name": "business-review-2026.pptx",
   "sha256": "54afc2a354ca829e0c6a370f9555b1769b343ebd0fdb17046e097ec3e2b7e609",
-  "calls": 9
+  "calls": 9,
+  "content_sha256": "3edd2b95e67f969e9e6ce08902b7cf83d9d0e09ae65c3b707667c9eba4eedf0d"
  },
  "check": {
   "total": 19,

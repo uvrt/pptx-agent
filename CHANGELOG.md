@@ -6,6 +6,16 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Python 3.14 and 3.15: CI runs the suite on both, on Linux, macOS and Windows, and the
+  classifiers declare them. `requires-python` stays `>=3.10`. Python 3.14 made
+  `forkserver` Linux's default start method (`fork` before); the worker pool names `spawn`
+  itself, so nothing changes, and a test now runs the render tool, with the application's
+  font folders, in a worker under every start method the platform has. CPython 3.14's
+  Windows builds deflate with zlib-ng, whose bytes differ from zlib's for the same entries
+  (both valid; what a package holds is unchanged), so each golden transcript also records
+  its packages' `content_sha256` (every entry's name, metadata and bytes, a chart's
+  embedded workbook by its own entries; `tests/zip_content.py`), checked everywhere, and
+  the archives' `sha256` is checked where deflate is zlib's.
 - The application's own font folders, for the tools and the library: `Toolbox(font_dirs=...)`
   (or a session's own, ooxml-edit 0.13) sets `Document.font_dirs` on every deck the
   session opens or makes, and every render -- in the worker process too, the folders

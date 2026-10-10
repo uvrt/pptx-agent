@@ -5,7 +5,8 @@
    "root": "fixtures",
    "file": "generated/trial/wms-vendor-selection.pptx",
    "as": "document",
-   "sha256": "7e8d7582c1922d5baba257d9265bb66503fe5fb9c5c1a82b4773ff29d979d8ac"
+   "sha256": "7e8d7582c1922d5baba257d9265bb66503fe5fb9c5c1a82b4773ff29d979d8ac",
+   "content_sha256": "a43df76617e8128a4f64867ef23e73f5de8ef65c9c8fdb35af35aa0bc234039e"
   },
   {
    "root": "fixtures",
@@ -156,7 +157,8 @@
  "output": {
   "name": "wms-vendor-selection.pptx",
   "sha256": "0938218546d207e15d167fcb1b863ff958c41cd1df41ffaeafb8c7e104047908",
-  "calls": 7
+  "calls": 7,
+  "content_sha256": "793905659bc909594c45809fb9b2a65f48eccc5659c21f0e21d967838c6a459a"
  },
  "check": {
   "total": 17,

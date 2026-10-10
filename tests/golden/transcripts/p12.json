@@ -4,7 +4,8 @@
   {
    "file": "input/patient-review.pptx",
    "as": "document",
-   "sha256": "17f8d390cc987027fccad22c2f446a91b0701833062c44814615c60c85f46161"
+   "sha256": "17f8d390cc987027fccad22c2f446a91b0701833062c44814615c60c85f46161",
+   "content_sha256": "9e2858db53d4e7847f85b8470640763c3fc4eff1b742ae4286f6d07064a5bbc6"
   }
  ],
  "calls": [
@@ -85,7 +86,8 @@
  "output": {
   "name": "patient-review.pptx",
   "sha256": "b51b2d3ed3f46da00baa4e8e9e64a219590b545fadc2a94e68bb3f4cd064c209",
-  "calls": 5
+  "calls": 5,
+  "content_sha256": "6707c1f03575e84473dc6af4ebc03fa5198c7e136cbc6524a6e372998a9e39eb"
  },
  "sizes": [
   {
