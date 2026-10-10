@@ -36,7 +36,10 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: at 3,352, about 4,961 counted by the 1.48 proxy).  The radar chart type in edit_chart's
 #: enum added 3 (10,224); the guard stays.  ooxml-edit 0.12's optional scope on the shared
 #: undo (undo by slide) added 34 to the core (3,352 -> 3,386, about 5,011 counted by the
-#: proxy, within 5,500) and to every definition (10,257); budget and guard stay.
+#: proxy, within 5,500) and to every definition (10,257); budget and guard stay.  ooxml-edit
+#: 0.14's slide ids in render's and check's ``slides`` (``s:256``, ``$ref`` or a number; the
+#: items a string) added 12 to the core (3,386 -> 3,398, about 5,029 counted by the proxy,
+#: within 5,500) and to every definition (10,269); budget and guard stay.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 5500
@@ -434,6 +437,59 @@ def test_render_takes_slides_and_caches_by_version(toolbox, session):
     assert fresh.data["cached"] == []
     assert call(toolbox, session, "render", doc="d1").error.field == "slides"
     assert call(toolbox, session, "render", doc="d1", slides=[1, 2, 1, 2, 1]).error.code == "limit"
+
+
+def test_render_and_check_take_slide_ids_refs_and_numbers(toolbox, session):
+    # Production feedback: parallel loops adding slides shift positions between reading
+    # them and the call; every other deck address is an id, so render and check take one.
+    deck = session.entry("d1").document
+    second = deck.slides[1].slide_id
+    by_id = ok(call(toolbox, session, "render", doc="d1", slides=[f"s:{second}"], width=320))
+    assert [image.label for image in by_id.images] == [f"slide 2 (s:{second})"]
+    assert ok(call(toolbox, session, "render", doc="d1", slides=["2"], width=320)).data["cached"] == [2]
+    added = ok(call(toolbox, session, "ppt_add_slide", doc="d1", layout="Title Only", at=1,
+                    ref="first"))
+    (address,) = added.created
+    # Positions moved; the id and the ref still name the same slides.
+    moved = ok(call(toolbox, session, "render", doc="d1", slides=["$first", f"s:{second}"], width=320))
+    assert [image.label for image in moved.images] == [f"slide 1 ({address})", f"slide 3 (s:{second})"]
+    checked = ok(call(toolbox, session, "check", doc="d1", slides=[f"s:{second}", "$first"]))
+    assert checked.data["slides"] == [f"s:{second}", address]
+    for bad, code in (("s:9999", "not_found"), ("256.2", "invalid_arguments"), ("$nothing", "not_found")):
+        error = call(toolbox, session, "render", doc="d1", slides=[bad]).error
+        assert error.code == code and error.field == "slides[0]", (bad, error)
+    assert call(toolbox, session, "check", doc="d1", slides=[True]).error.code == "invalid_arguments"
+
+
+def test_render_reports_the_version_it_drew(toolbox, session, monkeypatch):
+    """A render works on the deck's bytes with the lock let go: an edit made meanwhile does
+    not wait, and the render reports (and caches under) the version it drew."""
+    import threading
+
+    started, finish = threading.Event(), threading.Event()
+    real = toolbox.pool.run
+
+    def slow(fn, *args, timeout=None, **kwargs):
+        started.set()
+        assert finish.wait(10)
+        return real(fn, *args, timeout=timeout, **kwargs)
+
+    monkeypatch.setattr(toolbox.pool, "run", slow)
+    before = session.entry("d1").version
+    out = {}
+    thread = threading.Thread(target=lambda: out.update(
+        result=call(toolbox, session, "render", doc="d1", slides=[1], width=320)))
+    thread.start()
+    assert started.wait(10)
+    edit = ok(call(toolbox, session, "ppt_set_text", doc="d1", items=[{"target": "256.2", "text": "Y"}]))
+    finish.set()
+    thread.join()
+    rendered = ok(out["result"])
+    assert edit.version == before + 1 and rendered.version == before
+    assert session.entry("d1").render_cache.get((before + 1, 256, 320, ())) is None
+    monkeypatch.setattr(toolbox.pool, "run", real)
+    fresh = ok(call(toolbox, session, "render", doc="d1", slides=[1], width=320))
+    assert fresh.version == before + 1 and fresh.data["cached"] == []
 
 
 def test_render_says_which_text_its_image_leaves_out(toolbox, monkeypatch):

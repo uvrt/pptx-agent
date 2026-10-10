@@ -102,19 +102,41 @@ def _message(exc: BaseException) -> str:
     return str(exc) or type(exc).__name__
 
 
-def numbers(deck, slides: Iterable[int] | None, *, field: str = "slides") -> list[int]:
-    """1-based slide numbers, checked; all slides when ``None``."""
+def numbers(deck, slides: Iterable[int | str] | None, *, field: str = "slides") -> list[int]:
+    """1-based slide numbers, checked; all slides when ``None``.  An item may also be a
+    slide's address, ``s:<id>`` (a ``$ref`` the dispatcher has already replaced by one), or
+    a number written as a string (``"2"``, as a strict decoder writes it where the schema
+    says string): the slide's position now."""
     count = len(deck.slides)
     if slides is None:
         return list(range(1, count + 1))
     out = []
-    for number in slides:
+    for index, item in enumerate(slides):
+        number = _position(deck, item, f"{field}[{index}]") if isinstance(item, str) else item
         if not 1 <= number <= count:
             raise ToolError("not_found", f"no slide {number}; the deck has {count}",
                             field=field, valid_options=list(range(1, count + 1))[:50])
         if number not in out:
             out.append(number)
     return out
+
+
+def _position(deck, item: str, field: str) -> int:
+    """The position of the slide ``item`` names: ``"2"`` is the second, ``"s:257"`` the
+    slide with that id wherever it is now."""
+    text = item.strip()
+    if text.isdigit():
+        return int(text)
+    head = text[2:] if text.startswith("s:") else None
+    ids = [s.slide_id for s in deck.slides]
+    if head is None or not head.isdigit():
+        raise ToolError("invalid_arguments", f"{field} is {item!r}: give a slide number from 1 "
+                        "or a slide's id, s:<id>", field=field,
+                        valid_options=[f"s:{sid}" for sid in ids][:50])
+    if int(head) not in ids:
+        raise ToolError("not_found", f"no slide {item!r}", field=field,
+                        valid_options=[f"s:{sid}" for sid in ids][:50])
+    return ids.index(int(head)) + 1
 
 
 # -- errors ------------------------------------------------------------------------------------
