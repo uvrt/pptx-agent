@@ -4,7 +4,8 @@
   {
    "file": "input/halden-proposal-draft.pptx",
    "as": "document",
-   "sha256": "fd81fc1bbd2fa159cb71d2a87704b9fa2c11eab7b94d1a31f1c3af986f1765af"
+   "sha256": "fd81fc1bbd2fa159cb71d2a87704b9fa2c11eab7b94d1a31f1c3af986f1765af",
+   "content_sha256": "74f1076b3d6f27875783cf05bdf80b090156ce5445404e7793cba30e496c3f6a"
   }
  ],
  "calls": [
@@ -1134,7 +1135,8 @@
  "output": {
   "name": "halden-proposal-matrix.pptx",
   "sha256": "bfb3b52fbfc1c6fb63e08a6baa7df04bd21592c87a1faac7fe3ab96c8ed34158",
-  "calls": 5
+  "calls": 5,
+  "content_sha256": "21e5cafe2e3fe013fa0de7731ab38d2cd51547b8f255560943018e1d3608abf5"
  },
  "sizes": [
   {

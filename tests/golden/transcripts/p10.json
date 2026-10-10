@@ -4,7 +4,8 @@
   {
    "file": "input/harbor-lane-q2-review.pptx",
    "as": "document",
-   "sha256": "7a2d602ba6f1c9b1aafd34b569e65c0f35e4bf81f6dd4b7fca9e216ac867be0d"
+   "sha256": "7a2d602ba6f1c9b1aafd34b569e65c0f35e4bf81f6dd4b7fca9e216ac867be0d",
+   "content_sha256": "f555d1759f07e4279ed8df1361373823f81078e27861419778899bf356eaf0f9"
   }
  ],
  "calls": [
@@ -107,7 +108,8 @@
  "output": {
   "name": "harbor-lane-q2-review.pptx",
   "sha256": "6c3c70411c3b2a35448a79e7daf1d74da6ae108842d130acdb662f25b7fd4961",
-  "calls": 7
+  "calls": 7,
+  "content_sha256": "6b7056cdc52f4aae588bc2c7ab22f428073a8c6abc1a98305a0f4eec2a28579c"
  },
  "sizes": [
   {

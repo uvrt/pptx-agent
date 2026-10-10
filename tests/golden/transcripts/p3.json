@@ -5,7 +5,8 @@
    "root": "fixtures",
    "file": "generated/trial/pilot-retrospective.pptx",
    "as": "document",
-   "sha256": "ea2c5453e264914b79f4286ed5bd13b1e8426687424b16ff42f75b438b19b03f"
+   "sha256": "ea2c5453e264914b79f4286ed5bd13b1e8426687424b16ff42f75b438b19b03f",
+   "content_sha256": "e2f93fdf11bdd55076209074aa9b7394601c0574cc9be0f8cc61dea520aa69d9"
   }
  ],
  "calls": [
@@ -459,7 +460,8 @@
  "output": {
   "name": "pilot-retrospective.pptx",
   "sha256": "0b768ee2300d179b48117c5f11f4441d1d8627bd5ed6943c4c8b67510464ad43",
-  "calls": 8
+  "calls": 8,
+  "content_sha256": "6c09c9ee930a89653295159a61a66959399b372573f098a9f2303478b3ebd02a"
  },
  "check": {
   "total": 13,

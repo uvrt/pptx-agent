@@ -11,7 +11,9 @@ bytes, and an output that passes the task's own check from the trial (``golden/g
 This is the regression test for "the tools can do every trial task without Python".
 
 The inputs are rebuilt by the trial's builder (``golden_inputs.py``) from this repository's
-fixtures, and must hash as they did when the transcripts were recorded.
+fixtures, and must hash as they did when the transcripts were recorded.  A package is held to
+its entries everywhere (``content_sha256``) and to its bytes too where deflate is zlib's own
+(``zip_content.py``): CPython 3.14's Windows builds deflate with zlib-ng, whose bytes differ.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ from ooxml_edit.tools import Toolbox
 from pptx_agent.tools import FORMAT, GROUPS, TOOLS
 
 import golden_inputs
+from zip_content import content_sha256, is_zip, stock_deflate, zlib_ng
 
 HERE = Path(__file__).resolve().parent
 GOLDEN = HERE / "golden"
@@ -53,6 +56,25 @@ def _expectation(result) -> dict:
     return data
 
 
+def _same(data: bytes, recorded: dict) -> bool:
+    """``data`` is what was recorded: a package's entries, and its bytes where deflate is
+    zlib's; anything else (a CSV, an image), its bytes."""
+    if not is_zip(data):
+        return hashlib.sha256(data).hexdigest() == recorded["sha256"]
+    assert "content_sha256" in recorded, "a package's record names its entries' hash"
+    if content_sha256(data) != recorded["content_sha256"]:
+        return False
+    return not STOCK_DEFLATE or hashlib.sha256(data).hexdigest() == recorded["sha256"]
+
+
+STOCK_DEFLATE = stock_deflate()
+
+
+def test_deflate_is_zlibs_unless_this_python_says_zlib_ng():
+    """The bytes are skipped only where they cannot match: never by a probe gone wrong."""
+    assert STOCK_DEFLATE or zlib_ng()
+
+
 @pytest.fixture(scope="module")
 def inputs(tmp_path_factory):
     root = tmp_path_factory.mktemp("golden-inputs")
@@ -70,7 +92,7 @@ def test_a_golden_transcript_replays_to_a_passing_check(path, inputs, tmp_path):
         for item in transcript["inputs"]:
             source = (FIXTURES if item.get("root") == "fixtures" else inputs / task) / item["file"]
             data = source.read_bytes()
-            assert hashlib.sha256(data).hexdigest() == item["sha256"], \
+            assert _same(data, item), \
                 f"{item['file']} is not the input the transcript was recorded with"
             if item["as"] == "document":
                 session.open(data, source.name)
@@ -81,7 +103,7 @@ def test_a_golden_transcript_replays_to_a_passing_check(path, inputs, tmp_path):
             assert _expectation(result) == step["expect"], (index, step["tool"], result.to_json())
         (output,) = session.take_outputs()
     assert output.name == transcript["output"]["name"]
-    assert hashlib.sha256(output.data).hexdigest() == transcript["output"]["sha256"]
+    assert _same(output.data, transcript["output"])
 
     deck = tmp_path / output.name
     deck.write_bytes(output.data)

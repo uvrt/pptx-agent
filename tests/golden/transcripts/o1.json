@@ -4,7 +4,8 @@
   {
    "file": "input/halden-proposal-draft.pptx",
    "as": "document",
-   "sha256": "8474221760019916d8d02e078a5bf4c8251f29f8806b42eea067a733f7259943"
+   "sha256": "8474221760019916d8d02e078a5bf4c8251f29f8806b42eea067a733f7259943",
+   "content_sha256": "9e70748b3563b96caafffcf5d8ec2106f9853777d80de0ffb764c142115d8ffd"
   }
  ],
  "calls": [
@@ -937,7 +938,8 @@
  "output": {
   "name": "halden-proposal-governance.pptx",
   "sha256": "48ffb5232b1ba409822687dda1fdefd2b3176658938ef30f93101b373cc5b6d9",
-  "calls": 5
+  "calls": 5,
+  "content_sha256": "fd4e786c19cc377aab14accbf9b80f313dda275c221a740a55aa1f77aa9fe652"
  },
  "sizes": [
   {
