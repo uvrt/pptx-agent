@@ -2039,7 +2039,8 @@ class Slide(ShapeFactory):
         return Shape(self, element, parsed)
 
     def find_shapes(self, *, name: str | None = None, kind: str | None = None) -> list[Shape]:
-        """The top-level shapes with this ``name`` and/or ``kind``.
+        """The shapes with this ``name`` and/or ``kind``, groups' members included, each
+        once, in the order of :attr:`shapes`.
 
         For example::
 
@@ -2050,6 +2051,46 @@ class Slide(ShapeFactory):
             for shape in self.shapes
             if (name is None or shape.name == name) and (kind is None or shape.kind == kind)
         ]
+
+    def empty_placeholders(self) -> list[Shape]:
+        """The placeholders on this slide that hold nothing: PowerPoint shows each as its
+        prompt ("Click to add text", "Click to add title", the icons of a content
+        placeholder) while editing, and draws nothing for it in a slide show, a print or an
+        export (measured), so it is a leftover a reader of the file sees and the audience
+        does not.
+
+        A placeholder is empty when it is a ``p:sp`` -- a placeholder that took a picture,
+        table, chart or SmartArt is a ``p:pic`` or ``p:graphicFrame`` and holds that -- and
+        its text body is missing, has no paragraphs, or has only paragraphs whose text is
+        whitespace or nothing (no field either).  Titles and subtitles count: an empty one
+        shows its prompt too.  Left out: the date, footer, slide-number and header
+        placeholders (Insert > Header & Footer turns those on, and PowerPoint fills them),
+        and a shape hidden in the Selection Pane.
+
+        For example::
+
+            [(shape.id, shape.placeholder) for shape in slide.empty_placeholders()]
+        """
+        return [shape for shape in self.shapes if _is_empty_placeholder(shape._element)]
+
+    def delete_empty_placeholders(self, *, titles: bool = False) -> list[str]:
+        """Delete :meth:`empty_placeholders`, keeping an empty title unless ``titles``: a
+        title names the slide in the outline, in navigation and to a screen reader, so the
+        better fix for an empty one is to fill it.  Returns the ids deleted.  One undo
+        step.
+
+        For example::
+
+            slide.delete_empty_placeholders()            # ['256.3']
+        """
+        doomed = [shape for shape in self.empty_placeholders()
+                  if titles or shape.placeholder.type not in _TITLE_TYPES]
+        deleted = []
+        with self.document.batch():
+            for shape in doomed:
+                deleted.append(shape.id)
+                shape.delete()
+        return deleted
 
     def copy_shapes(self, shapes: "list[Shape | str]", to_slide: "Slide | None" = None, *,
                     at: "tuple[int, int] | None" = None, dx: int = 0, dy: int = 0):
@@ -2871,6 +2912,23 @@ class Document(CommentOps):
         return theme_for(self)
 
     @property
+    def table_styles(self) -> list[dict]:
+        """The table styles a table here can take, as ``{"id", "name", "builtin"}``: the
+        deck's own from ``ppt/tableStyles.xml`` first (a brand template's styles), then
+        PowerPoint's 74 built-in styles (``builtin``; a deck names one by id without
+        defining it).  The style the deck gives a new table -- ``tableStyles.xml``'s
+        ``def`` -- has ``"default": True``.  :attr:`Table.style <pptx_agent.Table.style>`
+        and :meth:`Slide.add_table` take an ``id`` or a ``name``.
+
+        For example::
+
+            [s["name"] for s in deck.table_styles if not s["builtin"]]   # the template's
+        """
+        from .tablestyles import table_styles
+
+        return table_styles(self)
+
+    @property
     def slide_size(self) -> tuple[int, int]:
         """``(width, height)`` of the slides, EMU.
 
@@ -3572,6 +3630,30 @@ def _nv_container(shape: Element) -> str:
 
 
 _SHAPE_TAGS = ("sp", "pic", "cxnSp", "grpSp", "graphicFrame", "contentPart")
+
+#: Placeholder types that name the slide: :meth:`Slide.delete_empty_placeholders` keeps them.
+_TITLE_TYPES = ("title", "ctrTitle")
+#: Placeholder types PowerPoint fills itself, switched on under Insert > Header & Footer:
+#: never reported empty.
+_FILLED_BY_POWERPOINT = frozenset({"dt", "ftr", "sldNum", "hdr"})
+
+
+def _is_empty_placeholder(element: Element) -> bool:
+    """See :meth:`Slide.empty_placeholders`."""
+    if local_name(element) != "sp":
+        return False
+    holder = find(element, "p:nvSpPr/p:nvPr/p:ph")
+    if holder is None or holder.get("type") in _FILLED_BY_POWERPOINT:
+        return False
+    properties = find(element, "p:nvSpPr/p:cNvPr")
+    if properties is not None and properties.get("hidden") in ("1", "true"):
+        return False
+    body = element.find(qn("p:txBody"))
+    if body is None:
+        return True
+    if any(True for _ in body.iter(qn("a:fld"))):
+        return False
+    return not "".join(node.text or "" for node in body.iter(qn("a:t"))).strip()
 
 
 def renumber_copy(clone: Element, next_ids) -> dict[str, str]:

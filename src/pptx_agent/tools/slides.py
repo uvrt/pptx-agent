@@ -132,9 +132,11 @@ def ppt_draft_slides(call, doc, markdown, at=None):
 
 
 @tool("ppt_manage_slides",
-      "Duplicate, move or delete a slide, or find one by its title. Returns the slide order.",
+      "Duplicate, move or delete a slide, find one by its title, or delete its empty "
+      "placeholders (not an empty title). Returns the slide order.",
       {"doc": string("Document id."),
-       "action": string("What to do.", enum=["duplicate", "move", "delete", "find_by_title"]),
+       "action": string("What to do.", enum=["duplicate", "move", "delete", "find_by_title",
+                                             "delete_empty_placeholders"]),
        "slide": string("The slide, s:256 or $ref.", optional=True),
        "to": integer("move, duplicate: new position from 1. Default after it.", minimum=1,
                      maximum=10000, optional=True),
@@ -174,6 +176,16 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
         deck.move_slide(target, to - 1)
         return Result(summary=f"Moved s:{target.slide_id} to {to}",
                       changed=[f"s:{target.slide_id}"], data={"order": _order(deck)})
+    if action == "delete_empty_placeholders":
+        deleted = target.delete_empty_placeholders()
+        call.touch(target.slide_id)
+        kept = [shape.id for shape in target.empty_placeholders()]
+        return Result(summary=f"Deleted {len(deleted)} empty placeholder(s) on "
+                      f"s:{target.slide_id}" + (f"; kept the empty title {', '.join(kept)}"
+                                                if kept else ""),
+                      removed=deleted,
+                      data={"slide": f"s:{target.slide_id}", "deleted": deleted,
+                            **({"empty_title": kept} if kept else {})})
     if action == "delete":
         address = f"s:{target.slide_id}"
         deck.delete_slide(target)
