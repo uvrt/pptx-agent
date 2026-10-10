@@ -9,19 +9,27 @@ import struct
 import warnings
 
 
-def render_slides(data: bytes, numbers: list[int], width: int) -> list[bytes]:
+def render_slides(data: bytes, numbers: list[int], width: int,
+                  font_dirs: "list[str] | None" = None) -> list[bytes]:
     """PNG bytes of the 1-based slides ``numbers`` of the deck ``data``, ``width`` px wide."""
-    return render_slides_reporting(data, numbers, width)[0]
+    return render_slides_reporting(data, numbers, width, font_dirs)[0]
 
 
-def render_slides_reporting(data: bytes, numbers: list[int], width: int
+def render_slides_reporting(data: bytes, numbers: list[int], width: int,
+                            font_dirs: "list[str] | None" = None
                             ) -> tuple[list[bytes], list[list[dict]]]:
     """:func:`render_slides`, and for each slide the text its image leaves out: pptx2svg's
     ``glyphs-missing`` warnings -- no font the renderer has can draw it -- as
-    ``{"face", "script", "sample"}``, reported on the first slide that has them."""
+    ``{"face", "script", "sample"}``, reported on the first slide that has them.
+
+    ``font_dirs`` is the application's font folders (``Document.font_dirs``), resolved by
+    the caller -- the session's, or ``OOXML_FONT_DIRS`` as the caller read it -- since the
+    worker sees neither; ``None`` leaves the worker's own default."""
     from ..edit.document import Document
 
     deck = Document.open(data)
+    if font_dirs is not None:
+        deck.font_dirs = tuple(font_dirs)
     found: list = []
     with warnings.catch_warnings():
         # The same facts come back in ``found``; the worker's stderr is nobody's to read.

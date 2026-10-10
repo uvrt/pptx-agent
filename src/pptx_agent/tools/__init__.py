@@ -133,6 +133,12 @@ def _open(data: bytes):
     return Document.open(data)
 
 
+def _configure(deck, session) -> None:
+    """A deck joining a session renders and measures with the session's font folders
+    (``Toolbox(font_dirs=...)``; ``None``: ``OOXML_FONT_DIRS``)."""
+    deck.font_dirs = session.font_dirs
+
+
 def _summary(deck) -> dict:
     width, height = deck.slide_size
     return {"slides": len(deck.slides), "title": deck.title,
@@ -165,7 +171,8 @@ FORMAT = DocumentFormat(
     errors={LabelError: ("label_not_found", lambda exc: exc.candidates[:50]),
             ChartDataError: "refused", FullStateError: "refused"},
     summary=_summary, checks=checks, strict_first=STRICT_FIRST,
-    undo_scope=_slide_scope, restored=lambda deck: deck._reset_caches())
+    undo_scope=_slide_scope, restored=lambda deck: deck._reset_caches(),
+    configure=_configure)
 
 GROUPS = [*shared.GROUPS,
           ToolGroup(text.TEXT_GROUP, "Formatting text: runs, paragraphs, frames, table cells."),

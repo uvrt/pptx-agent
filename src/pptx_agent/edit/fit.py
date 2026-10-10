@@ -362,6 +362,24 @@ def rows_fitting(shape: "Shape", bottom: int | None = None,
 # -- the layout ------------------------------------------------------------------------------
 
 
+def user_metrics(families, document=None) -> dict:
+    """``family key -> FontMetrics`` of the application's own faces for ``families``
+    (:func:`~pptx_agent.edit.document.font_dirs_of` ``document``: its ``font_dirs``, else
+    ``OOXML_FONT_DIRS``), as pptx2svg measures them
+    (:func:`pptx2svg.fonts.office.user_layout_metrics`); empty without such folders, or
+    with a pptx2svg that does not read them."""
+    from .document import font_dirs_of
+
+    dirs = font_dirs_of(document)
+    if not dirs:
+        return {}
+    try:
+        from pptx2svg.fonts.office import user_layout_metrics
+    except ImportError:                       # pragma: no cover - an older pptx2svg
+        return {}
+    return user_layout_metrics([family for family in families if family], list(dirs))
+
+
 class _Measured:
     """pptx2svg's resolved slide and a measuring context, for one slide's shapes."""
 
@@ -372,7 +390,14 @@ class _Measured:
         options = pptx2svg.ConvertOptions(slide_numbers=[slide.index + 1],
                                           warn_on_font_substitution=False)
         model = pptx2svg.convert_pptx_to_model(document.to_bytes(), options)
-        self.context = _engine().context(model.embedded_fonts.metrics)
+        from pptx2svg.fonts.check import resolved_families
+
+        # As pptx2svg measures: the deck's embedded faces, then the application's own
+        # (Document.font_dirs, OOXML_FONT_DIRS).
+        extra = dict(model.embedded_fonts.metrics)
+        for key, table in user_metrics(resolved_families(model), document).items():
+            extra.setdefault(key, table)
+        self.context = _engine().context(extra)
         self._by_id: dict[str, list[tuple[object, tuple[float, float]]]] = {}
         self._walk(model.slides[0].elements, (1.0, 1.0))
 
@@ -645,8 +670,12 @@ def measure_text(text, *, font: str | None = None, size: float | None = None,
                   for part in str(text).split("\n")]
     body = model.BodyProperties(margin_left=left, margin_top=top, margin_right=right,
                                 margin_bottom=bottom, wrap="square" if wrap else "none")
+    document = deck_or_shape if isinstance(deck_or_shape, Document) else (
+        deck_or_shape.document if isinstance(deck_or_shape, Slide) else
+        deck_or_shape._slide.document if isinstance(deck_or_shape, Shape) else None)
     laid = engine.measure_text_body(model.TextBody(paragraphs, body),
-                                    model.Transform(extent_width=int(width)), engine.context(),
+                                    model.Transform(extent_width=int(width)),
+                                    engine.context(user_metrics([font], document) or None),
                                     as_drawn=True)
     # A line starts where the break before it ends: an empty line between two "\v" breaks
     # starts after the first, at the second -- where PowerPoint puts the caret on it.
@@ -688,13 +717,14 @@ def fit_box(spec, width: int, *, like=None, preset: str | None = None, deck_or_s
 def _scratch(document: "Document") -> "Document":
     """A copy of ``document`` to build measuring shapes in, kept while the document stays
     at the same version (its edits make a new one)."""
-    from .document import Document
+    from .document import copy_of
 
     version = getattr(document.history, "version", None)
     cached = document.__dict__.get("_measure_scratch")
     if cached is not None and version is not None and cached[0] == version:
+        cached[1].font_dirs = document.font_dirs
         return cached[1]
-    copy = Document.open(document.to_bytes())
+    copy = copy_of(document)
     document.__dict__["_measure_scratch"] = (version, copy)
     return copy
 

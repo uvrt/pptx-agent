@@ -50,6 +50,23 @@ system = toolbox.system_prompt(extra=HOUSE_RULES)          # your guidance after
 task = "In d1, make the title of slide 1 read 'Q3 review', then save it as q3.pptx."
 ```
 
+**Your own fonts.** Faces kept in a folder of the application's own (licensed fonts the
+system does not search) are named once, as configuration -- never by the model:
+
+```python
+toolbox = Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS, font_dirs=["/srv/app/fonts"])
+session = toolbox.session()                          # the toolbox's folders
+other = toolbox.session(font_dirs=["/srv/b/fonts"])  # or a session's own
+```
+
+Every render (in the worker process too) and every measurement of text -- `check`'s fit,
+overflow and near-wrap, a table's row heights, the facts each changing call and
+`save_document` return, the design facts -- then finds those faces, searched before the
+system's folders. Without `font_dirs` the environment variable `OOXML_FONT_DIRS` (folders
+separated by `os.pathsep`) is read where the toolbox runs; `font_dirs=[]` reads neither.
+No tool definition or prompt changes. A deck opened outside the tools takes the same
+setting as `Document.font_dirs`.
+
 The provider SDKs read their keys from the environment (`ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`). When the loop ends, `session.take_outputs()` holds what `save_document`
 wrote, as bytes.

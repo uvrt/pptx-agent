@@ -1657,9 +1657,9 @@ def measure_svg_text(slide, svg: "str | bytes", *, box: "tuple[int, int, int, in
             el.getparent().remove(el)
     # measured on a copy of the deck, so the caller's deck, slide objects and undo history
     # are untouched
-    from .document import Document
+    from .document import copy_of
 
-    twin_deck = Document.open(slide.document.to_bytes())
+    twin_deck = copy_of(slide.document)
     twin = twin_deck.slides[slide.index]
     scale_y = _Parser(root, box).base.d          # EMU per SVG user unit, vertically
     result = apply_svg_graphic(twin, etree.tostring(root), box=box, scales=scales)

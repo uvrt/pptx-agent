@@ -2591,6 +2591,15 @@ class Document(CommentOps):
         deck.save("out.pptx")
     """
 
+    #: The application's own font folders, for every render and every measurement of
+    #: this deck's text -- fit, overflow, near-wrap, a table's row heights, the design
+    #: facts: a face there is drawn with and, where pptx2svg's tables do not measure its
+    #: family as itself, measured from.  ``None`` (the default) reads ``OOXML_FONT_DIRS``
+    #: (``os.pathsep``-separated); an empty tuple means none.  Added to the system's
+    #: folders, never in their place.  The agent tool layer sets it from its session
+    #: (``Toolbox(font_dirs=...)``).
+    font_dirs: "tuple[str, ...] | None" = None
+
     def __init__(self, package: OoxmlPackage) -> None:
         self.package = package
         self.history = History(package)
@@ -3360,6 +3369,8 @@ class Document(CommentOps):
         with pptx2svg's own ids.
         """
         pptx2svg = _require_renderer()
+        if self.font_dirs is not None and not options.get("agent"):
+            options.setdefault("font_dirs", list(self.font_dirs))
         if options.pop("agent", False):
             convert = getattr(pptx2svg, "convert_pptx_to_agent_svg", None)
             if convert is None:
@@ -3383,6 +3394,8 @@ class Document(CommentOps):
             pngs = deck.render_png([1], width=1280)
         """
         pptx2svg = _require_renderer()
+        if self.font_dirs is not None:
+            options.setdefault("font_dirs", list(self.font_dirs))
         render_keys = {"width", "height", "font_mapping", "measurer", "warnings"}
         convert_options = pptx2svg.ConvertOptions(
             slide_numbers=self._numbers(slides),
@@ -3518,6 +3531,23 @@ def _default_limits():
     from ..fullstate.safe import DEFAULT_LIMITS
 
     return DEFAULT_LIMITS
+
+
+def font_dirs_of(document: "Document | None") -> tuple[str, ...]:
+    """The font folders ``document`` renders and measures with: its
+    :attr:`Document.font_dirs`, else ``OOXML_FONT_DIRS``
+    (:func:`ooxml_common.fonts.office.user_font_dirs`), as strings -- what a worker
+    process is handed, and what keys a render."""
+    from ooxml_common.fonts.office import user_font_dirs
+
+    return tuple(str(path) for path in user_font_dirs(getattr(document, "font_dirs", None)))
+
+
+def copy_of(document: "Document") -> "Document":
+    """A fresh copy of ``document`` (from its bytes) that renders and measures as it does."""
+    copy = Document.open(document.to_bytes())
+    copy.font_dirs = document.font_dirs
+    return copy
 
 
 def _require_renderer():

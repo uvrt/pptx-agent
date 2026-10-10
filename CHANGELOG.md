@@ -6,6 +6,16 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- The application's own font folders, for the tools and the library: `Toolbox(font_dirs=...)`
+  (or a session's own, ooxml-edit 0.13) sets `Document.font_dirs` on every deck the
+  session opens or makes, and every render -- in the worker process too, the folders
+  resolved where the toolbox runs and handed over -- and every measurement of text (fit,
+  overflow, near-wrap, a table's row heights, the per-call facts, `save_document`'s and
+  the design facts, `measure_text`) uses them: a face there is drawn with and, where
+  pptx2svg's tables do not measure its family as itself, measured from. Without them
+  `OOXML_FONT_DIRS` is read. The folders key `render`'s and `check`'s caches. No tool
+  definition or prompt changes. Needs ooxml-common 0.8.0, ooxml-edit 0.13.0 and a
+  pptx2svg with `ConvertOptions.font_dirs`.
 - A table whose rows grow past the slide is reported. A row's stored height is only a
   minimum; `drawn_bounds` used the stored heights, so a 12-row table of wrapping text cut
   off at the slide's bottom passed every check. Rows are now measured with pptx2svg's
