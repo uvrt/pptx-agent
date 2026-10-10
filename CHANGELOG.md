@@ -6,6 +6,34 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- The outline lists each shape once: `slide.shapes` lists a group and then its members, and
+  `to_outline` (and `ppt_read_slides` `outline`, `outline_blocks`, `find_text`,
+  `replace_text`) walked the groups as well, so every grouped shape came twice. A group's
+  blocks now stand between `<!-- 256.5 group "Agenda item 1" -->` and `<!-- /256.5 -->`
+  (docx-agent's closing form), nested as the groups are; `insert_outline` reads the marks
+  as nothing. The other readers of `slide.shapes` (fit, collisions, layout facts, design
+  facts, comments) already met each shape once, and a test now holds them to the same facts
+  grouped or not. Production feedback round 3 (D3).
+- Empty placeholders: `slide.empty_placeholders()` names the placeholders PowerPoint shows as
+  "Click to add text" (or "...title", a content placeholder's icons) -- no text, only
+  whitespace or only empty paragraphs, and no field; one that took a picture, table, chart
+  or SmartArt holds it; date, footer, slide number and header left out; titles and
+  subtitles counted -- and `slide.delete_empty_placeholders()` deletes them in one undo
+  step, an empty title kept unless `titles=True`. The tools report them as
+  `empty_placeholders` (`shape`, `type`, `idx`) in every changing call's checks and in
+  `check` (with `fit`, the default), and `save_document` lists those left under
+  `unresolved`; `ppt_manage_slides` `delete_empty_placeholders` deletes a slide's (A3).
+- Table styles and Table Design flags: `deck.table_styles` (the deck's own from
+  `tableStyles.xml`, then PowerPoint's 74 built-in styles, each `{id, name, builtin}`, the
+  default marked), `table.style` (read, and set by name or id), `table.flags` and
+  `table.set_flags(first_row=, last_row=, first_column=, last_column=, banded_rows=,
+  banded_columns=)`; `add_table(style=)` takes a name too, and refuses an id neither the
+  deck nor PowerPoint has. The tools: `ppt_add_table`'s `style`, `ppt_edit_table`'s
+  `set_style` and `set_flags`, a table's `style` and `flags` in its results, and
+  `describe`'s `theme.table_styles` (the default, the deck's own, how the built-in names
+  go). Every definition 10,269 -> 10,464 estimated tokens; the core unchanged (A4). A
+  golden, p14, builds a chart slide on a content layout and deletes its empty body, and a
+  table in the template's own style without banding.
 - `render` and `check` name slides by id as well as number: `slides` takes `s:257`, a
   `$ref` (the dispatcher replaces it) or a number from 1 (also written `"2"`, as a strict
   decoder writes it now that the items are strings), so a loop renders the slide it read

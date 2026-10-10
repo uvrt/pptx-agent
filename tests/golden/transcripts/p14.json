@@ -1,0 +1,251 @@
+{
+ "task": "p14-brand-chart-table",
+ "inputs": [
+  {
+   "file": "input/business-review-2026.pptx",
+   "as": "document",
+   "sha256": "673b365c8f9cdf8eb0bdeb2800273e54c4121114eb517b20b0923df8430d7719",
+   "content_sha256": "6e7dbf1f2c0b1395d8103b73da096f53122e7f13480bf494a21e6b4eb3ea9bde"
+  },
+  {
+   "root": "fixtures",
+   "file": "generated/trial/quarterly-revenue-2026.csv",
+   "as": "blob",
+   "sha256": "977e11638b60fdeb12c706935d93e440aa1f9c25044d81e3959316c6a9175b78"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "read_blob",
+   "arguments": {
+    "blob": "b1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_add_slide",
+   "arguments": {
+    "doc": "d1",
+    "layout": "Title and Content",
+    "at": 4,
+    "title": "North drove half of 2026's growth",
+    "ref": "chart_slide"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "s:260"
+    ],
+    "refs": {
+     "chart_slide": "s:260"
+    }
+   }
+  },
+  {
+   "tool": "edit_chart",
+   "arguments": {
+    "doc": "d1",
+    "target": "$chart_slide",
+    "action": "add",
+    "chart_type": "column",
+    "categories": [
+     "Q1 2026",
+     "Q2 2026",
+     "Q3 2026",
+     "Q4 2026"
+    ],
+    "data": [
+     {
+      "name": "North",
+      "values": [
+       12.4,
+       14.9,
+       16.3,
+       17.8
+      ]
+     },
+     {
+      "name": "South",
+      "values": [
+       9.8,
+       10.2,
+       10.9,
+       11.6
+      ]
+     },
+     {
+      "name": "East",
+      "values": [
+       7.1,
+       7.4,
+       8.0,
+       8.3
+      ]
+     },
+     {
+      "name": "West",
+      "values": [
+       5.2,
+       6.8,
+       7.5,
+       8.1
+      ]
+     }
+    ],
+    "box": {
+     "x": 66,
+     "y": 144,
+     "w": 828,
+     "h": 342
+    },
+    "number_format": "#,##0.0",
+    "ref": "chart"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "260.4"
+    ],
+    "refs": {
+     "chart": "260.4"
+    }
+   }
+  },
+  {
+   "tool": "ppt_manage_slides",
+   "arguments": {
+    "doc": "d1",
+    "action": "delete_empty_placeholders",
+    "slide": "$chart_slide"
+   },
+   "expect": {
+    "ok": true,
+    "removed": [
+     "260.3"
+    ]
+   }
+  },
+  {
+   "tool": "ppt_add_slide",
+   "arguments": {
+    "doc": "d1",
+    "layout": "Title Only",
+    "at": 5,
+    "title": "Every region grew; North leads at EUR 61.4m",
+    "ref": "table_slide"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "s:261"
+    ],
+    "refs": {
+     "table_slide": "s:261"
+    }
+   }
+  },
+  {
+   "tool": "ppt_add_table",
+   "arguments": {
+    "doc": "d1",
+    "slide": "$table_slide",
+    "box": {
+     "x": 66,
+     "y": 144,
+     "w": 828,
+     "h": 200
+    },
+    "rows": 5,
+    "columns": 2,
+    "data": [
+     [
+      "Region",
+      "Revenue 2026 (EUR m)"
+     ],
+     [
+      "North",
+      "61.4"
+     ],
+     [
+      "South",
+      "42.5"
+     ],
+     [
+      "East",
+      "30.8"
+     ],
+     [
+      "West",
+      "27.6"
+     ]
+    ],
+    "style": "Harbor Lane Table",
+    "ref": "table"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "261.3"
+    ],
+    "refs": {
+     "table": "261.3"
+    }
+   }
+  },
+  {
+   "tool": "ppt_edit_table",
+   "arguments": {
+    "doc": "d1",
+    "target": "$table",
+    "action": "set_flags",
+    "flags": {
+     "banded_rows": false
+    }
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "business-review-2026.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "business-review-2026.pptx",
+  "sha256": "78af8a5618bd75a79ab36e028ca027269d53400b28dd210deb3314c0e905a4dd",
+  "calls": 10,
+  "content_sha256": "917c01a7518e2ba36059f3ec910c7f58cf8fc61dd3bdee294309be606901040a"
+ },
+ "check": {
+  "total": 18,
+  "passed": 18
+ }
+}

@@ -166,6 +166,73 @@ class Table:
     def __len__(self) -> int:
         return self.rows
 
+    # -- style and Table Design flags --------------------------------------------------------
+
+    @property
+    def style(self) -> dict | None:
+        """The table's style as ``{"id", "name", "builtin"}`` -- one of
+        :attr:`Document.table_styles <pptx_agent.Document.table_styles>` -- or ``None``
+        when it names none.  ``name`` is ``None`` for an id neither the deck nor PowerPoint
+        knows, which PowerPoint draws as no style.  Set it by name or id; the Table Design
+        flags (:attr:`flags`) say which of the style's parts show.  One undo step.
+
+        For example::
+
+            table.style["name"]                          # 'Medium Style 2 - Accent 1'
+            table.style = "Light Style 1 - Accent 1"     # or "{3B4B98B0-...}", or the
+                                                         # template's own style's name
+        """
+        from . import tablestyles
+
+        return tablestyles.describe(self._shape()._slide.document,
+                                    tablestyles.style_id_of(self._table().find(qn("a:tblPr"))))
+
+    @style.setter
+    def style(self, value: str) -> None:
+        from . import tablestyles
+
+        style_id = tablestyles.resolve(self._shape()._slide.document, value)
+        with self._editing() as table:
+            tablestyles.write_style_id(_properties(table), style_id)
+
+    @property
+    def flags(self) -> dict[str, bool]:
+        """The Table Design flags: ``first_row`` (Header Row), ``last_row`` (Total Row),
+        ``first_column``, ``last_column``, ``banded_rows``, ``banded_columns`` -- which of
+        the style's parts apply.  A new table has ``first_row`` and ``banded_rows``, as
+        PowerPoint inserts one.
+
+        For example::
+
+            table.flags["banded_rows"]                   # True
+        """
+        from . import tablestyles
+
+        return tablestyles.read_flags(self._table().find(qn("a:tblPr")))
+
+    def set_flags(self, *, first_row: bool | None = None, last_row: bool | None = None,
+                  first_column: bool | None = None, last_column: bool | None = None,
+                  banded_rows: bool | None = None,
+                  banded_columns: bool | None = None) -> "Table":
+        """Turn Table Design flags on or off; ``None`` leaves one as it is.  One undo step;
+        returns the table.
+
+        For example::
+
+            table.set_flags(banded_rows=False)           # a header rule, no banding
+        """
+        from . import tablestyles
+
+        changes = {name: bool(value) for name, value in (
+            ("first_row", first_row), ("last_row", last_row), ("first_column", first_column),
+            ("last_column", last_column), ("banded_rows", banded_rows),
+            ("banded_columns", banded_columns)) if value is not None}
+        if not changes:
+            return self
+        with self._editing() as table:
+            tablestyles.write_flags(_properties(table), changes)
+        return self
+
     def cell(self, row: int, column: int) -> "TableCell":
         """The cell at ``(row, column)``, 0-based; raises for a position outside the grid.
 
@@ -923,6 +990,15 @@ class TableCell:
 
 
 # -- XML helpers ---------------------------------------------------------------------------
+
+
+def _properties(table: Element) -> Element:
+    """The table's ``a:tblPr``, made first in ``a:tbl`` when it has none."""
+    properties = table.find(qn("a:tblPr"))
+    if properties is None:
+        properties = make("a:tblPr")
+        table.insert(0, properties)
+    return properties
 
 
 def _table_element(frame: Element) -> Element | None:

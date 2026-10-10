@@ -45,7 +45,6 @@ from .presets import adjustment_defaults, connection_sites, evaluate
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Shape, Slide
 
-_GUID = re.compile(r"\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}")
 _CONNECTOR_NAMES = {"straight": "Straight Arrow Connector", "elbow": "Elbow Connector",
                     "curved": "Curved Connector"}
 
@@ -187,10 +186,12 @@ class ShapeFactory:
         top and bottom) and is anchored ``"top"`` (a cell's :attr:`TableCell.text_frame`
         sets them); a row grows to fit its text when PowerPoint draws it.
 
-        ``style`` is a table style id (``"{5C22544A-...}"``); by default PowerPoint's own
-        default, Medium Style 2 - Accent 1, with a header row and banded rows -- as
-        PowerPoint inserts one.  Edit it with :attr:`Shape.table`.  PowerPoint does not put
-        tables in groups, so neither does this.
+        ``style`` is a table style's name or id, one of :attr:`Document.table_styles`
+        (``"Light Style 1 - Accent 1"``, the template's own style's name, or
+        ``"{5C22544A-...}"``); by default PowerPoint's own default, Medium Style 2 - Accent
+        1.  The table has a header row and banded rows, as PowerPoint inserts one
+        (:meth:`Table.set_flags` changes them).  Edit it with :attr:`Shape.table`.
+        PowerPoint does not put tables in groups, so neither does this.
 
         For example::
 
@@ -199,9 +200,11 @@ class ShapeFactory:
         if int(rows) < 1 or int(cols) < 1:
             raise ValueError("a table needs at least one row and one column")
         _check_size(width, height)
-        if style is not None and not _GUID.fullmatch(style):
-            raise ValueError(f"a table style id is a GUID in braces, not {style!r}")
         slide, container, group = self._factory()
+        if style is not None:
+            from .tablestyles import resolve
+
+            style = resolve(slide.document, style)
         if group is not None:
             raise ValueError("PowerPoint does not allow a table in a group")
         language = authoring.default_language(slide.document.package)
