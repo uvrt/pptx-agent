@@ -33,7 +33,10 @@ Raleway. They are under the SIL Open Font License 1.1, with their licence texts 
 package; its code is MIT; no Microsoft font is in it. Without it a render draws with the
 machine's own fonts, and text none of them can draw -- every CJK character, on a server
 with no CJK font -- is left out of the image: `render` then says so (`missing_glyphs`),
-and pptx2svg warns.
+and pptx2svg warns. Faces of your own, in a folder the system does not search, are
+`Document.font_dirs` (or `Toolbox(font_dirs=...)` for the tools), or the environment
+variable `OOXML_FONT_DIRS`: rendered and measured with
+([tools/README.md](src/pptx_agent/tools/README.md#setup-every-provider)).
 
 ## Example
 

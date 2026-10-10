@@ -13,6 +13,7 @@ from typing import Any
 from ooxml_edit.tools import Result, ToolError, page_list, shared
 
 from .common import KIND, facts, library_errors, numbers, slide_id_of, validate_delta
+from ..edit.document import font_dirs_of
 from .render import png_size, render_slides_reporting
 
 #: Slides a render may hold, and the default width (1280 px: 1,196 Claude tokens at 16:9).
@@ -186,15 +187,20 @@ def render(call, doc, slides=None, pages=None, width=None):
     width = width or DEFAULT_WIDTH
     entry = call.entry
     ids = {n: deck.slides[n - 1].slide_id for n in wanted}
+    # The font folders, resolved here (the session's, else OOXML_FONT_DIRS) and handed to
+    # the worker, which sees neither; they key the cache, so renders with different
+    # folders do not mix.
+    fonts = font_dirs_of(deck)
     missing = [n for n in wanted
-               if entry.render_cache.get((entry.version, ids[n], width)) is None]
+               if entry.render_cache.get((entry.version, ids[n], width, fonts)) is None]
     if missing:
-        images, lost = call.run(render_slides_reporting, deck.to_bytes(), missing, width)
+        images, lost = call.run(render_slides_reporting, deck.to_bytes(), missing, width,
+                                list(fonts))
         for number, png, left_out in zip(missing, images, lost):
-            entry.render_cache.put((entry.version, ids[number], width), (png, left_out))
+            entry.render_cache.put((entry.version, ids[number], width, fonts), (png, left_out))
     described, unrendered = [], []
     for number in wanted:
-        png, left_out = entry.render_cache.get((entry.version, ids[number], width))
+        png, left_out = entry.render_cache.get((entry.version, ids[number], width, fonts))
         w, h = png_size(png)
         image = call.image(png, w, h, label=f"slide {number} (s:{ids[number]})")
         described.append(image.describe())
@@ -232,7 +238,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
     chosen = numbers(deck, slides)
     ids = [deck.slides[n - 1].slide_id for n in chosen]
     entry = call.entry
-    key = ("check", tuple(ids), tuple(sorted(set(wanted))), bool(boxes))
+    key = ("check", tuple(ids), tuple(sorted(set(wanted))), bool(boxes), font_dirs_of(deck))
     data = entry.check_cache.get((entry.version, key))
     if data is None:
         data = {"slides": [f"s:{sid}" for sid in ids]}
