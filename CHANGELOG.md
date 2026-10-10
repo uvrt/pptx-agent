@@ -6,6 +6,11 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Python 3.14 and 3.15: CI runs the suite on both, on Linux, macOS and Windows, and the
+  classifiers declare them. `requires-python` stays `>=3.10`. Python 3.14 made
+  `forkserver` Linux's default start method (`fork` before); the worker pool names `spawn`
+  itself, so nothing changes, and a test now runs the render tool, with the application's
+  font folders, in a worker under every start method the platform has.
 - The application's own font folders, for the tools and the library: `Toolbox(font_dirs=...)`
   (or a session's own, ooxml-edit 0.13) sets `Document.font_dirs` on every deck the
   session opens or makes, and every render -- in the worker process too, the folders

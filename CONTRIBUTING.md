@@ -35,4 +35,4 @@ and skip cleanly elsewhere, including on CI:
 ## Pull requests
 
 Open pull requests against `main`. CI runs the suite on Linux, macOS and Windows, Python
-3.10 to 3.13, with the siblings installed from their `main` branches.
+3.10 to 3.15, with the siblings installed from their `main` branches.
