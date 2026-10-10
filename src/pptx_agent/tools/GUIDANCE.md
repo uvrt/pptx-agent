@@ -69,6 +69,12 @@ def review(toolbox, session, doc, numbers, house_rules, model_call):
                       rules=house_rules)
 ```
 
+- **Run it as a step of the application, not a choice of the model.** In a production
+  user's live runs on Azure OpenAI (Oct 2026, both libraries, 8 runs), gpt6-luna looked at
+  the render in every run; gpt6.1-sol skipped "look at the render" in all four of its runs.
+  A prompt that asks for a review is not a review pass: the application calls `render` and
+  `check` itself after the edit loop (or requires a review turn before `save_document`), and
+  treats facts still unresolved as blocking or reports them (see "Gates" below).
 - **When:** after the model reports it is done, and before the application hands the file
   on. One pass, and at most one more after the model has fixed what it found: in the trials
   a second render rarely changed anything a first one had not.
