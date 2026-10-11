@@ -23,7 +23,7 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
                / "halden-proposal-plan.pptx")
 
 #: The budgets (tool roadmap, "Budgets", after T5's rationalisation).  What binds is what a
-#: request loads: the core, at most 5,500 tokens as Anthropic's count-tokens counts them
+#: request loads: the core, at most 6,000 tokens as Anthropic's count-tokens counts them
 #: (test_tools_online.py, marked provider).  Offline, characters / 3.5 of the compact JSON
 #: stands in for it, times 1.48: the ratio of the counted to the estimated size T5 and T5b
 #: measured on Sonnet 5.5 (the deck core: 3,352 estimated, 5,097 counted; every definition:
@@ -59,10 +59,11 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: list; about 430), layout and master addresses in the prompt and decks' ``stories``
 #: (layouts, masters, all) on find_text and replace_text: 11,779 for every definition, the
 #: core 3,440 (about 5,091 counted); the guard rises to 11,800.  The strict set is unchanged:
-#: ``stories`` was already an optional parameter of replace_text, only its enum grew.
+#: ``stories`` was already an optional parameter of replace_text, only its enum grew.  On
+#: 2026-10-11 the user raised the core budget from 5,500 to 6,000 counted tokens per format.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
-CORE_COUNTED_BUDGET = 5500
+CORE_COUNTED_BUDGET = 6000
 ALL_GUARD = 11800
 
 
