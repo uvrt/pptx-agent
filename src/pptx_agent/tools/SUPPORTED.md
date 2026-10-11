@@ -28,7 +28,9 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Position, size, rotation, flips, fill, gradient, outline, geometry | `ppt_set_shape` | only the fields given change |
 | Connectors that stay attached | `ppt_add_connector` (`straight`, `elbow`, `curved`) | glued to a shape's side, or between points; arrowheads |
 | Z-order, group, ungroup, duplicate, delete | `ppt_arrange` | |
+| Align and distribute | `ppt_arrange` (`align`, `distribute`) | align an edge or centre to the targets' bounds, the slide or the content area; distribute with equal gaps between the outermost targets or across the content area, or with a fixed gap; one undo step, the boxes returned |
 | Pictures: insert, replace | `ppt_add_picture` | from an image blob; replacing keeps the frame, height or width |
+| SVG pictures | `ppt_add_picture` with an `image/svg+xml` blob | stored as PowerPoint 2016 and later store an inserted SVG: the vector, which PowerPoint can recolour, and a PNG fallback made for it; insert and replace |
 | Tables: new; cells, rows, columns, merges, widths, heights, fill, borders; style and Table Design flags | `ppt_add_table`, `ppt_edit_table` (`set_style`, `set_flags`) | cells by row and column or by their labels; a style by name or id, the deck's own (a template's) or any of PowerPoint's 74 built-in styles; header row, total row, first and last column, banded rows and columns |
 | Charts: new from data; read; values, categories, series, titles, axis titles, legend, data labels, gap width, axis scales, gridlines, series and point colours and markers, a column series as a line, chart text, point labels | `edit_chart` | column, stacked column, bar, stacked bar, line, pie, scatter, radar (lines), filled radar, bubble, as PowerPoint inserts each; point labels from the workbook as PowerPoint's Value From Cells; the embedded workbook changes with the chart |
 | SmartArt: node text, adding and removing nodes | `edit_smartart` | diagrams already in the deck; PowerPoint lays the diagram out again on opening |
@@ -43,7 +45,8 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 - **Animations and transitions.**
 - **SmartArt creation:** build the graphic with shapes and connectors (`ppt_add_shape`,
   `ppt_add_connector`); existing SmartArt can be edited.
-- **Icons** (PowerPoint's icon library).
+- **Icons** (PowerPoint's icon library): no icon library is provided. An icon the
+  application brings as SVG can be inserted (SVG pictures, above).
 - **Video and audio.**
 - **Sections** (grouping slides into named sections).
 - **Hyperlinks:** no links between slides, and no listing or editing of links. (A web address

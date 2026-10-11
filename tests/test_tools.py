@@ -47,11 +47,18 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: colours and markers, series type, chart text, point labels; the radar_filled and bubble
 #: types; ``scale``, ``style``, ``gridlines``, ``part``, ``labels``, ``cells``, ``secondary``)
 #: added 646 to every definition (11,113), none to the core; the guard rises to 11,200 rather
-#: than squeeze the descriptions.
+#: than squeeze the descriptions.  Round 3's align and distribute in the deferred ppt_arrange
+#: (``edge``, ``to``, ``axis``, ``within``, ``gap``; house rules that require equal spacing)
+#: and SVG pictures in ppt_add_picture's description added 196 to every definition (11,309),
+#: none to the core (3,398, about 5,029 counted); the guard rises to 11,400.  With eight
+#: optional parameters ppt_arrange no longer fits Claude's strict limit of 24 optional
+#: parameters beside the others, so it is sent non-strict (the dispatcher still validates
+#: it) and ppt_add_table takes its place: 29 free-text strings and 24 optional parameters
+#: over the strict tools, within the limits of 32 and 24.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 5500
-ALL_GUARD = 11200
+ALL_GUARD = 11400
 
 
 def estimate_tokens(definitions) -> int:
@@ -288,6 +295,56 @@ def test_format_text_set_shape_and_arrange(toolbox, session):
                    action="duplicate", dy=100))
     ids = [s.id for s in deck.slides[0].shapes]
     assert len(ids) == len(set(ids)) and copy.created[0] not in grouped.created
+
+
+def test_arrange_aligns_and_distributes_in_one_undo_step_each(toolbox, session):
+    """Round 3, A5: house rules that ask for equal spacing get one call that guarantees it."""
+    entry = session.entry("d1")
+    made = ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:257", items=[
+        {"preset": "roundRect", "box": {"x": x, "y": 200 + i * 7, "w": 80, "h": 60},
+         "ref": f"t{i}"} for i, x in enumerate([60, 170, 330, 420])]))
+    tiles = [f"$t{i}" for i in range(4)]
+    before = entry.version
+    aligned = ok(call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles,
+                      action="align", edge="top"))
+    assert entry.version == before + 1
+    assert aligned.changed == made.created[1:] and aligned.data["moved"] == aligned.changed
+    assert {box["y"] for box in aligned.data["boxes"].values()} == {200.0}
+    spread = ok(call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles,
+                     action="distribute", axis="horizontal"))
+    xs = sorted(box["x"] for box in spread.data["boxes"].values())
+    assert xs == [60.0, 180.0, 300.0, 420.0]                   # the outer two stay put
+    deck = entry.document
+    area = deck.slides[1].content_area
+    across = ok(call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles,
+                     action="distribute", axis="horizontal", within="content_area"))
+    boxes = sorted(across.data["boxes"].values(), key=lambda box: box["x"])
+    assert boxes[0]["x"] == round(area[0] / 12700, 2)
+    assert boxes[-1]["x"] + 80 == pytest.approx((area[0] + area[2]) / 12700, abs=0.01)
+    gaps = {round(b["x"] - a["x"] - a["w"], 1) for a, b in zip(boxes, boxes[1:])}
+    assert len(gaps) == 1
+    fixed = ok(call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles,
+                    action="distribute", axis="horizontal", gap=12))
+    boxes = sorted(fixed.data["boxes"].values(), key=lambda box: box["x"])
+    assert [b["x"] - a["x"] - a["w"] for a, b in zip(boxes, boxes[1:])] == [12.0] * 3
+    middle = ok(call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles,
+                     action="align", edge="center", to="slide"))
+    assert {box["x"] for box in middle.data["boxes"].values()} == {440.0}
+    before = entry.version
+    ok(call(toolbox, session, "undo", doc="d1"))
+    assert len({box["x"] for box in fixed.data["boxes"].values()}) == 4
+    assert sorted(round(deck_shape.left / 12700, 2) for deck_shape in
+                  (entry.document.shape(a) for a in made.created)) == \
+        [box["x"] for box in boxes]
+    for arguments, field in (({"action": "align"}, "edge"),
+                             ({"action": "distribute"}, "axis"),
+                             ({"action": "align", "edge": "left", "gap": 4}, "gap"),
+                             ({"action": "group", "edge": "left"}, "edge")):
+        refused = call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles, **arguments)
+        assert not refused.ok and refused.error.field == field
+    two = call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles[:2],
+               action="distribute", axis="vertical")
+    assert not two.ok and "three shapes" in two.error.message
 
 
 def test_connector_sides_face_each_other(toolbox, session):

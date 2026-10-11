@@ -23,7 +23,7 @@ see [Units](#units-emu-everywhere-pt-for-points) below.
 | Tables | **fully editable**: cell text and formatting, fills, borders, rows and columns, sizes, merges; cells by row and column label |
 | Charts | **fully editable**: values, categories, series, titles, axis titles, legend; series by name and points by category label; the cached data and the embedded workbook (what Edit Data opens) always change together |
 | SmartArt | node text, adding and removing nodes |
-| Shapes | position, size, rotation, flips, preset geometry and adjustments, fills and outlines in theme colours, z-order, duplicate, delete, groups; new autoshapes, text boxes, tables, pictures and connectors that stay attached; a picture's native size, its image replaced |
+| Shapes | position, size, rotation, flips, preset geometry and adjustments, fills and outlines in theme colours, z-order, duplicate, delete, groups; new autoshapes, text boxes, tables, pictures (SVG too, with a PNG fallback) and connectors that stay attached; a picture's native size, its image replaced; align and distribute |
 | Slides | add from a layout, duplicate, reorder, delete; titles, and a slide by its title; a layout's placeholders; draft whole slides from Markdown |
 | Decks | new from nothing or from a template; title, author, language, slide size; the theme's colours and fonts, read and set; which colours do which job, and their tints |
 | Checks | `validate()` (what PowerPoint would repair or refuse), `overflows()` and `text_fit()` (what will not fit, as PowerPoint draws it), `collisions()` (text over text, lines through text), `measure_text()` (before building) |
@@ -729,7 +729,13 @@ Positions in the tools are the model's own, in points. The layout library is sti
 code -- `pptx_agent.edit.arrange` (align, distribute), `pptx_agent.edit.layout` (stack,
 column, grid, place_labels), `pptx_agent.edit.scales` and `Slide.copy_shapes` -- but its
 tools (`ppt_layout`, `ppt_scale`, `ppt_copy`, `ppt_align`) were removed after trial 3, where no
-model called them. `ppt_design_facts` reports the palette, colour-coded sets and legends,
+model called them. Align and distribute came back as two `ppt_arrange` actions for
+applications whose house rules require equal spacing (round 3): `align` with `edge` (left,
+center, right, top, middle, bottom) and `to` (`shapes`, the default, `slide` or
+`content_area`), `distribute` with `axis` and `within` (`shapes`, between the outermost
+targets, or `content_area`) and an optional fixed `gap`. The content area is
+`Slide.content_area`: the layout's body placeholders, else the band under the title. Each
+is one undo step and returns the boxes. `ppt_design_facts` reports the palette, colour-coded sets and legends,
 empty regions, alignment, shape vocabulary, text sizes and lines over text -- facts, no
 verdicts (`Slide.design_facts`).
 
@@ -842,6 +848,35 @@ print(logo.height, logo.width, logo.left + logo.width == right)   # -> 731520 18
 states none). `replace_image` keeps the frame by default; `keep="height"` or `"width"` lets
 the other side follow the new image's proportions, `"none"` places it at its pixel size, and
 `anchor` is the point of the frame that stays put.
+
+### SVG pictures: icons that stay sharp
+
+```python
+from pptx_agent import Document
+
+check = (b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48">'
+         b'<circle cx="12" cy="12" r="10" fill="#1F5FAD"/></svg>')
+deck = Document.new()
+slide = deck.add_slide("Blank")
+icon = slide.add_picture(check, 914400, 914400)        # its own size: 48 px at 96 dpi
+print(icon.width, icon.vector == check, icon.image_size.width)   # -> 457200 True 150
+green = check.replace(b"#1F5FAD", b"#2E8B57")
+icon.replace_image(green)                                # a recoloured icon, its PNG made
+icon.set_vector(None)                                    # a plain bitmap again
+print(icon.vector)                                       # -> None
+```
+
+`slide.add_picture` takes an SVG (bytes or a `.svg` path) and stores it as PowerPoint 2016
+and later store an inserted SVG: the SVG, which PowerPoint draws sharp at any size and can
+recolour, and a PNG fallback for consumers that cannot draw SVG. The fallback is `fallback=`
+when given, else the SVG drawn at the placed size and `fallback_dpi` (300) by pptx2svg, which
+needs `pip install 'pptx-agent[png]'`. Without a size the picture takes the SVG's `width` and
+`height`, else its `viewBox`, at 96 dpi. The SVG is parsed as untrusted data (no DTD, no
+entities, at most 16 MiB) before it is stored, and an identical one is stored once.
+`replace_image(png, svg=...)` swaps both images at once; `set_vector` attaches, replaces or
+removes the SVG and leaves the PNG. `ppt_add_picture` takes an `image/svg+xml` blob, to insert
+or to replace, and makes the fallback itself; `ppt_read_slides` marks the picture `svg` (the
+outline's `<!-- 256.8 picture svg -->`, the geometry's `image.svg`).
 
 ### Full-state SVG
 

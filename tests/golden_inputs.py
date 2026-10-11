@@ -1,7 +1,8 @@
 """Build the inputs of the trial tasks p2-p6, of the spike's graphics tasks p7, p8, o1 and
 m1, of p10 (a review in comments), p11 (SmartArt), p12 (a rebrand through the theme), p14
-(a chart and a table on a branded template) and p15 (a maturity gap chart and an
-effort-against-impact matrix), for the golden transcripts (test_golden.py).
+(a chart and a table on a branded template), p15 (a maturity gap chart and an
+effort-against-impact matrix) and p16 (an approach slide: four phases with SVG icons, evenly
+spaced), for the golden transcripts (test_golden.py).
 
 The trial's own builder (recovered from its coordinator's transcript), run against this
 repository's fixtures, writes ``<root>/<task>/input/...``.  p1's template is the committed
@@ -592,6 +593,28 @@ def p15() -> None:
     (folder / "recommendations.csv").write_bytes(P15_RECOMMENDATIONS.encode("utf-8"))
 
 
+# ---------------------------------------------------------------- P16 approach with icons
+#: Four hand-written line icons, one per phase of the Halden approach: SVG as an icon
+#: library ships it (a 24-unit grid, a stroke, no fill), the brand blue written in.
+_ICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" '
+         'fill="none" stroke="#1F5FAD" stroke-width="2" stroke-linecap="round" '
+         'stroke-linejoin="round">{}</svg>\n')
+P16_ICONS = {
+    "diagnose.svg": '<circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/>',
+    "design.svg": '<path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/>',
+    "negotiate.svg": '<path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>',
+    "embed.svg": '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16 10"/>',
+}
+
+
+def p16() -> None:
+    """The Halden draft, and the four phase icons as SVG files."""
+    folder = out("p16-approach-icons")
+    (folder / "halden-proposal-draft.pptx").write_bytes(HALDEN.read_bytes())
+    for name, body in P16_ICONS.items():
+        (folder / name).write_bytes(_ICON.format(body).encode("utf-8"))
+
+
 BUILDERS = {"p2-quarterly-update": p2, "p3-split-slide": p3, "p4-process-diagram": p4,
             "p5-rebrand": p5, "p6-restructure-deck": p6,
             "p7-phased-approach": halden("p7-phased-approach"),
@@ -600,7 +623,7 @@ BUILDERS = {"p2-quarterly-update": p2, "p3-split-slide": p3, "p4-process-diagram
             "m1-priority-matrix": halden("m1-priority-matrix", (3, "Prioritisation")),
             "p10-review-comments": p10, "p11-update-smartart": p11,
             "p12-theme-rebrand": p12, "p14-brand-chart-table": p14,
-            "p15-maturity-charts": p15}
+            "p15-maturity-charts": p15, "p16-approach-icons": p16}
 
 
 #: Builders that draw from scratch what is otherwise committed (``--draw``).

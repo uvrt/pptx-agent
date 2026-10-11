@@ -136,6 +136,8 @@ def _shape_json(shape, z: int) -> dict[str, Any]:
         size = shape.image_size
         if size is not None:
             data["image"] = {"px": [size.width, size.height]}
+        if shape.vector is not None:
+            data.setdefault("image", {})["svg"] = True
     elif shape.kind == "graphic_frame":
         if shape.has_table:
             table = shape.table

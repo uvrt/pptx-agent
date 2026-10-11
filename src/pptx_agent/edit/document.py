@@ -74,6 +74,7 @@ from .text import Paragraph, Run, TextFrame
 from .ids import ShapeId, SlideShapeIndex, cnv_pr, read_stamp, write_stamp
 from .comments import CommentOps, drop_comments
 from . import creating as _creating
+from . import svgpicture as _svgpicture
 from .creating import Adjustments, ShapeFactory
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -1375,7 +1376,9 @@ class Shape(ShapeFactory):
         return ImageSize(pixels[0], pixels[1], image_dpi(data))
 
     def replace_image(self, image: "bytes | str | os.PathLike[str]", *, keep: str = "frame",
-                      anchor: str = "top_left") -> "Shape":
+                      anchor: str = "top_left",
+                      svg: "bytes | str | os.PathLike[str] | None" = None,
+                      fallback_dpi: float = 300) -> "Shape":
         """Show a different image in this picture, keeping its effects and outline.
 
         ``keep`` says what of the frame stays: ``"frame"`` (the default) its position and
@@ -1387,6 +1390,11 @@ class Shape(ShapeFactory):
         ``"top_right"``, ``"left"``, ``"center"``, ``"right"``, ``"bottom_left"``,
         ``"bottom"`` or ``"bottom_right"``.
 
+        An SVG ``image`` makes this an SVG picture, as :meth:`Slide.add_picture` makes one:
+        its PNG fallback drawn at the new frame's size and ``fallback_dpi``.  A raster
+        ``image`` with ``svg`` (bytes or a path) gives both images at once -- a recoloured
+        icon and its PNG.  Otherwise the picture keeps no SVG.
+
         The crop (``a:srcRect``) and any SVG alternative belonged to the old image and are
         dropped.  The old image's relationship is removed, and its media part too unless
         something else in the package still shows it.  One undo step.
@@ -1395,6 +1403,7 @@ class Shape(ShapeFactory):
 
             picture.replace_image("new-logo.png")                       # same frame
             logo.replace_image("new-logo.png", keep="height", anchor="top_right")
+            icon.replace_image(recoloured_png, svg=recoloured_svg)
         """
         if self._blip() is None:
             raise ValueError(f"{self.id}: a {self.kind} has no image to replace")
@@ -1403,9 +1412,20 @@ class Shape(ShapeFactory):
         if anchor not in _ANCHORS:
             raise ValueError(f"anchor is one of {sorted(_ANCHORS)}")
         data, suffix = _read_image(image)
+        vector = None
+        if _svgpicture.looks_like_svg(data, suffix):
+            if svg is not None:
+                raise ValueError("image is an SVG already: give svg with a raster image")
+            vector, data, suffix = data, None, None
+        elif svg is not None:
+            vector, svg_suffix = _read_image(svg)
+            if not _svgpicture.looks_like_svg(vector, svg_suffix):
+                raise ValueError("svg is not an SVG document")
+        root = _svgpicture.parse(vector) if vector is not None else None
+        native = _svgpicture.native_size(root) if root is not None else None
+        pixels = native if native is not None else (image_size(data) if data else None)
         frame = None
         if keep != "frame":
-            pixels = image_size(data)
             if pixels is None or not all(pixels):
                 raise ValueError("cannot read this image's size; keep='frame' needs none")
             left, top, width, height = self.left, self.top, self.width, self.height
@@ -1416,10 +1436,16 @@ class Shape(ShapeFactory):
             elif keep == "width":
                 new_w, new_h = width, round(width * pixels[1] / pixels[0])
             else:
-                new_w, new_h = (dimension * EMU_PER_INCH // 96 for dimension in pixels)
+                new_w, new_h = (round(dimension * EMU_PER_INCH / 96) for dimension in pixels)
             fx, fy = _ANCHORS[anchor]
             frame = (round(left + (width - new_w) * fx), round(top + (height - new_h) * fy),
                      new_w, new_h)
+        if data is None:
+            size = frame[2:] if frame is not None else (self.width, self.height)
+            if None in size:
+                raise ValueError(f"{self.id}: the picture has no size to draw the SVG at")
+            data = _svgpicture.rasterise(vector, size[0], size[1], fallback_dpi,
+                                         self._slide.document.font_dirs)
         package = self._slide.document.package
         with self._slide.document.batch():
             self._before_change()
@@ -1429,13 +1455,10 @@ class Shape(ShapeFactory):
             assert blip is not None
             blip.set(qn("r:embed"), rel_id)
             blip.attrib.pop(qn("r:link"), None)
-            extensions = blip.find(qn("a:extLst"))
-            if extensions is not None:
-                for extension in list(extensions):
-                    if extension.get("uri") == _SVG_BLIP_EXT_URI:
-                        remove(extension)
-                if len(extensions) == 0:
-                    remove(extensions)
+            _svgpicture.drop(blip)
+            if vector is not None:
+                _svgpicture.attach(blip, package.add_relationship(
+                    self._slide.part_path, REL_IMAGE, _svgpicture.store(package, vector)))
             crop = blip.getparent().find(qn("a:srcRect"))
             if crop is not None:
                 remove(crop)
@@ -1443,6 +1466,56 @@ class Shape(ShapeFactory):
             if frame is not None:
                 self._set_offset(x=frame[0], y=frame[1])
                 self._set_extent(cx=frame[2], cy=frame[3])
+        return self
+
+    @property
+    def vector(self) -> bytes | None:
+        """The SVG an SVG picture shows (``asvg:svgBlip``), as stored; ``None`` for any
+        other shape, and for a picture with no SVG or whose SVG part is missing.
+
+        For example::
+
+            if picture.vector is not None:
+                icon = picture.vector.decode()
+        """
+        blip = self._blip()
+        found = _svgpicture.svg_blip(blip) if blip is not None else None
+        if found is None:
+            return None
+        part = self._slide.document.package.related_part(self._slide.part_path,
+                                                         found.get(qn("r:embed")))
+        if part is None or not self._slide.document.package.has_part(part):
+            return None
+        return self._slide.document.package.read(part)
+
+    def set_vector(self, svg: "bytes | str | os.PathLike[str] | None") -> "Shape":
+        """Give this picture an SVG original (bytes or a path), replace it, or remove it
+        (``None``).  The PNG it shows stays: it is what a consumer without SVG draws, so it
+        should be this SVG's picture (:meth:`replace_image` with ``svg=`` changes both).
+        The SVG is parsed as untrusted data first and stored once.  One undo step.
+
+        For example::
+
+            picture.set_vector("icon.svg")
+            picture.set_vector(None)                    # a plain bitmap again
+        """
+        blip = self._blip()
+        if blip is None:
+            raise ValueError(f"{self.id}: a {self.kind} has no image to give an SVG")
+        vector = None
+        if svg is not None:
+            vector, suffix = _read_image(svg)
+            if not _svgpicture.looks_like_svg(vector, suffix):
+                raise ValueError("svg is not an SVG document")
+            _svgpicture.parse(vector)
+        package = self._slide.document.package
+        with self._slide.document.batch():
+            self._before_change()
+            _svgpicture.drop(blip)
+            if vector is not None:
+                _svgpicture.attach(blip, package.add_relationship(
+                    self._slide.part_path, REL_IMAGE, _svgpicture.store(package, vector)))
+            self._after_change()
         return self
 
     def _blip(self) -> Element | None:
@@ -1917,19 +1990,46 @@ class Slide(ShapeFactory):
 
     def add_picture(self, image: "bytes | str | os.PathLike[str]", left: int = 0, top: int = 0,
                     width: int | None = None, height: int | None = None, *,
-                    name: str | None = None, description: str | None = None) -> Shape:
+                    name: str | None = None, description: str | None = None,
+                    fallback: "bytes | str | os.PathLike[str] | None" = None,
+                    fallback_dpi: float = 300) -> Shape:
         """Insert a picture shape, frontmost; returns it.
 
-        ``image`` is the image's bytes or a path (PNG, JPEG, GIF, BMP or TIFF).  Without a size
-        the picture is placed at its pixel size at 96 dpi; with only one of ``width`` and
+        ``image`` is the image's bytes or a path (PNG, JPEG, GIF, BMP, TIFF or SVG).  Without a
+        size the picture is placed at its pixel size at 96 dpi; with only one of ``width`` and
         ``height`` the other keeps the aspect ratio.  The image is stored once -- an identical
         one already in the deck is reused -- and undo removes it again.
+
+        **An SVG** becomes an SVG picture as PowerPoint 2016 and later store one
+        (:mod:`pptx_agent.edit.svgpicture`): the SVG itself, which PowerPoint draws and can
+        recolour, and a PNG for consumers that cannot draw SVG.  The PNG is ``fallback``
+        when given, else the SVG drawn at the placed size and ``fallback_dpi`` by pptx2svg
+        (``pip install 'pptx-agent[png]'``; an ``ImportError`` says so without it).  Its
+        own size is the SVG's ``width`` and ``height``, else its ``viewBox``, at 96 dpi.  The
+        SVG is parsed as untrusted data (no DTD, no entities, at most 16 MiB) before it is
+        stored.
 
         For example::
 
             slide.add_picture("logo.png", left=914400, top=457200, width=1828800)
+            slide.add_picture("icon.svg", left=914400, top=457200, width=457200)
         """
         data, suffix = _read_image(image)
+        vector = None
+        if _svgpicture.looks_like_svg(data, suffix):
+            vector = data
+            width, height = _svgpicture.size_emu(_svgpicture.parse(vector), width, height)
+            if fallback is None:
+                data = _svgpicture.rasterise(vector, width, height, fallback_dpi,
+                                             self.document.font_dirs)
+                suffix = None
+            else:
+                data, suffix = _read_image(fallback)
+                if _svgpicture.looks_like_svg(data, suffix):
+                    raise ValueError("fallback is the bitmap shown where SVG is not drawn "
+                                     "(PNG, JPEG...), not an SVG")
+        elif fallback is not None:
+            raise ValueError("fallback is for an SVG picture; this image is not an SVG")
         pixels = image_size(data)
         if width is None or height is None:
             if pixels is None or not all(pixels):
@@ -1950,18 +2050,25 @@ class Slide(ShapeFactory):
             identifier = self._next_shape_id()
             picture = make("p:pic")
             nv = make("p:nvPicPr")
+            # PowerPoint names an inserted SVG "Graphic N" and leaves its aspect unlocked.
             properties = make("p:cNvPr", id=str(identifier),
-                              name=name or f"Picture {identifier - 1}")
+                              name=name or f"{'Graphic' if vector else 'Picture'} "
+                                           f"{identifier - 1}")
             if description:
                 properties.set("descr", description)
             nv.append(properties)
             locks = make("p:cNvPicPr")
-            locks.append(make("a:picLocks", noChangeAspect="1"))
+            locks.append(make("a:picLocks") if vector else make("a:picLocks",
+                                                                 noChangeAspect="1"))
             nv.append(locks)
             nv.append(make("p:nvPr"))
             picture.append(nv)
             blip_fill = make("p:blipFill")
-            blip_fill.append(make("a:blip", r__embed=rel_id))
+            blip = make("a:blip", r__embed=rel_id)
+            if vector is not None:
+                _svgpicture.attach(blip, package.add_relationship(
+                    self.part_path, REL_IMAGE, _svgpicture.store(package, vector)))
+            blip_fill.append(blip)
             stretch = make("a:stretch")
             stretch.append(make("a:fillRect"))
             blip_fill.append(stretch)
@@ -3581,10 +3688,6 @@ class ImageSize(NamedTuple):
 _ANCHORS = {"top_left": (0, 0), "top": (0.5, 0), "top_right": (1, 0), "left": (0, 0.5),
             "center": (0.5, 0.5), "right": (1, 0.5), "bottom_left": (0, 1),
             "bottom": (0.5, 1), "bottom_right": (1, 1)}
-
-#: ``a:ext`` URI of an SVG alternative to a bitmap blip (``asvg:svgBlip``).
-_SVG_BLIP_EXT_URI = "{96DAC541-7B7A-43D3-8B79-37D633B846F1}"
-
 
 def _read_image(image: "bytes | str | os.PathLike[str]") -> tuple[bytes, str | None]:
     """An image's bytes, and the extension its path gave, if it came from a file."""

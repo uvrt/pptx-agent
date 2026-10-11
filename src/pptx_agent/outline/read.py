@@ -269,7 +269,8 @@ def _shape_block(document: "Document", slide: "Slide", shape: "Shape", *,
         words = prefix + ([placeholder_label(placeholder)] if placeholder is not None else [])
         return " ".join(words), lines
     if kind == "pic":
-        return " ".join(prefix + ["picture"] + ([placeholder_label(placeholder)]
+        vector = ["svg"] if shape.vector is not None else []
+        return " ".join(prefix + ["picture"] + vector + ([placeholder_label(placeholder)]
                                                 if placeholder is not None else [])), \
             [_picture(document, slide, shape)]
     if kind == "graphicFrame":

@@ -115,6 +115,8 @@ def _hint(text: str) -> Hint | None:
             hint.kind = word
         elif word == "empty":
             hint.empty = True
+        elif word == "svg":
+            pass                  # an SVG picture: its source is the PNG it shows
         elif word == "ph:" and k + 1 < len(words):
             kind = words[k + 1]
             idx = None

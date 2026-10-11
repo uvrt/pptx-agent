@@ -38,12 +38,12 @@ def _check(*values, expected: str) -> None:
 
 def test_the_guide_has_the_common_tasks():
     titles = [title for title, _ in _examples()]
-    assert len(titles) == 27, titles
+    assert len(titles) == 28, titles
     for wanted in ("Units", "Text frames", "Collisions", "Measure text", "change its colours",
                    "Open a deck", "Find text", "mixed formatting", "Tables", "Charts",
                    "SmartArt", "Fills and outlines", "connectors and groups", "Slides",
                    "insert_outline", "Speaker notes", "text fit", "Layouts", "Theme",
-                   "Pictures", "Full-state SVG", "New decks and templates",
+                   "Pictures", "SVG pictures", "Full-state SVG", "New decks and templates",
                    "Render, validate, save", "Undo", "One text spec", "Agent tools",
                    "Review comments"):
         assert any(wanted in title for title in titles), wanted

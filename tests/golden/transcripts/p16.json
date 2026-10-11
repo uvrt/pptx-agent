@@ -1,0 +1,421 @@
+{
+ "task": "p16-approach-icons",
+ "inputs": [
+  {
+   "file": "input/halden-proposal-draft.pptx",
+   "as": "document",
+   "sha256": "9b2639c49317af6b6820c2bfd2dfaeb41c37772a116bda318b9a33be116446fe",
+   "content_sha256": "120457aecbd004f1d3a163b9bf6a5d5203e6ab311b9e52e1acb7c63cd5c2e34c"
+  },
+  {
+   "file": "input/diagnose.svg",
+   "as": "blob",
+   "sha256": "e701720a2923060470061007dc0500ebe6b872eba345b87ca63f86e94c0e6be8"
+  },
+  {
+   "file": "input/design.svg",
+   "as": "blob",
+   "sha256": "0923bfb7dfbea8c060c6c52b28d6a7876ae7ec5d9fee27af33815bd8ef77b1a3"
+  },
+  {
+   "file": "input/negotiate.svg",
+   "as": "blob",
+   "sha256": "8daad0fe015b7c303090f3de446a985ebe7ace3c6047f2dc424b72025f3019e7"
+  },
+  {
+   "file": "input/embed.svg",
+   "as": "blob",
+   "sha256": "6bfbdfb7e02d507fef4692501f2aadedc284716392de8464a19081415f025a10"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_set_text",
+      "arguments": {
+       "doc": "d1",
+       "items": [
+        {
+         "target": "257.2",
+         "text": "Four phases take Halden from a spend baseline to tracked savings"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "ppt_add_picture",
+      "arguments": {
+       "doc": "d1",
+       "image": "b1",
+       "slide": "s:257",
+       "box": {
+        "x": 103,
+        "y": 180,
+        "w": 64,
+        "h": 64
+       },
+       "ref": "icon1"
+      }
+     },
+     {
+      "tool": "ppt_add_picture",
+      "arguments": {
+       "doc": "d1",
+       "image": "b2",
+       "slide": "s:257",
+       "box": {
+        "x": 313,
+        "y": 180,
+        "w": 64,
+        "h": 64
+       },
+       "ref": "icon2"
+      }
+     },
+     {
+      "tool": "ppt_add_picture",
+      "arguments": {
+       "doc": "d1",
+       "image": "b3",
+       "slide": "s:257",
+       "box": {
+        "x": 553,
+        "y": 180,
+        "w": 64,
+        "h": 64
+       },
+       "ref": "icon3"
+      }
+     },
+     {
+      "tool": "ppt_add_picture",
+      "arguments": {
+       "doc": "d1",
+       "image": "b4",
+       "slide": "s:257",
+       "box": {
+        "x": 763,
+        "y": 180,
+        "w": 64,
+        "h": 64
+       },
+       "ref": "icon4"
+      }
+     },
+     {
+      "tool": "ppt_add_shape",
+      "arguments": {
+       "doc": "d1",
+       "slide": "s:257",
+       "items": [
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 40,
+          "y": 250,
+          "w": 190,
+          "h": 50
+         },
+         "fit_height": true,
+         "paragraphs": [
+          {
+           "align": "center",
+           "runs": [
+            {
+             "text": "Diagnose",
+             "bold": true,
+             "size": 18,
+             "color": "tx2"
+            }
+           ]
+          },
+          {
+           "align": "center",
+           "runs": [
+            {
+             "text": "Baseline the spend",
+             "size": 14
+            }
+           ]
+          }
+         ],
+         "ref": "label1"
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 250,
+          "y": 250,
+          "w": 190,
+          "h": 50
+         },
+         "fit_height": true,
+         "paragraphs": [
+          {
+           "align": "center",
+           "runs": [
+            {
+             "text": "Design",
+             "bold": true,
+             "size": 18,
+             "color": "tx2"
+            }
+           ]
+          },
+          {
+           "align": "center",
+           "runs": [
+            {
+             "text": "Category strategies",
+             "size": 14
+            }
+           ]
+          }
+         ],
+         "ref": "label2"
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 490,
+          "y": 250,
+          "w": 190,
+          "h": 50
+         },
+         "fit_height": true,
+         "paragraphs": [
+          {
+           "align": "center",
+           "runs": [
+            {
+             "text": "Negotiate",
+             "bold": true,
+             "size": 18,
+             "color": "tx2"
+            }
+           ]
+          },
+          {
+           "align": "center",
+           "runs": [
+            {
+             "text": "Supplier rounds",
+             "size": 14
+            }
+           ]
+          }
+         ],
+         "ref": "label3"
+        },
+        {
+         "preset": "textbox",
+         "box": {
+          "x": 700,
+          "y": 250,
+          "w": 190,
+          "h": 50
+         },
+         "fit_height": true,
+         "paragraphs": [
+          {
+           "align": "center",
+           "runs": [
+            {
+             "text": "Embed",
+             "bold": true,
+             "size": 18,
+             "color": "tx2"
+            }
+           ]
+          },
+          {
+           "align": "center",
+           "runs": [
+            {
+             "text": "Savings tracking",
+             "size": 14
+            }
+           ]
+          }
+         ],
+         "ref": "label4"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "257.3",
+     "257.4",
+     "257.5",
+     "257.6",
+     "257.7",
+     "257.8",
+     "257.9",
+     "257.10"
+    ],
+    "refs": {
+     "icon1": "257.3",
+     "icon2": "257.4",
+     "icon3": "257.5",
+     "icon4": "257.6",
+     "label1": "257.7",
+     "label2": "257.8",
+     "label3": "257.9",
+     "label4": "257.10"
+    }
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "ppt_arrange",
+      "arguments": {
+       "doc": "d1",
+       "targets": [
+        "$icon1",
+        "$label1"
+       ],
+       "action": "group",
+       "ref": "step1"
+      }
+     },
+     {
+      "tool": "ppt_arrange",
+      "arguments": {
+       "doc": "d1",
+       "targets": [
+        "$icon2",
+        "$label2"
+       ],
+       "action": "group",
+       "ref": "step2"
+      }
+     },
+     {
+      "tool": "ppt_arrange",
+      "arguments": {
+       "doc": "d1",
+       "targets": [
+        "$icon3",
+        "$label3"
+       ],
+       "action": "group",
+       "ref": "step3"
+      }
+     },
+     {
+      "tool": "ppt_arrange",
+      "arguments": {
+       "doc": "d1",
+       "targets": [
+        "$icon4",
+        "$label4"
+       ],
+       "action": "group",
+       "ref": "step4"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "257.11",
+     "257.12",
+     "257.13",
+     "257.14"
+    ],
+    "refs": {
+     "step1": "257.11",
+     "step2": "257.12",
+     "step3": "257.13",
+     "step4": "257.14"
+    }
+   }
+  },
+  {
+   "tool": "ppt_arrange",
+   "arguments": {
+    "doc": "d1",
+    "targets": [
+     "$step1",
+     "$step2",
+     "$step3",
+     "$step4"
+    ],
+    "action": "distribute",
+    "axis": "horizontal",
+    "within": "content_area"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_arrange",
+   "arguments": {
+    "doc": "d1",
+    "targets": [
+     "$step1",
+     "$step2",
+     "$step3",
+     "$step4"
+    ],
+    "action": "align",
+    "edge": "middle",
+    "to": "content_area"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "halden-proposal-draft.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "halden-proposal-draft.pptx",
+  "sha256": "ae2f8570fdd8b8a850086eab1c54fdcee2b1d0fe3f333b5749f0df3aa19733c1",
+  "calls": 7,
+  "content_sha256": "a5f69bca4c561c2665a381906a6c11d7f3ba01e5de3a8e99e81ff0ac47345bfc"
+ },
+ "check": {
+  "total": 17,
+  "passed": 17
+ }
+}
