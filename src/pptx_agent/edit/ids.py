@@ -30,6 +30,7 @@ extension elements it does not recognise, which is what makes the stamp durable.
 
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass
 
 from ooxml_edit.stamp import ExtensionStamp
@@ -54,17 +55,36 @@ _NV_CONTAINER: dict[str, str] = {
 }
 
 
-@dataclass(frozen=True, order=True)
+#: The lowest ``sldMasterId``/``sldLayoutId`` the schema allows: a layout's key is ``L``
+#: and its id less this (``L1`` is 2147483649), a master's ``M`` and its id less this.
+TEMPLATE_ID_BASE = 2147483648
+
+
+def is_template_key(text: object) -> bool:
+    """Whether ``text`` names a layout (``"L3"``) or a master (``"M0"``)."""
+    return isinstance(text, str) and len(text) > 1 and text[0] in "LM" and text[1:].isdigit()
+
+
+@functools.total_ordering
+@dataclass(frozen=True)
 class ShapeId:
-    """A deck-wide shape address, rendered as ``"<sldId>.<local>"``.
+    """A deck-wide shape address, rendered as ``"<sldId>.<local>"`` -- or, for a shape on a
+    layout or a master, ``"L<n>.<local>"`` / ``"M<n>.<local>"``, where ``n`` is the
+    layout's ``sldLayoutId`` (the master's ``sldMasterId``) less 2147483648.  Those ids are
+    as durable as a slide's ``sldId``: PowerPoint keeps them when it saves, while it
+    renumbers the parts.
 
     For example::
 
         ShapeId.parse("257.3#5")                       # ShapeId(slide_id=257, local='3#5')
+        ShapeId.parse("L2.5")                          # ShapeId(slide_id='L2', local='5')
     """
 
-    slide_id: int
+    slide_id: "int | str"
     local: str
+
+    def __lt__(self, other: "ShapeId") -> bool:
+        return (str(self.slide_id), self.local) < (str(other.slide_id), other.local)
 
     def __str__(self) -> str:
         return f"{self.slide_id}.{self.local}"
@@ -82,6 +102,8 @@ class ShapeId:
         slide, separator, local = text.partition(".")
         if not separator or not local:
             raise ValueError(f"malformed shape id {text!r}; expected '<sldId>.<shape>'")
+        if is_template_key(slide):
+            return cls(slide, local)
         try:
             return cls(int(slide), local)
         except ValueError:
@@ -103,7 +125,7 @@ class SlideShapeIndex:
     reordering shapes -- since index paths shift.
     """
 
-    def __init__(self, slide_id: int, sp_tree: Element) -> None:
+    def __init__(self, slide_id: "int | str", sp_tree: Element) -> None:
         self.slide_id = slide_id
         self._by_id: dict[str, Element] = {}
         self._for_element: dict[int, str] = {}

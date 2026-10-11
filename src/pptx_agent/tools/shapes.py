@@ -18,7 +18,7 @@ from ..edit.fill import ARROWHEADS
 #: The dash styles offered (the library takes all of ECMA's eleven).
 DASHES = ["solid", "dash", "dot", "dashDot", "lgDash", "sysDash", "sysDot"]
 from .common import (ANCHOR, AUTOFIT, KIND, box_emu, box_pt, emu, frame_of, insets_param,
-                     library_errors, pt, resolve, shape as shape_at, slide as slide_at,
+                     library_errors, place, pt, resolve, shape as shape_at, host as slide_at,
                      spec_of, text_params, write_text)
 from .text import COMMON_PRESETS, preset_of
 
@@ -161,7 +161,7 @@ def ppt_add_shape(call, doc, slide, items, measure=False, key=None):
         if item.get("fit_height"):
             fits[shape.id] = {"h": pt(shape.height)}
     call.touch(target.slide_id, *made)
-    return Result(summary=f"Added {len(made)} shape(s) to s:{target.slide_id}", created=made,
+    return Result(summary=f"Added {len(made)} shape(s) to {place(target)}", created=made,
                   data={"heights": fits} if fits else None)
 
 

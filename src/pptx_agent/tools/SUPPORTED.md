@@ -11,13 +11,13 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Open a deck or template; a new deck, from nothing or from a template | `open_document`, `new_document` | inputs are blobs the application registered; a template's slides are dropped from a new deck |
 | Save as a deck, a template or a text outline | `save_document` (`pptx`, `potx`, `outline`) | refuses new validation problems; lists overflows, collisions and empty placeholders still there |
 | Close a document | `close_document` | the session holds a few documents at a time |
-| The deck at a glance | `describe` | slides with ids, titles, layouts and content areas; theme colours, fonts, roles and tints; the deck's table styles (its default, its own, how the built-in names go); layouts and their placeholders; comment counts |
+| The deck at a glance | `describe` | slides with ids, titles, layouts and content areas; theme colours, fonts, roles and tints; the deck's table styles (its default, its own, how the built-in names go); masters and layouts with their ids (`M0`, `L2`), placeholders (and their ids and custom prompts) and the text on them that is not a placeholder (a legal line); comment counts |
 | Read slides | `ppt_read_slides` (`outline`, `geometry`, `svg`) | outline Markdown with ids; every shape's box, fill, outline and text; a compact SVG view |
 | Read a text input (CSV, Markdown, plain text) | `read_blob` | a page at a time |
-| Find and replace text | `find_text`, `replace_text` | slides, notes, tables and SmartArt; `expect: one` or `all` |
+| Find and replace text | `find_text`, `replace_text` | slides, notes, tables and SmartArt; `expect: one` or `all`; `stories: layouts`, `masters` or `all` reach the text on layouts and masters (a footer year, a legal line, a prompt), addresses `L2.5`, `M0.7` |
 | Look at slides | `render` | PNG, at most 4 a call; says which text the image leaves out for want of a font (`missing_glyphs`) |
 | Fit, collisions, validation, design facts | `check` | overflows, collisions (`boxes` too), shapes off the slide, empty placeholders ("Click to add text"), problem facts, design facts, validation |
-| Undo and redo | `undo` | one call is one step; refs come back with the state |
+| Undo and redo | `undo` | one call is one step; refs come back with the state; undo by slide (`scope`) refuses a change to a layout or master the slide shows (`entangled`: other slides show it too) |
 | Several calls as one step | `batch` | in order, all or nothing, checks once at the end |
 | Slides from a layout, with title, body and notes | `ppt_add_slide` | the deck's own layouts and placeholders |
 | Slides from a Markdown outline | `ppt_draft_slides` | into the deck's layouts |
@@ -35,6 +35,10 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Charts: new from data; read; values, categories, series, titles, axis titles, legend, data labels, gap width, axis scales, gridlines, series and point colours and markers, a column series as a line, chart text, point labels | `edit_chart` | column, stacked column, bar, stacked bar, line, pie, scatter, radar (lines), filled radar, bubble, as PowerPoint inserts each; point labels from the workbook as PowerPoint's Value From Cells; the embedded workbook changes with the chart |
 | SmartArt: node text, adding and removing nodes | `edit_smartart` | diagrams already in the deck; PowerPoint lays the diagram out again on opening |
 | The theme's colours and fonts | `ppt_set_theme` | every theme reference in the deck follows |
+| Slide master and layout shapes: text, formatting, fill, position, size, delete, pictures; new text boxes, shapes, pictures (SVG too), connectors and tables on them | `ppt_set_text`, `ppt_format_text`, `ppt_set_shape`, `ppt_arrange`, `ppt_add_shape`, `ppt_add_picture`, `ppt_add_connector`, `ppt_add_table` with addresses `L2.5`, `M0.7` (`slide: L2` or `M0` to add) | the same edits a slide's shapes take; every result lists the slides it `affects` and checks them; a slide's own placeholder text and overrides stay; deleting a layout or master placeholder that slides or layouts inherit from is refused, with the list |
+| A layout placeholder's prompt text ("Typ hier uw bevinding") | `ppt_edit_master` `set_prompt` | the first level (`\n`: the next ones), formatting and levels kept, `hasCustomPrompt` set, as typing it in Slide Master view does; shown in an empty placeholder while editing, never in a show or export |
+| Header & Footer: footer text, slide number, date (updating or fixed), not on title slides | `ppt_edit_master` `set_footer` | Apply to All (masters, every layout and every slide, as PowerPoint writes it) or Apply (`slides`); turning one off removes it from the slides |
+| Layouts: add (a custom layout), duplicate, rename, delete | `ppt_edit_master` `add_layout`, `duplicate_layout`, `rename_layout`, `delete_layout` | as Slide Master view does; a layout in use is not deleted unless its slides move to another (`reassign_to`); names stay unique on a master; ids (`L2`) are the file's own and PowerPoint keeps them |
 | Document properties | `set_properties` | title, author, language, subject |
 | Comments: threads on a slide or a shape, replies, resolving | `ppt_comments` (`list`, `add`, `reply`, `resolve`, `reopen`, `edit`, `delete`) | PowerPoint's modern (threaded) comments |
 | Design facts of a slide | `ppt_design_facts` | palette, sets of like shapes and legends, empty regions, alignment, vocabulary, text sizes, lines over text: facts, no verdicts |
@@ -52,6 +56,8 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 - **Hyperlinks:** no links between slides, and no listing or editing of links. (A web address
   can be put on a run of text through the text spec's `hyperlink`; nothing more.)
 - **Action buttons** and other click or hover actions.
-- **Slide master and layout editing:** using the deck's existing layouts is supported;
-  changing a master or a layout is not (the theme's colours and fonts can be set).
+- **Masters themselves:** a master's shapes, its layouts and Header & Footer can be edited
+  (above); adding or deleting a slide master, the master's text styles (the levels' sizes and
+  bullets) and backgrounds are not. Text fit is measured on the slides a layout or master
+  edit affects, not on the layout itself.
 - The older, non-threaded comments (`ppt/comments/comment<n>.xml`) are not read or written.

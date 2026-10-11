@@ -8,7 +8,7 @@ import dataclasses
 import pytest
 
 from conftest import FIXTURE_DIR
-from pptx_agent import Document, Layout, LayoutPlaceholder, LayoutShape, Placeholder
+from pptx_agent import Document, Layout, LayoutPlaceholder, LayoutShape, Placeholder, Shape
 
 TEMPLATE = FIXTURE_DIR / "generated" / "trial" / "company-template.potx"
 
@@ -57,18 +57,20 @@ def test_a_template_with_its_own_names():
     assert title.name == "Google Shape;45;p6"
 
 
-def test_layout_shapes_are_read_only():
+def test_layout_shapes_are_editable_shapes():
     deck = Document.new()
     layout = deck.layout("Title Slide")
     shapes = layout.shapes
-    assert all(isinstance(shape, LayoutShape) for shape in shapes)
+    assert all(isinstance(shape, Shape) for shape in shapes)
     assert [shape.placeholder.type for shape in shapes] == ["ctrTitle", "subTitle", "dt", "ftr",
                                                             "sldNum"]
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        shapes[0].name = "x"
+    assert [shape.id for shape in shapes][:2] == ["L1.2", "L1.3"]
+    shapes[0].name = "x"
+    assert deck.layout("Title Slide").shapes[0].name == "x"
     with pytest.raises(AttributeError):
         layout.shapes = []
     assert isinstance(layout, Layout) and layout == deck.layouts[0]
+    assert LayoutShape is not None        # still importable for code that builds one
 
 
 def test_a_hand_made_layout_says_where_to_get_one():

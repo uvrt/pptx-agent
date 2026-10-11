@@ -309,8 +309,7 @@ def theme_fill_style(slide, index: int) -> Element | None:
     the format scheme's ``fillStyleLst``, 1001 and up its ``bgFillStyleLst``; ``None``
     for 0 (no fill) or past the list."""
     package = slide.document.package
-    layout = inherit.layout_of(package, slide.part_path)
-    master = inherit.master_of(package, layout) or first_master(package)
+    master = slide._template_parts()[1] or first_master(package)
     part = theme_part(package, master) if master else None
     root = package.tree(part) if part else None
     if root is None or index <= 0:
@@ -335,8 +334,8 @@ def theme_for(target) -> Theme:
         target = target._slide
     if isinstance(target, Slide):
         package = target.document.package
-        layout = inherit.layout_of(package, target.part_path)
-        master = inherit.master_of(package, layout) or first_master(package)
+        layout, master = target._template_parts()
+        master = master or first_master(package)
         overrides = []
         for part in (layout, target.part_path):
             root = package.tree(part) if part else None

@@ -17,6 +17,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, BinaryIO, Iterator, NamedTuple
 
 if TYPE_CHECKING:  # pragma: no cover
+    import datetime as _datetime_module  # noqa: F401
     from datetime import datetime
 
     from ..outline.read import TextBlock
@@ -68,7 +69,7 @@ from .fill import (
     write_fill,
 )
 from . import slides as _slides
-from .slides import Layout, Placeholder
+from .slides import Layout, Master, Placeholder
 from .table import Table, TableCell, _table_element
 from .text import Paragraph, Run, TextFrame
 from .ids import ShapeId, SlideShapeIndex, cnv_pr, read_stamp, write_stamp
@@ -96,6 +97,9 @@ _MASTER_KIND: dict[str | None, str] = {
     "title": "title", "ctrTitle": "title", "dt": "dt", "ftr": "ftr", "sldNum": "sldNum",
     "hdr": "hdr",
 }
+
+#: The placeholders Insert > Header & Footer fills: content, never a prompt.
+_HEADER_FOOTER = ("dt", "ftr", "sldNum", "hdr")
 
 _XFRM_PARENT: dict[str, str] = {
     "sp": "p:spPr",
@@ -707,6 +711,83 @@ class Shape(ShapeFactory):
         frame.set_text(value)
         return self
 
+    # -- layout prompts --------------------------------------------------------------------
+
+    @property
+    def prompt(self) -> str | None:
+        r"""A layout placeholder's custom prompt -- what an empty placeholder on a slide
+        built on the layout says while editing ("Type your finding here") -- or ``None``:
+        not a layout placeholder, or one that shows PowerPoint's own ("Click to add text").
+
+        For example::
+
+            deck.layout("Title and Content").placeholder("body").prompt
+        """
+        node = self._ph_node()
+        if node is None or not self._on_layout() or node.get("hasCustomPrompt") not in ("1", "true"):
+            return None
+        return self.text
+
+    def set_prompt(self, text: str) -> "Shape":
+        r"""Set a layout placeholder's prompt text, as typing it in Slide Master view does:
+        the first paragraph (the first level) gets ``text`` -- each ``"
+"`` goes on to
+        the next level's paragraph -- formatting and the other levels kept, and the
+        placeholder is marked ``hasCustomPrompt="1"``, so slides on the layout show it in
+        an empty placeholder.  Prompt text is never drawn in a show or an export.  One undo
+        step; returns the shape.
+
+        For example::
+
+            body = deck.layout("Title and Content").placeholder("body")
+            body.set_prompt("Typ hier uw bevinding")
+        """
+        if not self._on_layout() or self._ph_node() is None:
+            raise ValueError(f"{self.id}: a prompt belongs to a layout's placeholder; this is "
+                             f"{'not a placeholder' if self._ph_node() is None else 'on a ' + self._slide.kind}")
+        if self._ph_node().get("type") in _HEADER_FOOTER:
+            raise ValueError(f"{self.id}: a {self._ph_node().get('type')} placeholder has no "
+                             "prompt; Document.set_footer fills it")
+        frame = self.text_frame
+        if frame is None:
+            raise ValueError(f"{self.id}: a {self.kind} holds no text")
+        lines = str(text).split("\n")
+        with self._slide.document.batch():
+            for index, line in enumerate(lines):
+                if index < len(frame.paragraphs):
+                    frame.paragraph(index).text = line
+                else:
+                    frame.add_paragraph(line, like=index - 1)
+            self._mark_prompt()
+        return self
+
+    def _ph_node(self) -> Element | None:
+        return find(self._element, f"{_nv_container(self._element)}/p:nvPr/p:ph")
+
+    def _on_a_slide(self, what: str) -> None:
+        kind = getattr(self._slide, "kind", None)
+        if kind is not None:
+            raise ValueError(f"{self.id} is on a {kind}: {what} measures a slide's shape; check "
+                             f"the slides it shows on (deck.affected_slides({self.id!r}))")
+
+    def _on_layout(self) -> bool:
+        return getattr(self._slide, "kind", None) == "layout"
+
+    def _mark_prompt(self) -> None:
+        node = self._ph_node()
+        if node is not None and node.get("hasCustomPrompt") != "1":
+            self._before_change()
+            node.set("hasCustomPrompt", "1")
+            self._slide._touch()
+
+    def _text_written(self) -> None:
+        """Typing into a layout's placeholder makes its text the prompt (measured in
+        PowerPoint 16: ``hasCustomPrompt="1"``); the date, footer and slide-number ones
+        hold content, not a prompt."""
+        node = self._ph_node()
+        if self._on_layout() and node is not None and node.get("type") not in _HEADER_FOOTER:
+            self._mark_prompt()
+
     @property
     def text_frame(self) -> "TextFrame | None":
         """The shape's paragraphs and runs.  Only autoshapes and text boxes (``kind``
@@ -738,6 +819,7 @@ class Shape(ShapeFactory):
             fit = deck.shape("258.3").text_fit()
             fit.overflows, fit.needed, fit.available, fit.sizes[0]
         """
+        self._on_a_slide("text_fit")
         _require_renderer()
         from .fit import measure
 
@@ -754,6 +836,7 @@ class Shape(ShapeFactory):
 
             box.height = box.fit_height()        # exactly as tall as its text
         """
+        self._on_a_slide("fit_height")
         _require_renderer()
         from .fit import fit_height
 
@@ -1251,7 +1334,7 @@ class Shape(ShapeFactory):
         from . import inherit
 
         package = self._slide.document.package
-        master = inherit.master_of(package, inherit.layout_of(package, self._slide.part_path))
+        master = self._slide._template_parts()[1]
         placeholder = self.placeholder
         own = self._element.find(f"{qn('p:txBody')}/{qn('a:lstStyle')}")
         layout_shape = self._slide._layout_placeholder(placeholder) if placeholder else None
@@ -1280,7 +1363,7 @@ class Shape(ShapeFactory):
         if layout_shape is not None:
             node = inherit.placeholder_of(layout_shape)
             kind = node.get("type") if node is not None else kind
-        master = inherit.master_of(package, inherit.layout_of(package, self._slide.part_path))
+        master = self._slide._template_parts()[1]
         chain.append(body(inherit.master_placeholder(package, master, inherit.master_kind(kind))))
         return chain
 
@@ -1328,6 +1411,12 @@ class Shape(ShapeFactory):
 
             shape.delete()
         """
+        dependants = self.inherited_by()
+        if dependants:
+            raise ValueError(
+                f"{self.id}: {', '.join(dependants[:20])} inherit position and format from "
+                "this placeholder and would lose them; delete those first (or leave this "
+                "one: an empty layout placeholder draws nothing on a slide)")
         with self._slide.document.batch():
             parent = self.parent_group
             self._before_change()
@@ -1338,6 +1427,41 @@ class Shape(ShapeFactory):
             self._slide._settle()
             if parent is not None:
                 parent._refit()
+
+    def inherited_by(self) -> list[str]:
+        """What inherits position and format from this placeholder: for a layout's, the
+        placeholders on its slides that match it (``"257.3"``); for a master's, the
+        layouts' placeholders of its kind (``"L2.4"``).  ``[]`` for anything else -- a
+        slide's shape, a layout's or master's own decoration -- which :meth:`delete`
+        removes freely; it refuses a placeholder something inherits from.
+
+        For example::
+
+            deck.layout("Title and Content").placeholder("body").inherited_by()
+        """
+        from . import inherit
+
+        node = self._ph_node()
+        kind = getattr(self._slide, "kind", "slide")
+        if node is None or kind == "slide":
+            return []
+        found = []
+        if kind == "layout":
+            for slide in self._slide.document._slides_on(self._slide.part_path):
+                for shape in slide.shapes:
+                    if shape.placeholder is not None and \
+                            slide._layout_placeholder(shape.placeholder) is self._element:
+                        found.append(shape.id)
+            return found
+        wanted = inherit.master_kind(node.get("type"))
+        for layout in self._slide.document.layouts:
+            if layout.master_part != self._slide.part_path:
+                continue
+            for shape in layout.shapes:
+                if shape.placeholder is not None and \
+                        inherit.master_kind(shape.placeholder.type) == wanted:
+                    found.append(shape.id)
+        return found
 
     # -- pictures --------------------------------------------------------------------------
 
@@ -2531,6 +2655,13 @@ class Slide(ShapeFactory):
 
     # -- internals -------------------------------------------------------------------------
 
+    def _template_parts(self) -> tuple[str | None, str | None]:
+        """``(layout part, master part)`` the shapes here inherit from."""
+        from . import inherit
+
+        layout = inherit.layout_of(self.document.package, self.part_path)
+        return layout, inherit.master_of(self.document.package, layout)
+
     def _sp_tree(self) -> Element:
         root = self.document.package.tree(self.part_path)
         if root is None:
@@ -2685,6 +2816,71 @@ class Slide(ShapeFactory):
         return f"<Slide {self.slide_id} {self.part_path}>"
 
 
+class _TemplateSheet(Slide):
+    """A layout or master part as the host of its shapes -- what a :class:`Slide` is to a
+    slide's -- so they are the same :class:`Shape` objects, addressed ``L<n>.<id>`` and
+    ``M<n>.<id>``.  Internal: the public objects are :class:`~pptx_agent.Layout` and
+    :class:`~pptx_agent.Master`.  What only a slide has (notes, its position, rendering
+    on its own, a slide's delete and duplicate) is refused."""
+
+    def __init__(self, document: "Document", key: str, part_path: str) -> None:
+        super().__init__(document, key, part_path)  # type: ignore[arg-type]
+        self.kind = "layout" if key.startswith("L") else "master"
+
+    def _template_parts(self) -> tuple[str | None, str | None]:
+        from . import inherit
+
+        if self.kind == "master":
+            return None, self.part_path
+        return self.part_path, inherit.master_of(self.document.package, self.part_path)
+
+    @property
+    def layout(self) -> Layout | None:
+        return None
+
+    def _layout_placeholder(self, placeholder):
+        return None
+
+    def _inherited_xfrm(self, placeholder) -> Element | None:
+        """A layout placeholder without a frame of its own is drawn where the master's
+        placeholder of its kind is; a master's states its own."""
+        from . import inherit
+
+        if placeholder is None or self.kind == "master":
+            return None
+        master = self._template_parts()[1]
+        shape = inherit.master_placeholder(self.document.package, master,
+                                           inherit.master_kind(placeholder[0]))
+        return None if shape is None else find(shape, "p:spPr/a:xfrm")
+
+    def _not_a_slide(self, what: str):
+        return ValueError(f"{self.slide_id} is a {self.kind}, not a slide: it has no {what}")
+
+    @property
+    def index(self) -> int:  # type: ignore[override]
+        raise self._not_a_slide("position in the slide list")
+
+    def delete(self) -> None:
+        raise self._not_a_slide("slide delete; Document.delete_layout deletes a layout")
+
+    def duplicate(self, index=None, *, notes=None):
+        raise self._not_a_slide("slide duplicate; Document.duplicate_layout copies a layout")
+
+    @property
+    def notes(self) -> str:  # type: ignore[override]
+        raise self._not_a_slide("speaker notes")
+
+    @property
+    def has_notes(self) -> bool:  # type: ignore[override]
+        return False
+
+    def render_svg(self, **options) -> str:
+        raise self._not_a_slide("render of its own; render the slides it affects")
+
+    def __repr__(self) -> str:
+        return f"<{self.kind.title()} {self.slide_id} {self.part_path}>"
+
+
 class _NotesHost:
     """A slide's speaker notes as a text frame's host: the notes page's notes placeholder,
     made (with a notes master, when the deck has none) the first time it is written."""
@@ -2775,6 +2971,7 @@ class Document(CommentOps):
         self.package = package
         self.history = History(package)
         self._slides: list[Slide] | None = None
+        self._sheets: dict[str, _TemplateSheet] = {}
 
     # -- lifecycle -------------------------------------------------------------------------
 
@@ -3164,26 +3361,213 @@ class Document(CommentOps):
 
             [layout.name for layout in deck.layouts]
         """
-        return _slides.layouts(self.package)
+        return _slides.layouts(self.package, self)
 
-    def layout(self, name: str) -> Layout:
-        """A layout by name (``"Title and Content"``) or part path.
+    def layout(self, name: "str | Layout") -> Layout:
+        """A layout by name (``"Title and Content"``), address (``"L2"``) or part path.
 
         For example::
 
             deck.layout("Title and Content")
+            deck.layout("L2")
         """
+        if isinstance(name, Layout):
+            name = name.part_path
         for layout in self.layouts:
-            if name in (layout.name, layout.part_path):
+            if name in (layout.name, layout.part_path, layout.id):
                 return layout
-        raise KeyError(f"no layout {name!r}; have {[layout.name for layout in self.layouts]}")
+        raise KeyError(f"no layout {name!r}; have "
+                       f"{[f'{layout.id} {layout.name}' for layout in self.layouts]}")
+
+    @property
+    def masters(self) -> list["Master"]:
+        """Every slide master, in order -- most decks have one.  A master's shapes (a
+        logo, a legal line, the footer placeholders) show on every slide of its layouts;
+        they are editable :class:`Shape` objects, addressed ``M<n>.<id>``.
+
+        For example::
+
+            master = deck.masters[0]
+            [(shape.id, shape.text) for shape in master.shapes if shape.text]
+        """
+        return _slides.masters(self.package, self)
+
+    def master(self, which: "str | int | Master" = 0) -> "Master":
+        """A master by address (``"M0"``), name, part path or position (``0``).
+
+        For example::
+
+            deck.master("M0").placeholder("footer")
+        """
+        found = self.masters
+        if isinstance(which, int) and not isinstance(which, bool):
+            return found[which]
+        if isinstance(which, _slides.Master):
+            which = which.part_path
+        for master in found:
+            if which in (master.id, master.name, master.part_path):
+                return master
+        raise KeyError(f"no master {which!r}; have {[m.id for m in found]}")
+
+    def _template_sheet(self, part_path: str) -> "_TemplateSheet":
+        """The host of a layout's or master's shapes (cached until the next reset)."""
+        part_path = normalize_part_path(part_path)
+        sheet = self._sheets.get(part_path)
+        if sheet is None:
+            key = next((t.id for t in [*self.layouts, *self.masters]
+                        if t.part_path == part_path), None)
+            if key is None:
+                raise KeyError(f"{part_path} is not a layout or master of this deck")
+            sheet = self._sheets[part_path] = _TemplateSheet(self, key, part_path)
+        return sheet
+
+    def _template_by_key(self, key: str) -> "Layout | Master":
+        for template in [*self.layouts, *self.masters]:
+            if template.id == key:
+                return template
+        raise KeyError(f"no {'layout' if key.startswith('L') else 'master'} {key}; the deck "
+                       f"has {[t.id for t in [*self.masters, *self.layouts]]}")
+
+    def _slides_on(self, part_path: str) -> list[Slide]:
+        """The slides built on a layout -- or, for a master, on any of its layouts."""
+        from . import inherit
+
+        part_path = normalize_part_path(part_path)
+        out = []
+        for slide in self.slides:
+            layout = inherit.layout_of(self.package, slide.part_path)
+            if part_path in (layout, inherit.master_of(self.package, layout)):
+                out.append(slide)
+        return out
+
+    def affected_slides(self, target: "str | Layout | Master | Shape") -> list[Slide]:
+        """The slides an edit to ``target`` shows on: a layout's or master's slides (a
+        master's: every slide of its layouts), for one of their shapes too; a slide's
+        shape: that slide.  ``target`` is an object or an address (``"L2"``, ``"M0.5"``,
+        ``"256.3"``).
+
+        For example::
+
+            [slide.slide_id for slide in deck.affected_slides("M0")]
+        """
+        from .ids import is_template_key
+
+        if isinstance(target, Shape):
+            target = target._slide.slide_id
+        if isinstance(target, (_slides.Layout, _slides.Master)):
+            return target.slides
+        head = str(target).split("/")[0].split(".")[0]
+        if head.startswith("s:"):
+            head = head[2:]
+        if is_template_key(head):
+            return self._template_by_key(head).slides
+        return [self.slide(int(head))]
+
+    # -- masters and layouts ---------------------------------------------------------------
+
+    def _as_layout(self, layout: "Layout | str") -> Layout:
+        return self.layout(layout)
+
+    def add_layout(self, name: str = "Custom Layout", *, master: "Master | str | None" = None,
+                   after: "Layout | str | None" = None) -> Layout:
+        """A new, custom layout, as Slide Master view's Insert Layout makes one: a title
+        placeholder and the master's date, footer and slide-number placeholders, all
+        inheriting their place from the master.  It goes after ``after`` (a layout or its
+        name or id), else last on ``master`` (default the first).  Add shapes and
+        placeholders' prompts through it.  One undo step.
+
+        For example::
+
+            legal = deck.add_layout("Legal", after="Title and Content")
+            legal.add_textbox(457200, 1600200, 11277600, 4114800, text="...")
+        """
+        from . import templates
+
+        master = self.master(master) if master is not None else None
+        after = self.layout(after) if after is not None else None
+        return templates.add_layout(self, name, master, after)
+
+    def duplicate_layout(self, layout: "Layout | str", *, name: str | None = None) -> Layout:
+        """A copy of ``layout`` right after it, as Slide Master view's Duplicate Layout
+        makes one: the same shapes and pictures, named ``name`` (default ``"1_<name>"``),
+        with a new id.  One undo step.
+
+        For example::
+
+            dutch = deck.duplicate_layout("Title and Content", name="Inhoud NL")
+        """
+        from . import templates
+
+        return templates.duplicate_layout(self, self.layout(layout), name)
+
+    def rename_layout(self, layout: "Layout | str", name: str) -> Layout:
+        """Rename a layout; its id and its slides stay.  A name its master already has is
+        refused (layouts are found by name).  One undo step.
+
+        For example::
+
+            deck.rename_layout("L2", "Inhoud")
+        """
+        from . import templates
+
+        return templates.rename_layout(self, self.layout(layout), name)
+
+    def delete_layout(self, layout: "Layout | str", *,
+                      reassign_to: "Layout | str | None" = None) -> list[int]:
+        """Delete a layout.  One a slide uses is refused -- PowerPoint does not offer it
+        either -- unless ``reassign_to`` names the layout those slides move to (their
+        placeholders then inherit from its placeholders of the same idx and type); returns
+        their ``sldId``.  A master's last layout stays.  One undo step.
+
+        For example::
+
+            deck.delete_layout("Vertical Title and Text")
+            deck.delete_layout("Comparison", reassign_to="Two Content")
+        """
+        from . import templates
+
+        target = self.layout(reassign_to) if reassign_to is not None else None
+        return templates.delete_layout(self, self.layout(layout), target)
+
+    def set_footer(self, text: str | None = None, *, slide_number: bool = True,
+                   date: str | None = None, slides=None, skip_title: bool = True,
+                   today: "_datetime_module.date | None" = None) -> list[int]:
+        """Insert > Header & Footer: the footer ``text``, the slide number and the date on
+        the slides, as PowerPoint writes them (measured in PowerPoint 16).
+
+        ``date`` is ``"auto"`` (a date field PowerPoint updates; ``today`` sets the text
+        it holds until then, default today), any other text (a fixed date: ``"Oktober
+        2026"``), or ``None`` (no date).  ``text`` empty or ``None`` turns the footer off,
+        ``slide_number`` the number.
+
+        ``slides`` ``None`` is **Apply to All**: the footer text and the date go on the
+        master's and every layout's placeholders too, the master's ``<p:hf>`` records what
+        is on, and each slide gets its layout's date, footer and slide-number placeholders
+        (empty ``spPr``: they keep the layout's place) or, turned off, loses them.
+        ``skip_title`` leaves title slides (a ``"title"`` layout's) without them, as "Don't
+        show on title slide" does.  ``slides`` (numbers from 1, ``Slide`` objects or
+        ``"s:<id>"``) is **Apply**: only those slides change.  Returns the ``sldId`` of
+        each slide changed.  One undo step.
+
+        For example::
+
+            deck.set_footer("© 2027 Example BV", slide_number=True, date=None)
+        """
+        from ..outline.read import select
+        from . import templates
+
+        chosen = None if slides is None else select(self, slides)
+        return templates.set_footer(self, text=text, slide_number=slide_number, date=date,
+                                    slides=chosen, skip_title=skip_title, today=today)
 
     def add_slide(self, layout: "Layout | str | None" = None, *, index: int | None = None) -> Slide:
         """A new slide from ``layout``, at 0-based ``index`` (default: last).
 
-        The slide gets the layout's placeholders -- title, body, picture and so on, not the
-        date, footer and slide number, which PowerPoint also leaves off -- empty, so they
-        inherit position and formatting from the layout.  Without a layout, the last slide's
+        The slide gets the layout's placeholders -- title, body, picture and so on -- empty,
+        so they inherit position and formatting from the layout.  The date, footer and slide
+        number come too, with the layout's content, once Header & Footer has been applied to
+        all (:meth:`set_footer`: the master's ``<p:hf>`` says which), as PowerPoint's New
+        Slide does; until then PowerPoint leaves them off, and so does this.  Without a layout, the last slide's
         is used (or the first layout of the first master).
 
         For example::
@@ -3206,6 +3590,9 @@ class Document(CommentOps):
             package.add_relationship(part, REL_SLIDE_LAYOUT, layout.part_path)
             slide_id = _slides.insert_entry(package, part, index)
             self._reset_caches()
+            from .templates import footers_for_new_slide
+
+            footers_for_new_slide(self, self.slide(slide_id))
         return self.slide(slide_id)
 
     def delete_slide(self, slide: "Slide | int | str") -> None:
@@ -3314,6 +3701,9 @@ class Document(CommentOps):
             table = deck.shape("257.3#5").table
         """
         parsed = ShapeId.parse(shape_id)
+        if isinstance(parsed.slide_id, str):
+            return self._template_sheet(self._template_by_key(parsed.slide_id).part_path) \
+                .shape(parsed)
         return self.slide(parsed.slide_id).shape(parsed)
 
     def __iter__(self) -> Iterator[Slide]:
@@ -3390,6 +3780,7 @@ class Document(CommentOps):
     def _reset_caches(self) -> None:
         # restore() reparsed the trees, so every cached Element reference is stale.
         self._slides = None
+        self._sheets = {}
 
     # -- the full-state SVG ----------------------------------------------------------------
 
@@ -3473,7 +3864,7 @@ class Document(CommentOps):
 
         return overflows(self, slides, boxes=boxes)
 
-    def outline_blocks(self, slides=None) -> "list[TextBlock]":
+    def outline_blocks(self, slides=None, *, scope: str = "slides") -> "list[TextBlock]":
         r"""Every piece of text in the deck, raw, with its address -- the outline's blocks
         as data, for editing rather than reading.
 
@@ -3489,12 +3880,15 @@ class Document(CommentOps):
             for block in deck.outline_blocks(slides=[1]):
                 if block.text == "11.9%":
                     deck.resolve(block.address).text = "12.1%"
+
+        ``scope`` adds the text on layouts and masters: ``"slides"`` (the default),
+        ``"layouts"``, ``"masters"`` or ``"all"`` -- see :meth:`find_text`.
         """
         from ..outline.read import outline_blocks
 
-        return outline_blocks(self, slides)
+        return outline_blocks(self, slides, scope)
 
-    def find_text(self, needle, slides=None) -> "list[TextBlock]":
+    def find_text(self, needle, slides=None, *, scope: str = "slides") -> "list[TextBlock]":
         r"""The :meth:`outline_blocks` whose text contains ``needle`` -- a substring, or a
         compiled :func:`re.compile` pattern (searched with ``pattern.search``).  Speaker
         notes are searched too (kind ``"notes"``, address ``"<sldId>/notes"``)::
@@ -3502,10 +3896,19 @@ class Document(CommentOps):
             for block in deck.find_text("4,285"):
                 target = deck.resolve(block.address)   # a Shape, TableCell or DiagramNode
                 target.text = block.text.replace("4,285", "4,310")   # formatting kept
+
+        ``scope`` says where: ``"slides"`` (the default), ``"layouts"``, ``"masters"`` or
+        ``"all"``.  Text on a layout or master -- a legal line, a footer year, a
+        placeholder's prompt -- shows on every slide built on it; its blocks have
+        ``slide`` 0, ``part`` the layout's or master's address and addresses such as
+        ``"L2.5"`` and ``"M0.7"``, which :meth:`resolve` and :meth:`shape` take::
+
+            for block in deck.find_text("2026", scope="all"):
+                deck.resolve(block.address).text = block.text.replace("2026", "2027")
         """
         from ..outline.read import find_text
 
-        return find_text(self, needle, slides)
+        return find_text(self, needle, slides, scope)
 
     def insert_outline(self, markdown: str, *, at: int | None = None,
                        layout_map: "dict | None" = None, images=None) -> list[Slide]:

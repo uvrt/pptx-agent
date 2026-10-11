@@ -60,7 +60,9 @@ class TextBlock:
     shape's line breaks, which ``Shape.text`` reads as ``"\n"``.  ``kind`` is
     ``"title"``, ``"text"``, ``"cell"``, ``"smartart"`` (a diagram node, ``<id>/node<k>``)
     or ``"notes"`` (the slide's speaker notes, ``<sldId>/notes``, a :class:`TextFrame`);
-    ``slide`` is the 1-based slide number::
+    on a layout, ``"prompt"`` too (a placeholder's custom prompt).  ``slide`` is the 1-based
+    slide number -- ``0`` for text on a layout or master, whose ``part`` is then its address
+    (``"L2"``, ``"M0"``; ``None`` on a slide)::
 
         for block in deck.outline_blocks():
             print(block.address, block.text)      # 256.29 11.9%
@@ -70,50 +72,84 @@ class TextBlock:
     kind: str
     text: str
     slide: int
+    part: "str | None" = None
 
 
-def outline_blocks(document: "Document", slides=None) -> list[TextBlock]:
+#: :meth:`Document.find_text`'s scopes: where text is looked for.
+SCOPES = ("slides", "layouts", "masters", "all")
+
+
+def outline_blocks(document: "Document", slides=None, scope: str = "slides"
+                   ) -> list[TextBlock]:
     """See :meth:`pptx_agent.edit.document.Document.outline_blocks`."""
+    if scope not in SCOPES:
+        raise ValueError(f"scope is one of {', '.join(SCOPES)}, not {scope!r}")
     out: list[TextBlock] = []
-    for slide in select(document, slides):
-        number = slide.index + 1
-        shapes = _flatten(_top(slide))
-        title = next((s for s in shapes if s.kind == "shape" and s.placeholder is not None
-                      and s.placeholder[0] in TITLE_TYPES), None)
-        ordered = ([title] if title is not None else []) + [s for s in shapes if s is not title]
-        for shape in ordered:
-            kind = local_name(shape._element)
-            if kind == "sp":
-                text = shape.text_frame.text
-                if text:
-                    out.append(TextBlock(shape.id, "title" if shape is title else "text", text,
-                                         number))
-            elif kind == "graphicFrame" and shape.has_table:
-                table = shape.table
-                for cell in table.iter_cells():
-                    if cell.is_spanned:
-                        continue
-                    text = cell.text
-                    if text:
-                        out.append(TextBlock(cell.address, "cell", text, number))
-            elif kind == "graphicFrame" and shape.has_diagram:
-                for k, node in enumerate(shape.diagram.nodes):
-                    if node.text:
-                        out.append(TextBlock(f"{shape.id}/node{k}", "smartart", node.text,
-                                             number))
-        notes = slide.notes
-        if notes:
-            out.append(TextBlock(f"{slide.slide_id}/notes", "notes", notes, number))
+    if scope in ("slides", "all"):
+        for slide in select(document, slides):
+            out += _blocks(slide, slide.index + 1, None)
+    if scope in ("masters", "all"):
+        for master in document.masters:
+            out += _blocks(master._sheet(), 0, master.id)
+    if scope in ("layouts", "all"):
+        for layout in document.layouts:
+            out += _blocks(layout._sheet(), 0, layout.id)
     return out
 
 
-def find_text(document: "Document", needle, slides=None) -> list[TextBlock]:
+def _blocks(slide, number: int, part: "str | None") -> list[TextBlock]:
+    """One slide's (or layout's, or master's) text blocks, title first."""
+    out: list[TextBlock] = []
+    shapes = _flatten(_top(slide))
+    title = next((s for s in shapes if s.kind == "shape" and s.placeholder is not None
+                  and s.placeholder[0] in TITLE_TYPES), None)
+    ordered = ([title] if title is not None else []) + [s for s in shapes if s is not title]
+    for shape in ordered:
+        kind = local_name(shape._element)
+        if kind == "sp":
+            text = shape.text_frame.text
+            if text and part is not None and _fields_only(shape._element):
+                continue                   # a date or number PowerPoint fills, not text
+            if text:
+                kind_name = "title" if shape is title else (
+                    "prompt" if part and shape.prompt is not None else "text")
+                out.append(TextBlock(shape.id, kind_name, text, number, part))
+        elif kind == "graphicFrame" and shape.has_table:
+            table = shape.table
+            for cell in table.iter_cells():
+                if cell.is_spanned:
+                    continue
+                text = cell.text
+                if text:
+                    out.append(TextBlock(cell.address, "cell", text, number, part))
+        elif kind == "graphicFrame" and shape.has_diagram:
+            for k, node in enumerate(shape.diagram.nodes):
+                if node.text:
+                    out.append(TextBlock(f"{shape.id}/node{k}", "smartart", node.text,
+                                         number, part))
+    notes = slide.notes if part is None else ""
+    if notes:
+        out.append(TextBlock(f"{slide.slide_id}/notes", "notes", notes, number))
+    return out
+
+
+def _fields_only(shape) -> bool:
+    """Whether a shape's text is all fields (``a:fld``: a date, a slide number), with no
+    run of its own."""
+    fields = list(shape.iter(qn("a:fld")))
+    return bool(fields) and not any((node.text or "").strip()
+                                    for run in shape.iter(qn("a:r"))
+                                    for node in run.iter(qn("a:t")))
+
+
+def find_text(document: "Document", needle, slides=None, scope: str = "slides"
+              ) -> list[TextBlock]:
     """See :meth:`pptx_agent.edit.document.Document.find_text`."""
     if isinstance(needle, re.Pattern):
-        return [b for b in outline_blocks(document, slides) if needle.search(b.text)]
+        return [b for b in outline_blocks(document, slides, scope) if needle.search(b.text)]
     if not isinstance(needle, str) or not needle:
         raise TypeError("find_text takes a non-empty string or a compiled re.Pattern")
-    return [b for b in outline_blocks(document, slides) if needle in b.text]
+    return [b for b in outline_blocks(document, slides, scope) if needle in b.text]
 
 
 def select(document: "Document", slides) -> list["Slide"]:

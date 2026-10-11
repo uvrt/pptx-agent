@@ -1,8 +1,9 @@
 """Build the inputs of the trial tasks p2-p6, of the spike's graphics tasks p7, p8, o1 and
 m1, of p10 (a review in comments), p11 (SmartArt), p12 (a rebrand through the theme), p14
 (a chart and a table on a branded template), p15 (a maturity gap chart and an
-effort-against-impact matrix) and p16 (an approach slide: four phases with SVG icons, evenly
-spaced), for the golden transcripts (test_golden.py).
+effort-against-impact matrix), p16 (an approach slide: four phases with SVG icons, evenly
+spaced) and p17 (a corporate template made ready for a new year and language: its master,
+layouts, prompts and footer), for the golden transcripts (test_golden.py).
 
 The trial's own builder (recovered from its coordinator's transcript), run against this
 repository's fixtures, writes ``<root>/<task>/input/...``.  p1's template is the committed
@@ -615,6 +616,39 @@ def p16() -> None:
         (folder / name).write_bytes(_ICON.format(body).encode("utf-8"))
 
 
+P17_LEGAL_EN = ("This document is confidential and intended solely for the addressee. It may "
+                "not be copied or passed on without the written consent of Example Corp.")
+
+
+def p17() -> None:
+    """A corporate template as the design team left it in 2026, in English: a legal line on
+    the master, a custom prompt in the content layout, a "Legal" layout with its notice, and
+    four slides on it -- no footers yet."""
+    folder = out("p17-template-new-year")
+    deck = Document.new()
+    deck.title = "Example Corp template"
+    deck.created = deck.modified = DATE
+    master = deck.masters[0]
+    legal = master.add_textbox(838200, 6721475, 7315200, 136525, name="Legal line")
+    legal.set_text("\u00a9 2026 Example Corp Ltd. Confidential. All rights reserved.")
+    legal.paragraphs[0].runs[0].size = 8
+    legal.text_frame.insets = (0, 0, 0, 0)
+    deck.layout("Title and Content").placeholder("body").set_prompt("Type your finding here")
+    notice = deck.add_layout("Legal", after="Title and Content")
+    box = notice.add_textbox(838200, 1825625, 10515600, 1371600, name="Legal notice")
+    box.set_text(P17_LEGAL_EN)
+    cover = deck.add_slide("Title Slide")
+    cover.shapes[0].set_text("Annual plan")
+    cover.shapes[1].set_text("Example Corp")
+    for title, body in (("Market", "Demand grew in every region."),
+                        ("Findings", "Three of five units met their targets.")):
+        slide = deck.add_slide("Title and Content")
+        slide.shapes[0].set_text(title)
+        slide.shapes[1].set_text(body)
+    deck.add_slide("Legal").shapes[0].set_text("Legal notice")
+    deck.save(folder / "example-template.pptx")
+
+
 BUILDERS = {"p2-quarterly-update": p2, "p3-split-slide": p3, "p4-process-diagram": p4,
             "p5-rebrand": p5, "p6-restructure-deck": p6,
             "p7-phased-approach": halden("p7-phased-approach"),
@@ -623,7 +657,8 @@ BUILDERS = {"p2-quarterly-update": p2, "p3-split-slide": p3, "p4-process-diagram
             "m1-priority-matrix": halden("m1-priority-matrix", (3, "Prioritisation")),
             "p10-review-comments": p10, "p11-update-smartart": p11,
             "p12-theme-rebrand": p12, "p14-brand-chart-table": p14,
-            "p15-maturity-charts": p15, "p16-approach-icons": p16}
+            "p15-maturity-charts": p15, "p16-approach-icons": p16,
+            "p17-template-new-year": p17}
 
 
 #: Builders that draw from scratch what is otherwise committed (``--draw``).

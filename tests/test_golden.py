@@ -5,9 +5,10 @@ p12 (a rebrand through the theme), p13 (a radar chart from a CSV), round 3's p14
 slide with its empty placeholder deleted, and a table in the template's own style without
 banding) and p15 (a maturity gap chart -- columns, a highlighted point, target markers, a
 fixed axis, no gridlines, 10 pt text -- and an effort-against-impact bubble matrix labelled
-from the workbook) and p16 (an approach slide: four phases, each an SVG icon above its label,
-spaced equally across the content area with ppt_arrange's distribute and align), done with
-the tools alone and replayed.
+from the workbook), p16 (an approach slide: four phases, each an SVG icon above its label,
+spaced equally across the content area with ppt_arrange's distribute and align) and p17 (a
+corporate template made ready for 2027 in Dutch: the master's legal line, a layout's legal
+notice and name, a layout's prompt, Header & Footer), done with the tools alone and replayed.
 
 Each transcript in ``golden/transcripts`` is a reference solution as tool calls -- what a
 model would send, with no code and no files -- recorded with what every call returned.
@@ -128,7 +129,7 @@ def test_the_goldens_cover_every_task_in_few_calls():
     tasks = {json.loads(p.read_text())["task"].split("-")[0]: json.loads(p.read_text())
              for p in TRANSCRIPTS}
     assert sorted(tasks) == ["m1", "o1", "p1", "p10", "p11", "p12", "p13", "p14", "p15", "p16",
-                             "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"]
+                             "p17", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"]
     for transcript in tasks.values():
         assert len(transcript["calls"]) <= 10
         assert all(step["tool"] in {tool.name for tool in TOOLS} for step in transcript["calls"])

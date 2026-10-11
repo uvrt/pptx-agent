@@ -29,6 +29,7 @@ REL_NOTES_SLIDE = _REL + "notesSlide"
 REL_NOTES_MASTER = _REL + "notesMaster"
 REL_HYPERLINK = _REL + "hyperlink"
 REL_CHART = _REL + "chart"
+REL_THEME = _REL + "theme"
 
 CT_SLIDE = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml"
 

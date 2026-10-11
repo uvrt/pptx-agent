@@ -12,7 +12,8 @@ from typing import Any
 
 from ooxml_edit.tools import Result, ToolError, collect_warnings, page_list, shared
 
-from .common import KIND, facts, library_errors, numbers, slide_id_of, validate_delta
+from .common import (KIND, facts, library_errors, numbers, slide_id_of, template_key_of,
+                     validate_delta)
 from ..edit.document import font_dirs_of
 from .render import png_size, render_slides_reporting
 
@@ -103,6 +104,40 @@ def _pattern(text: str, regex: bool):
                         field="text") from None
 
 
+#: ``stories`` on a deck: where find_text and replace_text look.  ``body`` (the default) is
+#: the slides; ``layouts``, ``masters`` and ``all`` add the text that shows on every slide
+#: built on them (a legal line, a footer year, a placeholder's prompt).
+_DECK_STORIES = {None: "slides", "body": "slides", "layouts": "layouts", "masters": "masters",
+                 "all": "all"}
+
+
+def _scope(stories: str | None) -> str:
+    if stories not in _DECK_STORIES:
+        raise ToolError("invalid_arguments", f"stories is {stories!r}; a deck takes "
+                        "body (its slides), layouts, masters or all", field="stories",
+                        valid_options=["body", "layouts", "masters", "all"])
+    return _DECK_STORIES[stories]
+
+
+def _blocks(deck, slides, stories):
+    scope = _scope(stories)
+    if scope in ("layouts", "masters") and slides is not None:
+        raise ToolError("invalid_arguments", f"slides narrows the slides; stories={stories} "
+                        "searches no slides", field="slides")
+    chosen = numbers(deck, slides) if scope in ("slides", "all") else None
+    return deck.outline_blocks(chosen, scope=scope)
+
+
+def _match(block, start: int, end: int) -> dict[str, Any]:
+    data = {"address": block.address, "kind": block.kind}
+    if block.part is not None:
+        data["on"] = block.part
+    else:
+        data["slide"] = block.slide
+    data["context"] = _context(block.text, start, end)
+    return data
+
+
 def _context(text: str, start: int, end: int, width: int = 40) -> str:
     left = max(0, start - width)
     right = min(len(text), end + width)
@@ -116,17 +151,14 @@ def find_text(call, doc, text, regex=False, slides=None, range=None, stories=Non
               cursor=None):
     if range is not None:
         raise _deck_only("range", "slides")
-    if stories is not None:
-        raise _deck_only("stories", "slides")
     deck = call.document
     pattern = _pattern(text, regex)
     matches = []
-    for block in deck.outline_blocks(numbers(deck, slides)):
+    for block in _blocks(deck, slides, stories):
         for found in pattern.finditer(block.text):
             if found.end() == found.start():
                 continue
-            matches.append({"address": block.address, "kind": block.kind, "slide": block.slide,
-                            "context": _context(block.text, found.start(), found.end())})
+            matches.append(_match(block, found.start(), found.end()))
     page, total, next_cursor = page_list(matches, cursor=cursor, limit=call.limits.max_list_items)
     return Result(summary=f"{total} match(es) for {text!r}", data=page, total=total,
                   next_cursor=next_cursor)
@@ -138,18 +170,23 @@ def replace_text(call, doc, find, replace, expect, regex=False, slides=None, ran
                  stories=None):
     if range is not None:
         raise _deck_only("range", "slides")
-    if stories is not None:
-        raise _deck_only("stories", "slides")
     deck = call.document
     pattern = _pattern(find, regex)
     hits = []
-    for block in deck.outline_blocks(numbers(deck, slides)):
+    for block in _blocks(deck, slides, stories):
         count = sum(1 for m in pattern.finditer(block.text) if m.end() > m.start())
         if count:
             hits.append((block, count))
     total = sum(count for _, count in hits)
     if expect == "one" and total != 1:
         if total == 0:
+            elsewhere = [] if _scope(stories) == "all" else [
+                block.address for block in deck.outline_blocks(scope="all")
+                if block.part is not None and pattern.search(block.text)]
+            if elsewhere:
+                raise ToolError("not_found", f"{find!r} is not on the slides but on a layout or "
+                                f"master ({', '.join(elsewhere[:5])}): stories=all reaches it",
+                                field="stories", valid_options=["all", "layouts", "masters"])
             raise ToolError("not_found", f"{find!r} is not in the deck", field="find")
         raise ToolError("ambiguous", f"{find!r} occurs {total} times; expect=one needs "
                         "exactly one: narrow it, or use expect=all",
@@ -164,8 +201,18 @@ def replace_text(call, doc, find, replace, expect, regex=False, slides=None, ran
         sid = slide_id_of(block.address)
         if sid is not None:
             call.touch(sid)
-    return Result(summary=f"Replaced {total} occurrence(s) in {len(changed)} place(s)",
-                  changed=changed, data={"count": total})
+        key = template_key_of(block.address)
+        if key is not None:
+            call.touch(key)
+    result = Result(summary=f"Replaced {total} occurrence(s) in {len(changed)} place(s)",
+                    changed=changed, data={"count": total})
+    if not total and _scope(stories) != "all":
+        elsewhere = [block.address for block in deck.outline_blocks(scope="all")
+                     if block.part is not None and pattern.search(block.text)]
+        if elsewhere:
+            result.warnings.append(f"{find!r} is on a layout or master too "
+                                   f"({', '.join(elsewhere[:5])}): stories=all reaches it")
+    return result
 
 
 def _span(pattern, text):
