@@ -6,6 +6,16 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Chart formatting (production feedback round 3, G1-G4; ooxml-edit 0.15.0): a chart's axis
+  scale (a 1-5 maturity axis by 1, categories top-down for a ranked bar chart), gridlines,
+  series and point colours, lines and markers, a column series drawn as a line (target
+  markers over actual columns), chart text, and points labelled with their own text --
+  optionally from the workbook, as PowerPoint's Value From Cells -- through `Chart` and
+  `edit_chart`'s new actions; `slide.add_chart` takes `radar_filled` and `bubble`,
+  `category_order`, `gridlines` and `bubble_scale`. A series and a point are found by name
+  and label as `series_named` and `category_index` find them. The every-definition guard
+  rises to 11,200 (11,113 estimated, +646), the core unchanged. Golden p15: a maturity gap
+  chart and an effort-against-impact bubble matrix labelled R1-R6, 10 calls.
 - The outline lists each shape once: `slide.shapes` lists a group and then its members, and
   `to_outline` (and `ppt_read_slides` `outline`, `outline_blocks`, `find_text`,
   `replace_text`) walked the groups as well, so every grouped shape came twice. A group's

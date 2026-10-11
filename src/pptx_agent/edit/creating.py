@@ -220,19 +220,25 @@ class ShapeFactory:
     def add_chart(self, chart_type: str, categories, series, left: int, top: int, width: int,
                   height: int, *, title: str | None = None, axis_titles: Mapping | None = None,
                   legend: str | None = "default", number_format: str | None = None,
-                  name: str | None = None) -> "Shape":
+                  name: str | None = None, category_order: str = "normal",
+                  gridlines: bool = True, bubble_scale: int | None = None) -> "Shape":
         """A new chart from data, in a graphic frame at ``left``/``top`` (EMU), as PowerPoint
         inserts one: the chart part and an embedded workbook that holds the same numbers, so
         Edit Data opens them (ooxml-edit's :func:`~ooxml_edit.charts.add_chart`).
 
         ``chart_type`` is ``column``, ``stacked_column``, ``bar``, ``stacked_bar``, ``line``,
-        ``pie``, ``scatter`` or ``radar``; ``categories`` the category labels (a scatter chart's x
-        values); ``series`` ``[{"name": ..., "values": [...]}]``, one value per category
-        (``None`` is a blank); data that cannot be charted raises
+        ``pie``, ``scatter``, ``radar``, ``radar_filled`` or ``bubble``; ``categories`` the
+        category labels (a scatter or bubble chart's x values); ``series`` ``[{"name": ...,
+        "values": [...]}]``, one value per category (``None`` is a blank) -- a column chart's
+        series may add ``"type": "line"`` (target markers over actual columns, with
+        :meth:`Chart.format_series`), a bubble chart's give ``"size"``; data that cannot be charted raises
         :class:`~pptx_agent.ChartDataError` before anything changes.  ``title``, ``axis_titles`` (``{"category", "value"}``),
         ``legend`` (``bottom``, ``right``, ``top``, ``left``, ``top_right``, ``None``, or
         ``default``: PowerPoint's, at the bottom, a radar chart's at the top) and
-        ``number_format`` (an Excel format code for the values) are optional.  It looks as
+        ``number_format`` (an Excel format code for the values) are optional;
+        ``category_order="reversed"`` lists a bar chart's categories top-down (the data and
+        the workbook keep their order), ``gridlines=False`` draws none, ``bubble_scale`` sizes
+        the bubbles in percent of PowerPoint's (100).  It looks as
         PowerPoint's new chart of that type looks, in the deck's theme (measured: accents in
         order, 18.62 pt title, 11.97 pt labels, legend at the bottom -- a radar's at the top --,
         no fill).  Edit it with :attr:`Shape.chart`.  One undo step.
@@ -258,7 +264,8 @@ class ShapeFactory:
                                   categories, series, title=title,
                                   axis_titles=dict(axis_titles or {}), legend=legend,
                                   number_format=number_format, look=POWERPOINT_LOOK,
-                                  lang=language))
+                                  lang=language, category_order=category_order,
+                                  gridlines=gridlines, bubble_scale=bubble_scale))
             return authoring.chart_frame(identifier, label, local, left, top, width, height,
                                          made[-1].graphic())
 

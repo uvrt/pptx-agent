@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ooxml_edit.charts.actions import STYLE_ACTIONS, apply_style_action, chart_style_json
 from ooxml_edit.tools import Result, ToolError, shared
 
 from .common import KIND, box_emu, library_errors, shape as shape_at, slide as slide_at
@@ -49,6 +50,19 @@ def _category(chart, which: str | None):
     return chart.category_index(which)
 
 
+def _point(chart, which: str) -> int:
+    """A point by category label, or position from 0 (a scatter chart's x values are
+    labels too)."""
+    labels = [str(c) for c in chart.categories]
+    if which in labels:
+        hits = [k for k, label in enumerate(labels) if label == which]
+        if len(hits) == 1:
+            return hits[0]
+    if which.isdigit() and int(which) < len(labels):
+        return int(which)
+    return _category(chart, which)
+
+
 def chart_json(frame, chart) -> dict[str, Any]:
     data = {"address": frame.id, "type": chart.chart_type, "title": chart.title,
             "categories": list(chart.categories),
@@ -61,7 +75,7 @@ def chart_json(frame, chart) -> dict[str, Any]:
 
 
 def _add(call, target, chart_type, categories, data, box, width, values, number_format, text,
-         position, ref) -> Result:
+         position, ref, axis=None, scale=None, gridlines=None) -> Result:
     """``action: "add"``: a new chart on the slide ``target``, in ``box``."""
     if width is not None:
         raise ToolError("invalid_arguments", "width is for documents; on a slide give box",
@@ -69,25 +83,41 @@ def _add(call, target, chart_type, categories, data, box, width, values, number_
     for name, given in (("chart_type", chart_type), ("data", data), ("box", box)):
         if given is None:
             raise ToolError("invalid_arguments", f"add needs {name}", field=name)
-    if chart_type == "scatter":
+    if chart_type in ("scatter", "bubble"):
         if values is None or categories is not None:
-            raise ToolError("invalid_arguments", "a scatter chart takes its x values in values, "
-                            "not categories", field="values")
+            raise ToolError("invalid_arguments", f"a {chart_type} chart takes its x values in "
+                            "values, not categories", field="values")
         labels = list(values)
     else:
         if categories is None:
             raise ToolError("invalid_arguments", "add needs categories", field="categories")
         if values is not None:
-            raise ToolError("invalid_arguments", "values are a scatter chart's x values; give "
-                            "each series' values in data", field="values")
+            raise ToolError("invalid_arguments", "values are a scatter or bubble chart's x "
+                            "values; give each series' values in data", field="values")
         labels = list(categories)
     if len(labels) * max(len(data), 1) > 10_000:
         raise ToolError("limit", "at most 10,000 chart values", field="data")
     host = slide_at(call.document, target, field="target")
     x, y, w, h = box_emu(box)
+    if position not in (None, "none", "right", "left", "top", "bottom"):
+        raise ToolError("invalid_arguments", f"{position} is a label position; a legend is "
+                        "right, left, top, bottom or none", field="position")
+    if scale is not None and axis is None:
+        raise ToolError("invalid_arguments", "add with scale needs axis", field="axis")
     legend = None if position == "none" else (position or "default")
-    frame = host.add_chart(chart_type, labels, [dict(entry) for entry in data], x, y, w, h,
-                           title=text, legend=legend, number_format=number_format)
+    reverse = (scale or {}).get("reverse") and axis == "category"
+    rest = {k: v for k, v in (scale or {}).items() if not (reverse and k == "reverse")}
+    with call.document.batch():  # the chart and its scale: one undo step
+        frame = host.add_chart(chart_type, labels, [dict(entry) for entry in data], x, y, w, h,
+                               title=text, legend=legend, number_format=number_format,
+                               category_order="reversed" if reverse else "normal",
+                               gridlines=gridlines != "none")
+        chart = call.document.shape(frame.id).chart
+        if rest:
+            apply_style_action(chart, "set_axis_scale", axis=axis, scale=rest)
+        if gridlines not in (None, "major", "none"):
+            apply_style_action(chart, "set_gridlines", axis="value" if chart_type not in
+                               ("scatter", "bubble") else "y", gridlines=gridlines)
     if ref:
         call.define_ref(ref, frame.id)
     call.touch(host.slide_id)
@@ -99,6 +129,7 @@ def _read(frame, chart) -> Result:
     data = chart_json(frame, chart)
     data["legend"] = chart.has_legend
     data["axes"] = {axis: chart.axis_title(axis) for axis in chart.axes}
+    data.update(chart_style_json(chart))
     data["workbook"] = chart.workbook_values()
     return Result(summary=f"Chart {frame.id}: {len(data['series'])} series, "
                   f"{len(data['categories'])} categories", data=data)
@@ -108,13 +139,26 @@ def _read(frame, chart) -> Result:
 @library_errors
 def edit_chart(call, doc, target, action, chart_type=None, categories=None, data=None, box=None,
                width=None, number_format=None, series=None, category=None, values=None,
-               value=None, text=None, axis=None, position=None, ref=None):
+               value=None, text=None, axis=None, position=None, ref=None, scale=None,
+               gridlines=None, style=None, part=None, labels=None, cells=None, secondary=None):
     if action == "add":
         return _add(call, target, chart_type, categories, data, box, width, values,
-                    number_format, text, position, ref)
+                    number_format, text, position, ref, axis, scale, gridlines)
     frame, chart = _chart(call.document, target)
     if action == "read":
         return _read(frame, chart)
+    if action in STYLE_ACTIONS:
+        chosen = None if series is None else _series(chart, series).index
+        point = None if category is None or chosen is None else _point(chart, category)
+        apply_style_action(chart, action, series=chosen, category=point, axis=axis,
+                           scale=scale, gridlines=gridlines, style=style, part=part,
+                           labels=labels, cells=cells, position=position,
+                           chart_type=chart_type, secondary=secondary)
+        call.touch(frame._slide.slide_id)
+        fresh = call.document.shape(frame.id).chart
+        data = chart_json(frame, fresh)
+        data.update(chart_style_json(fresh))
+        return Result(summary=f"{action} on chart {frame.id}", changed=[frame.id], data=data)
 
     def need(name, given):
         if given is None:

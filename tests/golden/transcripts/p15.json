@@ -1,0 +1,372 @@
+{
+ "task": "p15-maturity-charts",
+ "inputs": [
+  {
+   "file": "input/maturity-assessment.pptx",
+   "as": "document",
+   "sha256": "0f6e0d0c995f7bf459ba4de1dc5988ed9a73fdc7f9524f586b86d8b8d6539796",
+   "content_sha256": "4a86de71831e4d952a3c12d4876c73ebbcde4e9fe8255563a0722c53f8b8d3db"
+  },
+  {
+   "file": "input/maturity-scores.csv",
+   "as": "blob",
+   "sha256": "b71d01bb80b64c1031986d6b726d2605d9e15d4231bbe64fe0e91cfc34853ce2"
+  },
+  {
+   "file": "input/recommendations.csv",
+   "as": "blob",
+   "sha256": "0745dab3117bd0986f322a5a8824815d663fae1eaa02a11b8d05b24ec0452cf7"
+  }
+ ],
+ "calls": [
+  {
+   "tool": "describe",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "read_blob",
+   "arguments": {
+    "blob": "b1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "read_blob",
+   "arguments": {
+    "blob": "b2"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "ppt_add_slide",
+   "arguments": {
+    "doc": "d1",
+    "layout": "Title Only",
+    "at": 4,
+    "title": "All nine capabilities miss target",
+    "ref": "gap_slide"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "s:260"
+    ],
+    "refs": {
+     "gap_slide": "s:260"
+    }
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$gap_slide",
+       "action": "add",
+       "chart_type": "column",
+       "categories": [
+        "Governance",
+        "People",
+        "Data",
+        "Technology",
+        "Request",
+        "Procure",
+        "Deploy",
+        "Monitor",
+        "Retire"
+       ],
+       "data": [
+        {
+         "name": "Current",
+         "values": [
+          2.13,
+          2.1,
+          2.17,
+          2.33,
+          2.33,
+          2.08,
+          2.25,
+          2.19,
+          2.33
+         ]
+        },
+        {
+         "name": "Target",
+         "values": [
+          4,
+          3,
+          4,
+          3,
+          3,
+          4,
+          3,
+          4,
+          3
+         ],
+         "type": "line"
+        }
+       ],
+       "box": {
+        "x": 66,
+        "y": 144,
+        "w": 828,
+        "h": 367
+       },
+       "axis": "value",
+       "scale": {
+        "min": 0,
+        "max": 5,
+        "major_unit": 1
+       },
+       "gridlines": "none",
+       "position": "bottom",
+       "ref": "gap"
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$gap",
+       "action": "format_series",
+       "series": "Current",
+       "style": {
+        "fill": "tx2"
+       }
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$gap",
+       "action": "format_point",
+       "series": "Current",
+       "category": "Procure",
+       "style": {
+        "fill": "accent2"
+       }
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$gap",
+       "action": "format_series",
+       "series": "Target",
+       "style": {
+        "line": "none",
+        "marker": "diamond",
+        "marker_size": 10,
+        "marker_fill": "accent6"
+       }
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$gap",
+       "action": "set_text_style",
+       "style": {
+        "size": 10
+       }
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "260.3"
+    ],
+    "refs": {
+     "gap": "260.3"
+    }
+   }
+  },
+  {
+   "tool": "ppt_add_slide",
+   "arguments": {
+    "doc": "d1",
+    "layout": "Title Only",
+    "at": 5,
+    "title": "R1 and R4 are quick wins",
+    "ref": "matrix_slide"
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "s:261"
+    ],
+    "refs": {
+     "matrix_slide": "s:261"
+    }
+   }
+  },
+  {
+   "tool": "batch",
+   "arguments": {
+    "ops": [
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$matrix_slide",
+       "action": "add",
+       "chart_type": "bubble",
+       "values": [
+        1.0,
+        2.0,
+        4.0,
+        1.5,
+        3.5,
+        4.5
+       ],
+       "data": [
+        {
+         "name": "Recommendations",
+         "values": [
+          4.5,
+          3.0,
+          4.0,
+          1.5,
+          2.0,
+          1.0
+         ],
+         "size": [
+          3,
+          2,
+          3,
+          1,
+          2,
+          1
+         ]
+        }
+       ],
+       "box": {
+        "x": 66,
+        "y": 144,
+        "w": 828,
+        "h": 367
+       },
+       "axis": "x",
+       "scale": {
+        "min": 0,
+        "max": 5,
+        "major_unit": 1
+       },
+       "position": "none",
+       "ref": "matrix"
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$matrix",
+       "action": "set_axis_scale",
+       "axis": "y",
+       "scale": {
+        "min": 0,
+        "max": 5,
+        "major_unit": 1
+       }
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$matrix",
+       "action": "set_point_labels",
+       "series": "Recommendations",
+       "labels": [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6"
+       ],
+       "position": "right",
+       "cells": true
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$matrix",
+       "action": "set_axis_title",
+       "axis": "category",
+       "text": "Effort"
+      }
+     },
+     {
+      "tool": "edit_chart",
+      "arguments": {
+       "doc": "d1",
+       "target": "$matrix",
+       "action": "set_axis_title",
+       "axis": "value",
+       "text": "Impact"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "created": [
+     "261.3"
+    ],
+    "refs": {
+     "matrix": "261.3"
+    }
+   }
+  },
+  {
+   "tool": "check",
+   "arguments": {
+    "doc": "d1"
+   },
+   "expect": {
+    "ok": true
+   }
+  },
+  {
+   "tool": "save_document",
+   "arguments": {
+    "doc": "d1",
+    "name": "maturity-assessment.pptx",
+    "format": "pptx"
+   },
+   "expect": {
+    "ok": true
+   }
+  }
+ ],
+ "output": {
+  "name": "maturity-assessment.pptx",
+  "sha256": "16aae5c9fa866a4783a7c27cb53fa862af4904f53d0c5e6fd18ce836c2dee7db",
+  "calls": 9,
+  "content_sha256": "343530cdd038a4ec3282de57c9414df56c86155faac545e94e0137ae1f968031"
+ },
+ "check": {
+  "total": 28,
+  "passed": 28
+ }
+}

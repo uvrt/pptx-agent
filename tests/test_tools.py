@@ -42,11 +42,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: within 5,500) and to every definition (10,269); budget and guard stay.  Round 3's table
 #: styles and Table Design flags (ppt_add_table's style, ppt_edit_table's set_style and
 #: set_flags) and ppt_manage_slides' delete_empty_placeholders added 198 to every definition
-#: (10,467), none to the core (3,398, about 5,029 counted); budget and guard stay.
+#: (10,467), none to the core (3,398, about 5,029 counted); budget and guard stay.  Round 3's
+#: chart formatting in the deferred edit_chart (axis scales, gridlines, series and point
+#: colours and markers, series type, chart text, point labels; the radar_filled and bubble
+#: types; ``scale``, ``style``, ``gridlines``, ``part``, ``labels``, ``cells``, ``secondary``)
+#: added 646 to every definition (11,113), none to the core; the guard rises to 11,200 rather
+#: than squeeze the descriptions.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 5500
-ALL_GUARD = 10500
+ALL_GUARD = 11200
 
 
 def estimate_tokens(definitions) -> int:
