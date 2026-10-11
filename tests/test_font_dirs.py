@@ -145,3 +145,21 @@ def test_the_worker_sees_the_folder_under(method, deck_bytes, folder):
             overflows, image = _check_and_render(box, deck_bytes)
             assert not box.pool.in_process
     assert overflows and image == drawn
+
+
+def test_a_subprocess_worker_gets_the_folder_from_its_arguments(deck_bytes, folder, monkeypatch):
+    """What a daemonic process renders with: the folders reach it as arguments, read where
+    the toolbox runs -- not from the worker's own environment, fixed when it started."""
+    from ooxml_edit.tools import SubprocessPool
+
+    direct = Document.open(deck_bytes)
+    direct.font_dirs = (str(folder),)
+    drawn = direct.render_png([1], width=640)[0]
+    with _box(runner=SubprocessPool(1)) as box:
+        _, unconfigured = _check_and_render(box, deck_bytes)       # starts the worker
+        worker = box.pool.pids()
+        monkeypatch.setenv(FONT_DIRS_ENV, str(folder))             # set after it started
+        overflows, image = _check_and_render(box, deck_bytes)
+        assert box.pool.pids() == worker and os.getpid() not in worker
+    assert unconfigured != drawn
+    assert overflows and image == drawn
