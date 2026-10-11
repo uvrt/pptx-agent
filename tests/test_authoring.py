@@ -336,8 +336,13 @@ def test_a_new_table_is_written_as_powerpoint_writes_one(deck):
     other = deck.slides[0].add_table(1, 1, 0, 0, EMU, EMU,
                                      style="{073A0DAA-6AF3-43AB-8588-CEC1D06C72B9}")
     assert "{073A0DAA-6AF3-43AB-8588-CEC1D06C72B9}" in _xml(other)
-    with pytest.raises(ValueError):
-        deck.slides[0].add_table(1, 1, 0, 0, EMU, EMU, style="Medium Style 2")
+    named = deck.slides[0].add_table(1, 1, 0, 0, EMU, EMU, style="Medium Style 2")
+    assert "{073A0DAA-6AF3-43AB-8588-CEC1D06C72B9}" in _xml(named)
+    with pytest.raises(ValueError, match="no table style named 'Medium Style 9'"):
+        deck.slides[0].add_table(1, 1, 0, 0, EMU, EMU, style="Medium Style 9")
+    with pytest.raises(ValueError, match="no table style"):
+        deck.slides[0].add_table(1, 1, 0, 0, EMU, EMU,
+                                 style="{00000000-0000-0000-0000-000000000000}")
     with pytest.raises(ValueError):
         deck.slides[0].add_table(0, 1, 0, 0, EMU, EMU)
 

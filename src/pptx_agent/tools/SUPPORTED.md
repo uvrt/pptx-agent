@@ -9,19 +9,19 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Feature | Tool / action | Notes |
 |---|---|---|
 | Open a deck or template; a new deck, from nothing or from a template | `open_document`, `new_document` | inputs are blobs the application registered; a template's slides are dropped from a new deck |
-| Save as a deck, a template or a text outline | `save_document` (`pptx`, `potx`, `outline`) | refuses new validation problems; lists overflows and collisions still there |
+| Save as a deck, a template or a text outline | `save_document` (`pptx`, `potx`, `outline`) | refuses new validation problems; lists overflows, collisions and empty placeholders still there |
 | Close a document | `close_document` | the session holds a few documents at a time |
-| The deck at a glance | `describe` | slides with ids, titles, layouts and content areas; theme colours, fonts, roles and tints; layouts and their placeholders; comment counts |
+| The deck at a glance | `describe` | slides with ids, titles, layouts and content areas; theme colours, fonts, roles and tints; the deck's table styles (its default, its own, how the built-in names go); layouts and their placeholders; comment counts |
 | Read slides | `ppt_read_slides` (`outline`, `geometry`, `svg`) | outline Markdown with ids; every shape's box, fill, outline and text; a compact SVG view |
 | Read a text input (CSV, Markdown, plain text) | `read_blob` | a page at a time |
 | Find and replace text | `find_text`, `replace_text` | slides, notes, tables and SmartArt; `expect: one` or `all` |
 | Look at slides | `render` | PNG, at most 4 a call; says which text the image leaves out for want of a font (`missing_glyphs`) |
-| Fit, collisions, validation, design facts | `check` | overflows, collisions (`boxes` too), shapes off the slide, problem facts, design facts, validation |
+| Fit, collisions, validation, design facts | `check` | overflows, collisions (`boxes` too), shapes off the slide, empty placeholders ("Click to add text"), problem facts, design facts, validation |
 | Undo and redo | `undo` | one call is one step; refs come back with the state |
 | Several calls as one step | `batch` | in order, all or nothing, checks once at the end |
 | Slides from a layout, with title, body and notes | `ppt_add_slide` | the deck's own layouts and placeholders |
 | Slides from a Markdown outline | `ppt_draft_slides` | into the deck's layouts |
-| Duplicate, move, delete a slide; find one by title | `ppt_manage_slides` | a duplicate does not take its original's comments |
+| Duplicate, move, delete a slide; find one by title; delete a slide's empty placeholders | `ppt_manage_slides` | a duplicate does not take its original's comments; `delete_empty_placeholders` keeps an empty title |
 | Text of shapes, table cells and speaker notes | `ppt_set_text` | plain text keeps formatting; the text spec states runs, bullets, levels and the frame |
 | Run, paragraph and frame formatting | `ppt_format_text` | bold, italic, underline, size, font, colour; alignment, levels, bullets, spacing; insets, anchor, wrap, autofit; table cells too |
 | Autoshapes and text boxes | `ppt_add_shape` | every preset; `measure: true` sizes text first and adds nothing; `fit_height` |
@@ -29,7 +29,7 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Connectors that stay attached | `ppt_add_connector` (`straight`, `elbow`, `curved`) | glued to a shape's side, or between points; arrowheads |
 | Z-order, group, ungroup, duplicate, delete | `ppt_arrange` | |
 | Pictures: insert, replace | `ppt_add_picture` | from an image blob; replacing keeps the frame, height or width |
-| Tables: new; cells, rows, columns, merges, widths, heights, fill, borders | `ppt_add_table`, `ppt_edit_table` | cells by row and column or by their labels |
+| Tables: new; cells, rows, columns, merges, widths, heights, fill, borders; style and Table Design flags | `ppt_add_table`, `ppt_edit_table` (`set_style`, `set_flags`) | cells by row and column or by their labels; a style by name or id, the deck's own (a template's) or any of PowerPoint's 74 built-in styles; header row, total row, first and last column, banded rows and columns |
 | Charts: new from data; read; values, categories, series, titles, axis titles, legend, data labels, gap width | `edit_chart` | column, stacked column, bar, stacked bar, line, pie, scatter, radar (lines, as PowerPoint inserts one; not the filled or marker radar); the embedded workbook changes with the chart |
 | SmartArt: node text, adding and removing nodes | `edit_smartart` | diagrams already in the deck; PowerPoint lays the diagram out again on opening |
 | The theme's colours and fonts | `ppt_set_theme` | every theme reference in the deck follows |

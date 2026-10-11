@@ -40,7 +40,7 @@ def describe(call, doc):
                                                          "minor": theme.fonts.minor},
                   "roles": {"primary": roles.primary, "secondary": roles.secondary,
                             "neutral": roles.neutral, "highlight": roles.highlight},
-                  "tints": ramps},
+                  "tints": ramps, "table_styles": _table_styles(deck)},
         "layouts": layouts,
         "properties": {"title": deck.title, "author": deck.author, "language": deck.language},
         "baseline_problems": [str(p) for p in call.entry.baseline_problems],
@@ -51,6 +51,18 @@ def describe(call, doc):
                             "open": sum(1 for thread in threads if not thread.done),
                             "read": "ppt_comments list"}
     return Result(summary=f"{len(slides)} slide(s), {len(layouts)} layout(s)", data=data)
+
+
+def _table_styles(deck) -> dict[str, Any]:
+    """The deck's table styles in brief: its default, its own (a template's), and how the
+    built-in names go."""
+    from ..edit.tablestyles import BUILTIN_NAMES
+
+    styles = deck.table_styles
+    default = next((s["name"] or s["id"] for s in styles if s.get("default")), None)
+    return {"default": default, "own": [s["name"] or s["id"] for s in styles
+                                        if not s["builtin"]],
+            "builtin": BUILTIN_NAMES}
 
 
 def _run_colors(paragraphs) -> list[str]:

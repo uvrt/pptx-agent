@@ -71,15 +71,17 @@ def save_document(call, doc, name, format):
     return Result(summary=summary, data=described)
 
 
-#: The fit and collision facts ``save_document`` reports when any are left.
-UNRESOLVED = ("overflows", "collisions", "off_slide")
+#: The fit, collision and empty-placeholder facts ``save_document`` reports when any are
+#: left.
+UNRESOLVED = ("overflows", "collisions", "off_slide", "empty_placeholders")
 #: At most this many of each kind are listed.
 UNRESOLVED_LISTED = 20
 
 
 def unresolved(deck) -> dict[str, Any]:
-    """The fit and collision facts still in the deck at save time, every slide: what
-    ``check`` would report.  Facts, not a refusal: the save has happened."""
+    """The fit, collision and empty-placeholder facts still in the deck at save time,
+    every slide: what ``check`` would report.  Facts, not a refusal: the save has
+    happened."""
     found = facts(deck, [slide.slide_id for slide in deck.slides])
     left: dict[str, Any] = {}
     for kind in UNRESOLVED:

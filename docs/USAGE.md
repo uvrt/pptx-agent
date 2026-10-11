@@ -222,6 +222,21 @@ runs past it as `off_slide` with `detail="rows"`, `rows` (the first and last row
 edge, 1-based) and `rows_fit`: keep `rows_fit` rows on this slide and move the rest to a
 table on the next.
 
+A table's style and its Table Design flags (Header Row, Total Row, First and Last Column,
+Banded Rows and Columns) say how PowerPoint draws it. `deck.table_styles` lists the styles a
+table can take: the deck's own from `ppt/tableStyles.xml` first (a brand template's), then
+PowerPoint's 74 built-in styles, each `{"id", "name", "builtin"}`, the deck's default marked
+`"default": True`. `table.style` reads one of those and takes a name or an id; a built-in
+style needs no definition in the deck, as PowerPoint writes it:
+
+```python
+[s["name"] for s in deck.table_styles if not s["builtin"]]   # -> ['Acme Table']
+frame = slide.add_table(4, 3, 457200, 1371600, 8229600, 1463040, style="Acme Table")
+frame.table.set_flags(banded_rows=False)           # a header row and no banding
+frame.table.style = "Light Style 1 - Accent 1"     # or "{3B4B98B0-...}"
+print(frame.table.flags)    # -> {'first_row': True, 'last_row': False, ... 'banded_rows': False, ...}
+```
+
 Label lookups are strict: a label that names no row or column, or more than one, raises
 `LabelError` listing the labels there are. Whitespace is collapsed; only when nothing
 matches exactly are full-width forms and case ignored (`"売上高(億円)"` finds
@@ -391,6 +406,15 @@ the renderers take are 1-based, as PowerPoint numbers slides -- so pass a `Slide
 (`slide.index()`). `slide.title` reads and writes the title placeholder's text (`None` when
 the slide has none); `deck.slide_titled(text)` finds the one slide with that title, matched
 as a table label is, and raises `LabelError` listing the titles otherwise.
+
+A placeholder left empty -- a chart placed over a content layout's body, a subtitle never
+written -- shows "Click to add text" in PowerPoint's edit view, though a show or an export
+draws no prompt; one holding only spaces shows a stray bullet instead, exported too.
+`slide.empty_placeholders()` lists them (no text, only whitespace or only empty paragraphs;
+a placeholder holding a picture, table or chart is not empty; date, footer and slide number
+are left out), and `slide.delete_empty_placeholders()` deletes them in one undo step,
+keeping an empty title unless `titles=True`, and one with a fill or outline, which
+PowerPoint draws whether it holds text or not.
 
 ### Draft slides from Markdown (`insert_outline`)
 

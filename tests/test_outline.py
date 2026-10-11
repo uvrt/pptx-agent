@@ -758,3 +758,55 @@ def test_powerpoint_keeps_a_drafted_deck_as_drafted(case):
         assert strip(resaved.to_outline()) == strip(document.to_outline())
     finally:
         oracle_helper.cleanup(deck, again)
+
+
+def _agenda() -> tuple[Document, list]:
+    """Round 3's D3 deck: two groups, each a picture and a text box; the second nested, with
+    a text box, in a third group."""
+    deck = Document.new()
+    slide = deck.add_slide("Title Only")
+    slide.title = "Agenda"
+    groups = []
+    for k, label in enumerate(["First item", "Second item"]):
+        y = 1828800 + k * 700000
+        picture = slide.add_picture(MARKER, 900000, y, 400000, 400000)
+        text = slide.add_textbox(1500000, y, 3000000, 400000)
+        text.set_text(label)
+        groups.append(slide.group([picture, text], name=f"Agenda item {k + 1}"))
+    aside = slide.add_textbox(4800000, 2528800, 2000000, 400000)
+    aside.set_text("Aside")
+    outer = slide.group([groups[1], aside], name='The "rest"')
+    return deck, groups + [outer]
+
+
+def test_a_group_member_is_in_the_outline_once_between_its_groups_marks():
+    deck, (first, second, outer) = _agenda()
+    outline = deck.to_outline()
+    assert outline.count("First item") == outline.count("Second item") == 1
+    assert outline.count("picture -->") == 2
+    start = outline.index(f'<!-- {first.id} group "Agenda item 1" -->')
+    assert start < outline.index("First item") < outline.index(f"<!-- /{first.id} -->")
+    assert f'<!-- {outer.id} group "The \\"rest\\"" -->\n<!-- {second.id} group "Agenda item 2"' \
+        in outline
+    assert outline.index(f"<!-- /{second.id} -->") < outline.index("Aside") \
+        < outline.index(f"<!-- /{outer.id} -->")
+    plain = deck.to_outline(ids=False)
+    assert "group" not in plain and plain.count("Second item") == 1
+    # find_text and outline_blocks meet each member once too.
+    assert [b.address for b in deck.find_text("item")] == \
+        [first.children[1].id, second.children[1].id]
+    # A group with nothing to show (two shapes without text) is left out.
+    slide = deck.slides[0]
+    empty = slide.group([slide.add_shape("rect", 0, 0, 91440, 91440),
+                         slide.add_shape("ellipse", 91440, 0, 91440, 91440)])
+    assert empty.id not in deck.to_outline()
+
+
+def test_group_marks_read_back_as_nothing():
+    deck, _ = _agenda()
+    outline = deck.to_outline()
+    target = Document.new()
+    drafted = target.insert_outline(outline, images=deck)
+    assert len(drafted) == 1
+    again = target.to_outline(ids=False)
+    assert again.count("First item") == again.count("Aside") == 1 and "group" not in again

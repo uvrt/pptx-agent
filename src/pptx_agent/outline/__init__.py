@@ -46,11 +46,13 @@ line above the block it names, an id at the end of the line it names in a headin
   as ``<br>``), the title's shape id at the end, and above it the slide's id, ``hidden``
   for a hidden slide, and its layout's name.  A slide with no title placeholder has an
   empty heading, ``#``.
-* **A block** per placeholder and per shape with text, in z-order, groups flattened, under
-  a comment with the shape id and what it is: ``ph: <type> <idx>`` for a placeholder (``obj``
+* **A block** per placeholder and per shape with text, in z-order, each once, under a
+  comment with the shape id and what it is: ``ph: <type> <idx>`` for a placeholder (``obj``
   when the type is omitted), ``empty`` for an empty placeholder, ``table``, ``picture``,
   ``chart`` or ``smartart``; a shape's own id alone for text outside placeholders.
-  Connectors and shapes without text are left out.
+  Connectors and shapes without text are left out.  A group's blocks stand between
+  ``<!-- 256.5 group "Agenda item 1" -->`` (its id and name) and ``<!-- /256.5 -->``, nested
+  as the groups are; a group with no block is left out, and ``ids=False`` drops the marks.
 * **Text**: a paragraph showing a bullet (its own, or one it inherits from the layout,
   master or presentation, as pptx2svg resolves it) is a list item at its level -- a
   numbered one an ordered item -- and any other a paragraph; a line break is a hard break.

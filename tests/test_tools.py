@@ -39,7 +39,10 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: proxy, within 5,500) and to every definition (10,257); budget and guard stay.  ooxml-edit
 #: 0.14's slide ids in render's and check's ``slides`` (``s:256``, ``$ref`` or a number; the
 #: items a string) added 12 to the core (3,386 -> 3,398, about 5,029 counted by the proxy,
-#: within 5,500) and to every definition (10,269); budget and guard stay.
+#: within 5,500) and to every definition (10,269); budget and guard stay.  Round 3's table
+#: styles and Table Design flags (ppt_add_table's style, ppt_edit_table's set_style and
+#: set_flags) and ppt_manage_slides' delete_empty_placeholders added 198 to every definition
+#: (10,467), none to the core (3,398, about 5,029 counted); budget and guard stay.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 5500
@@ -534,6 +537,9 @@ def test_check_and_save_behind_the_gate(toolbox, session):
 
 def test_save_lists_the_fit_and_collision_facts_left_as_facts_not_a_refusal(toolbox, session):
     # Trial 3: a run saved with two line-over-text collisions its checks had reported.
+    # The deck's second slide has an empty body: filled, nothing is left.
+    ok(call(toolbox, session, "ppt_set_text", doc="d1",
+            items=[{"target": "257.3", "text": "The detail"}]))
     clean = ok(call(toolbox, session, "save_document", doc="d1", name="clean.pptx",
                     format="pptx"))
     assert "unresolved" not in clean.data and "still in the deck" not in clean.summary

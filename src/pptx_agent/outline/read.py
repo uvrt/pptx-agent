@@ -77,7 +77,7 @@ def outline_blocks(document: "Document", slides=None) -> list[TextBlock]:
     out: list[TextBlock] = []
     for slide in select(document, slides):
         number = slide.index + 1
-        shapes = _flatten(slide.shapes)
+        shapes = _flatten(_top(slide))
         title = next((s for s in shapes if s.kind == "shape" and s.placeholder is not None
                       and s.placeholder[0] in TITLE_TYPES), None)
         ordered = ([title] if title is not None else []) + [s for s in shapes if s is not title]
@@ -161,8 +161,8 @@ def _slide(document: "Document", slide: "Slide", *, ids: bool, notes: bool) -> l
     if ids and words:
         lines.append(comment(" ".join(words)))
 
-    shapes = _flatten(slide.shapes)
-    title = next((s for s in shapes if s.kind == "shape" and s.placeholder is not None
+    top = _top(slide)
+    title = next((s for s in _flatten(top) if s.kind == "shape" and s.placeholder is not None
                   and s.placeholder[0] in TITLE_TYPES), None)
     heading = "#"
     if title is not None:
@@ -176,21 +176,37 @@ def _slide(document: "Document", slide: "Slide", *, ids: bool, notes: bool) -> l
     lines += [heading, ""]
 
     first = True
-    for shape in shapes:
-        if shape is title:
-            continue
-        block = _shape_block(document, slide, shape, ids=ids)
-        if block is None:
-            continue
-        label, body = block
-        if ids:
-            lines.append(comment(label))
-        elif not first:
-            lines += ["---", ""]
-        if body:
-            lines += body
-        lines.append("")
-        first = False
+
+    def blocks(items: list["Shape"]) -> list[str]:
+        """The blocks of ``items`` and of their groups' members, each shape once; with ids a
+        group that shows any block is marked around them, as docx-agent marks a span."""
+        nonlocal first
+        out: list[str] = []
+        for shape in items:
+            if title is not None and shape._element is title._element:
+                continue
+            if shape.kind == "group":
+                inner = blocks(shape.children)
+                if inner and ids:
+                    out += [comment(_group_label(shape))] + inner + [comment(f"/{shape.id}"), ""]
+                else:
+                    out += inner
+                continue
+            block = _shape_block(document, slide, shape, ids=ids)
+            if block is None:
+                continue
+            label, body = block
+            if ids:
+                out.append(comment(label))
+            elif not first:
+                out += ["---", ""]
+            if body:
+                out += body
+            out.append("")
+            first = False
+        return out
+
+    lines += blocks(top)
 
     if notes:
         notes_lines = _notes_block(document, slide)
@@ -201,7 +217,24 @@ def _slide(document: "Document", slide: "Slide", *, ids: bool, notes: bool) -> l
     return lines
 
 
+def _top(slide: "Slide") -> list["Shape"]:
+    """The slide's own shapes, without groups' members: ``slide.shapes`` lists every shape,
+    a group followed by its members, so walking it and the groups both meets a member
+    twice."""
+    return [shape for shape in slide.shapes if shape.parent_group is None]
+
+
+def _group_label(group: "Shape") -> str:
+    """``256.5 group "Agenda item 1"``: a group's id, and its name when it has one."""
+    name = group.name
+    if not name:
+        return f"{group.id} group"
+    return f'{group.id} group "' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def _flatten(shapes: list["Shape"]) -> list["Shape"]:
+    """Every shape that is not a group in ``shapes`` (top-level shapes) and their groups,
+    depth first."""
     out = []
     for shape in shapes:
         if shape.kind == "group":

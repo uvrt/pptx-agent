@@ -132,9 +132,11 @@ def ppt_draft_slides(call, doc, markdown, at=None):
 
 
 @tool("ppt_manage_slides",
-      "Duplicate, move or delete a slide, or find one by its title. Returns the slide order.",
+      "Duplicate, move or delete a slide, find one by its title, or delete its empty "
+      "placeholders (not a title or one with a fill). Returns the slide order.",
       {"doc": string("Document id."),
-       "action": string("What to do.", enum=["duplicate", "move", "delete", "find_by_title"]),
+       "action": string("What to do.", enum=["duplicate", "move", "delete", "find_by_title",
+                                             "delete_empty_placeholders"]),
        "slide": string("The slide, s:256 or $ref.", optional=True),
        "to": integer("move, duplicate: new position from 1. Default after it.", minimum=1,
                      maximum=10000, optional=True),
@@ -174,6 +176,24 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
         deck.move_slide(target, to - 1)
         return Result(summary=f"Moved s:{target.slide_id} to {to}",
                       changed=[f"s:{target.slide_id}"], data={"order": _order(deck)})
+    if action == "delete_empty_placeholders":
+        deleted = target.delete_empty_placeholders()
+        call.touch(target.slide_id)
+        kept = target.empty_placeholders()
+        titles = [shape.id for shape in kept if shape.placeholder.type in ("title", "ctrTitle")]
+        boxes = [shape.id for shape in kept if shape.id not in titles]
+        summary = f"Deleted {len(deleted)} empty placeholder(s) on s:{target.slide_id}"
+        if titles:
+            summary += f"; kept the empty title {', '.join(titles)}: fill it"
+        if boxes:
+            summary += (f"; kept {', '.join(boxes)}: its fill or outline is drawn; delete it "
+                        "with ppt_arrange if the box should go")
+        data = {"slide": f"s:{target.slide_id}", "deleted": deleted}
+        if titles:
+            data["empty_title"] = titles
+        if boxes:
+            data["kept_drawn"] = boxes
+        return Result(summary=summary, removed=deleted, data=data)
     if action == "delete":
         address = f"s:{target.slide_id}"
         deck.delete_slide(target)

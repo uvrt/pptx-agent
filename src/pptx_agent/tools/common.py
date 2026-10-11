@@ -317,6 +317,11 @@ ALLOWANCE_NOTE = ("fits while needed > available: up to 'allowance' pt is the em
 NEAR_WRAP_NOTE = ("near_wrap: a line has under 0.16 pt to spare; PowerPoint may break it "
                   "where this measurement does not: give it a few points")
 
+EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows 'Click to add ...' in an "
+                           "empty one while editing (a whitespace-only one shows a stray "
+                           "bullet, in the export too); fill them or delete them "
+                           "(ppt_manage_slides delete_empty_placeholders)")
+
 ROWS_NOTE = ("rows_past: a table's rows grow to fit their text and PowerPoint cuts off what "
              "passes the slide's bottom; keep rows_fit rows and move the rest to a table on "
              "the next slide, or shorten the text")
@@ -324,7 +329,8 @@ ROWS_NOTE = ("rows_past: a table's rows grow to fit their text and PowerPoint cu
 
 def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
           include: Iterable[str] = ("fit", "collisions")) -> dict[str, Any]:
-    """Fit and collision facts for some slides, in points, from one measurement each."""
+    """Fit and collision facts for some slides, in points, from one measurement each; with
+    ``fit``, the empty placeholders too (:meth:`Slide.empty_placeholders`)."""
     from ..edit.fit import slide_report
 
     wanted = set(include)
@@ -333,11 +339,15 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
     off_slide: list[dict] = []
     near_wrap: list[dict] = []
     allowance: list[dict] = []
+    empty: list[dict] = []
     for sid in slide_ids:
         try:
             target = deck.slide(f"s:{sid}")
         except (KeyError, IndexError, ValueError):
             continue
+        if "fit" in wanted:
+            empty += [{"shape": shape.id, "type": shape.placeholder.type or "content",
+                       "idx": shape.placeholder.idx} for shape in target.empty_placeholders()]
         problems, fits = slide_report(target, boxes=boxes)
         for problem in problems:
             if problem.kind == "text" and "fit" in wanted:
@@ -373,6 +383,9 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
             out["allowance_note"] = ALLOWANCE_NOTE
         if any("rows_past" in entry for entry in off_slide):
             out["rows_note"] = ROWS_NOTE
+        if empty:
+            out["empty_placeholders"] = empty
+            out["empty_placeholders_note"] = EMPTY_PLACEHOLDERS_NOTE
     if "collisions" in wanted:
         out["collisions"] = collisions
     return out

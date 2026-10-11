@@ -9,13 +9,31 @@ from __future__ import annotations
 
 from typing import Any
 
-from ooxml_edit.tools import Result, ToolError, array, integer, number, obj, string, tool
+from ooxml_edit.tools import (Result, ToolError, array, boolean, integer, number, obj, string,
+                              tool)
+
+from ..edit.tablestyles import FLAGS
 
 from .common import (KIND, box_emu, emu, library_errors, shape as shape_at,
                      slide as slide_at)
 from .shapes import OBJECTS, _box
 
 _KEY = string("Retry key: a repeat with the same key makes nothing new.", optional=True)
+_STYLE = string("Table style name or id; describe lists the deck's own.", optional=True)
+
+
+def _style_id(deck, style):
+    """``style``'s id, or ``None`` for none; ``not_found`` names the deck's own styles."""
+    if style is None:
+        return None
+    from ..edit.tablestyles import resolve
+
+    try:
+        return resolve(deck, style)
+    except ValueError as exc:
+        raise ToolError("not_found", str(exc), field="style",
+                        valid_options=[s["name"] for s in deck.table_styles
+                                       if not s["builtin"]][:50] or None) from None
 
 
 def _table(deck, target: str):
@@ -28,18 +46,22 @@ def _table(deck, target: str):
 
 
 def table_json(frame, table) -> dict[str, Any]:
-    """The table as the model reads it: size, labels, and its cells' text (up to 400)."""
+    """The table as the model reads it: size, style and the flags that are on, labels, and
+    its cells' text (up to 400)."""
     rows = []
     for row in range(min(table.rows, 40)):
         rows.append([table.cell(row, column).text for column in range(min(table.columns, 10))])
+    style = table.style
     return {"address": frame.id, "rows": table.rows, "columns": table.columns,
+            "style": (style["name"] or style["id"]) if style else None,
+            "flags": [flag for flag, on in table.flags.items() if on],
             "column_labels": table.column_labels(), "row_labels": table.row_labels(),
             "cells": rows}
 
 
 @tool("ppt_add_table",
       "Add a table with its data, styled as PowerPoint inserts one: a header row, banded "
-      "rows.",
+      "rows, the default style or one named.",
       {"doc": string("Document id."),
        "slide": string("Slide, s:256 or $ref."),
        "box": _box("Position and size."),
@@ -47,16 +69,18 @@ def table_json(frame, table) -> dict[str, Any]:
        "columns": integer("1-50.", minimum=1, maximum=50),
        "data": array(array(string()), "Cell texts, row by row; may be shorter than the "
                      "table.", optional=True),
+       "style": _STYLE,
        "ref": string("Ref name for the table.", optional=True),
        "key": _KEY},
       kind=KIND, group=OBJECTS, mutates=True, refs=("slide",))
 @library_errors
-def ppt_add_table(call, doc, slide, box, rows, columns, data=None, ref=None, key=None):
+def ppt_add_table(call, doc, slide, box, rows, columns, data=None, style=None, ref=None,
+                  key=None):
     host = slide_at(call.document, slide)
     if rows * columns > 5000:
         raise ToolError("limit", "at most 5,000 cells per table", field="rows")
     x, y, w, h = box_emu(box)
-    frame = host.add_table(rows, columns, x, y, w, h)
+    frame = host.add_table(rows, columns, x, y, w, h, style=_style_id(call.document, style))
     table = frame.table
     for row, values in enumerate((data or [])[:rows]):
         for column, text in enumerate(values[:columns]):
@@ -81,14 +105,15 @@ _SIDES = ["top", "bottom", "left", "right", "all"]
 
 @tool("ppt_edit_table",
       "Change a table: cell text by position or label, insert or delete rows and columns, "
-      "merge or split cells, column widths, row heights, cell fill and borders. Cell text "
-      "formatting: ppt_format_text on cells. Returns the table after.",
+      "merge or split cells, column widths, row heights, cell fill and borders, its style "
+      "and Table Design flags. Cell text formatting: ppt_format_text on cells. Returns the "
+      "table after.",
       {"doc": string("Document id."),
        "target": string("The table, e.g. 256.7 or $ref."),
        "action": string("What to do.", enum=["set_cells", "insert_row", "delete_row",
                                              "insert_column", "delete_column", "merge",
                                              "split", "set_widths", "set_heights",
-                                             "format_cells"]),
+                                             "format_cells", "set_style", "set_flags"]),
        "cells": array(_CELL, "set_cells: the cells.", optional=True),
        "index": integer("insert_*: new row/column's position, default last; delete_*: "
                         "which.", minimum=0, maximum=10000, optional=True),
@@ -111,11 +136,15 @@ _SIDES = ["top", "bottom", "left", "right", "all"]
        "borders": array(obj({"side": string(enum=_SIDES),
                              "width": number("0 removes.", minimum=0, maximum=100),
                              "color": string(optional=True)}), "format_cells: borders.",
-                        optional=True)},
+                        optional=True),
+       "style": _STYLE,
+       "flags": obj({flag: boolean(optional=True) for flag in FLAGS},
+                    "set_flags: on or off; others stay.", optional=True)},
       kind=KIND, group=OBJECTS, mutates=True, refs=("target",))
 @library_errors
 def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None, span=None,
-                   sizes=None, rows=None, columns=None, fill=None, borders=None):
+                   sizes=None, rows=None, columns=None, fill=None, borders=None, style=None,
+                   flags=None):
     frame, table = _table(call.document, target)
 
     def need(name, value):
@@ -176,6 +205,13 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
             raise ToolError("invalid_arguments", "format_cells needs fill or borders",
                             field="fill", valid_options=["fill", "borders"])
         _format_cells(table, rows, columns, fill, borders)
+    elif action == "set_style":
+        table.style = _style_id(call.document, need("style", style))
+    elif action == "set_flags":
+        if not need("flags", flags):
+            raise ToolError("invalid_arguments", "set_flags needs a flag", field="flags",
+                            valid_options=list(FLAGS))
+        table.set_flags(**flags)
     call.touch(frame._slide.slide_id)
     fresh = call.document.shape(frame.id)
     return Result(summary=f"{action} on table {frame.id}", changed=changed,

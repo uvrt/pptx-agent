@@ -1,6 +1,6 @@
 """Build the inputs of the trial tasks p2-p6, of the spike's graphics tasks p7, p8, o1 and
-m1, of p10 (a review in comments), p11 (SmartArt) and p12 (a rebrand through the theme), for
-the golden transcripts (test_golden.py).
+m1, of p10 (a review in comments), p11 (SmartArt), p12 (a rebrand through the theme) and p14
+(a chart and a table on a branded template), for the golden transcripts (test_golden.py).
 
 The trial's own builder (recovered from its coordinator's transcript), run against this
 repository's fixtures, writes ``<root>/<task>/input/...``.  p1's template is the committed
@@ -518,6 +518,39 @@ def p12() -> None:
     deck.save(out("p12-theme-rebrand") / "patient-review.pptx")
 
 
+# ---------------------------------------------------------------- P14 brand chart and table
+#: The template's own table style, as a corporate template carries one: a header in accent 1
+#: with white bold text and a dark rule under it, hairlines between rows, a light band.
+P14_STYLE_ID = "{6D3B0E52-8C1A-4F7E-B9A4-1E2F3A4B5C6D}"
+P14_STYLE = (
+    f'<a:tblStyle styleId="{P14_STYLE_ID}" styleName="Harbor Lane Table"><a:wholeTbl>'
+    '<a:tcTxStyle><a:fontRef idx="minor"/><a:schemeClr val="tx1"/></a:tcTxStyle><a:tcStyle>'
+    '<a:tcBdr><a:insideH><a:ln w="6350"><a:solidFill><a:schemeClr val="bg1"><a:lumMod '
+    'val="75000"/></a:schemeClr></a:solidFill></a:ln></a:insideH><a:bottom><a:ln w="6350">'
+    '<a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:ln></a:bottom></a:tcBdr><a:fill>'
+    '<a:noFill/></a:fill></a:tcStyle></a:wholeTbl><a:band1H><a:tcStyle><a:tcBdr/><a:fill>'
+    '<a:solidFill><a:schemeClr val="accent1"><a:lumMod val="20000"/><a:lumOff val="80000"/>'
+    '</a:schemeClr></a:solidFill></a:fill></a:tcStyle></a:band1H><a:firstRow><a:tcTxStyle '
+    'b="on"><a:fontRef idx="minor"/><a:schemeClr val="bg1"/></a:tcTxStyle><a:tcStyle><a:tcBdr>'
+    '<a:bottom><a:ln w="19050"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:ln>'
+    '</a:bottom></a:tcBdr><a:fill><a:solidFill><a:schemeClr val="accent1"/></a:solidFill>'
+    '</a:fill></a:tcStyle></a:firstRow></a:tblStyle>')
+
+
+def p14() -> None:
+    """The business review with the template's own table style in ``tableStyles.xml``."""
+    deck = Document.open(FIX / "generated" / "trial" / "business-review-2026.pptx")
+    package = deck.package
+    part = "ppt/tableStyles.xml"
+    xml = package.read(part).decode("utf-8")
+    if "</a:tblStyleLst>" in xml:
+        xml = xml.replace("</a:tblStyleLst>", P14_STYLE + "</a:tblStyleLst>")
+    else:
+        xml = xml.rstrip()[:-2] + ">" + P14_STYLE + "</a:tblStyleLst>"
+    package.replace_part(part, xml.encode("utf-8"))
+    deck.save(out("p14-brand-chart-table") / "business-review-2026.pptx")
+
+
 BUILDERS = {"p2-quarterly-update": p2, "p3-split-slide": p3, "p4-process-diagram": p4,
             "p5-rebrand": p5, "p6-restructure-deck": p6,
             "p7-phased-approach": halden("p7-phased-approach"),
@@ -525,7 +558,7 @@ BUILDERS = {"p2-quarterly-update": p2, "p3-split-slide": p3, "p4-process-diagram
             "o1-governance-chart": halden("o1-governance-chart", (2, "Programme governance")),
             "m1-priority-matrix": halden("m1-priority-matrix", (3, "Prioritisation")),
             "p10-review-comments": p10, "p11-update-smartart": p11,
-            "p12-theme-rebrand": p12}
+            "p12-theme-rebrand": p12, "p14-brand-chart-table": p14}
 
 
 #: Builders that draw from scratch what is otherwise committed (``--draw``).
