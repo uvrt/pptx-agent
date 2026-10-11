@@ -146,19 +146,16 @@ def rasterise(data: bytes, width_emu: int, height_emu: int, dpi: float = 300,
         from pptx2svg.png import RasterizerNotAvailable, svg_to_png
     except ImportError as error:
         raise ImportError(message) from error
-    text = data.decode("utf-8-sig", errors="strict") if _is_utf8(data) else None
-    if text is None:
-        raise ValueError("the SVG is not UTF-8 text")
-    # The rasteriser reads a size in pixels only (resvg-py refuses width="72pt"): the root
-    # gets its native size in pixels, or the placed one when it states none.
-    root = parse(data)
-    native = native_size(root) or (width, height)
-    if (root.get("width"), root.get("height")) != tuple(f"{v:g}" for v in native):
-        from lxml import etree
+    # The rasteriser reads a size in pixels only (resvg-py refuses width="72pt"): the root's
+    # is restated in pixels as PowerPoint reads it, a viewBox added where there is none, and
+    # a non-UTF-8 SVG re-encoded -- nothing else changes (ooxml_common.svgimage, measured on
+    # PowerPoint 16).
+    from ooxml_common.svgimage import with_pixel_size
 
-        root.set("width", f"{native[0]:g}")
-        root.set("height", f"{native[1]:g}")
-        text = etree.tostring(root, encoding="unicode")
+    data = with_pixel_size(data) or data
+    if not _is_utf8(data):
+        raise ValueError("the SVG is not UTF-8 text")
+    text = data.decode("utf-8-sig")
     try:
         return svg_to_png(text, width=width, height=height,
                           check_glyphs=False,
