@@ -4,6 +4,7 @@ Mac 16: see :mod:`pptx_agent.edit.svgpicture`)."""
 
 from __future__ import annotations
 
+import importlib.util
 import io
 import json
 import struct
@@ -88,6 +89,45 @@ def test_native_size_from_width_height_or_the_viewbox():
     with pytest.raises(ValueError, match="states no size"):
         slide.add_picture(sizeless)
     assert slide.add_picture(sizeless, width=914400, height=914400).vector == sizeless
+
+
+def _fallback_pixel(picture_svg: bytes, at: tuple[float, float]) -> tuple[int, int, int]:
+    """The fallback PNG's pixel at a fraction of its size, for a 1 x 1 inch picture."""
+    image_module = pytest.importorskip("PIL.Image")
+    deck, slide = _slide()
+    picture = slide.add_picture(picture_svg, 0, 0, width=914400, height=914400, fallback_dpi=96)
+    parts = _parts(deck)
+    rels = etree.fromstring(parts["ppt/slides/_rels/slide1.xml.rels"])
+    target = next(r.get("Target") for r in rels if r.get("Target").endswith(".png"))
+    image = image_module.open(io.BytesIO(parts["ppt/" + target.removeprefix("../")]))
+    assert picture.vector == picture_svg
+    image = image.convert("RGB")
+    return image.getpixel((int(at[0] * image.width), int(at[1] * image.height)))
+
+
+@pytest.mark.parametrize("size", ['width="72pt" height="72pt"', 'width="2.54cm" height="1in"',
+                                  'width="6pc" height="25.4mm"'])
+def test_the_fallback_draws_an_svg_sized_in_any_unit(size):
+    """resvg-py draws nothing for a root of width="72pt"; the root reaches it in pixels."""
+    if importlib.util.find_spec("pptx2svg") is None:
+        pytest.skip("pptx2svg is not installed")
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" {size} viewBox="0 0 2 2">'
+           '<rect width="1" height="2" fill="#f00"/><rect x="1" width="1" height="2" fill="#00f"/>'
+           "</svg>").encode()
+    assert _fallback_pixel(svg, (0.25, 0.5)) == (255, 0, 0)
+    assert _fallback_pixel(svg, (0.75, 0.5)) == (0, 0, 255)
+
+
+def test_the_fallback_of_an_svg_with_no_viewbox_is_drawn_at_powerpoints_size():
+    """No viewBox, ``6em``: PowerPoint's em is 12 px, so the viewport is 72 px and a 36 px
+    square fills half of it, stretched to the picture (measured, PowerPoint 16)."""
+    if importlib.util.find_spec("pptx2svg") is None:
+        pytest.skip("pptx2svg is not installed")
+    svg = (b'<svg xmlns="http://www.w3.org/2000/svg" width="6em" height="6em">'
+           b'<rect width="1000" height="1000" fill="#f00"/><rect width="36" height="36" fill="#00f"/>'
+           b"</svg>")
+    assert _fallback_pixel(svg, (0.4, 0.4)) == (0, 0, 255)
+    assert _fallback_pixel(svg, (0.6, 0.6)) == (255, 0, 0)
 
 
 def test_identical_svgs_are_stored_once_and_a_given_fallback_is_used_as_is():

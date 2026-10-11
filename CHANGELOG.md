@@ -6,6 +6,13 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- An SVG picture's fallback PNG is drawn from the SVG at the size PowerPoint reads from its
+  root (ooxml-common 0.12.0's `svgimage.with_pixel_size`), in place of this module's own
+  rewrite: the same pixels for `px`, `pt`, `pc`, `in`, `cm` and `mm`, and now PowerPoint's
+  for an `em` (12 px, or the root's font-size), a percentage or no size (the `viewBox`'s
+  size; 500 px without one, where the placed size was used), and a Latin-1 or UTF-16 SVG
+  is re-encoded rather than refused. The root's other attributes and the SVG's content are
+  no longer re-serialised through lxml.
 - Rendering in a daemonic process (a Celery prefork worker's child; ooxml-edit 0.17.0):
   the slide renderer is a registered worker task (`@worker_task`), so ooxml-edit's subprocess
   workers run it there -- in parallel, with deadlines that kill -- instead of in-process.
