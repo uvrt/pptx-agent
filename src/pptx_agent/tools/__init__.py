@@ -70,6 +70,7 @@ from __future__ import annotations
 import io
 import zipfile
 
+from ooxml_edit.opc import rels_path_for
 from ooxml_edit.tools import CORE, DocumentFormat, ToolGroup, shared
 
 from ..edit.chart import ChartDataError, ChartDataWarning
@@ -89,7 +90,8 @@ and their placeholders. Then ppt_read_slides for the slides the task touches.
 - Addresses: s:256 a slide (its id; it never changes; slide numbers 1, 2... are \
 positions). 256.5 a shape (256.5#2 when the deck numbered two shapes alike), 256.5/p1 a \
 paragraph, 256.5/p1/r0 a run, 256.7/cell1,2 a table cell (row, column from 0), 256/notes \
-the speaker notes. The text tools take all of these.
+the speaker notes. L2.5, M0.7: a layout's or master's shape; an edit there shows on every \
+slide built on it (checks.affects). The text tools take all of these.
 - Positions and sizes are points from the slide's top-left corner.
 - Text: text keeps the formatting of what it replaces; paragraphs (the text spec) states \
 runs, bullets and frame. To size a box, measure first: ppt_add_shape with measure true \
@@ -163,8 +165,21 @@ def _slide_scope(deck, scope: str) -> list[str]:
 
     number = slide_id_of(str(scope))
     target = slide(deck, str(number) if number is not None else str(scope), field="scope")
-    return deck.package.reachable_parts(
+    own = deck.package.reachable_parts(
         target.part_path, lambda rel: not rel.type.endswith(_SHARED_RELATIONSHIPS))
+    # Its layout and master too, so the latest change to what the slide shows is found --
+    # and refused as entangled when it was a layout's or master's (_template_parts).
+    layout, master = target._template_parts()
+    return own + [part for path in (layout, master) if path
+                  for part in (path, rels_path_for(path))]
+
+
+def _template_parts(deck) -> list[str]:
+    """``undo``'s shared parts on a deck: every layout and master (and their
+    relationships), which every slide on them shows -- a change to one is no one slide's
+    to take back (``DocumentFormat.undo_shared``)."""
+    return [part for template in [*deck.masters, *deck.layouts]
+            for part in (template.part_path, rels_path_for(template.part_path))]
 
 
 FORMAT = DocumentFormat(
@@ -175,7 +190,8 @@ FORMAT = DocumentFormat(
     errors={LabelError: ("label_not_found", lambda exc: exc.candidates[:50]),
             ChartDataError: "refused", FullStateError: "refused"},
     summary=_summary, checks=checks, strict_first=STRICT_FIRST,
-    undo_scope=_slide_scope, restored=lambda deck: deck._reset_caches(),
+    undo_scope=_slide_scope, undo_shared=_template_parts,
+    restored=lambda deck: deck._reset_caches(),
     configure=_configure)
 
 GROUPS = [*shared.GROUPS,

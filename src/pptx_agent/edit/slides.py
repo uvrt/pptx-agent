@@ -167,14 +167,14 @@ class LayoutPlaceholder(_Frame):
 
 @dataclass(frozen=True)
 class LayoutShape(_Frame):
-    """A shape on a layout, read-only: a layout is edited in PowerPoint's slide master view,
-    not here.  ``id`` is its ``cNvPr@id``; ``kind`` as :attr:`Shape.kind`; ``bounds`` its
-    own frame, if it states one, and ``left``/``top``/``width``/``height`` the same one
-    by one -- as a :class:`Shape` has both.
+    """A read-only summary of a shape on a layout: ``id`` (its ``cNvPr@id``), ``kind``,
+    ``name``, ``placeholder``, ``bounds`` and ``text``.  No longer what
+    :attr:`Layout.shapes` returns -- that is the editable :class:`~pptx_agent.Shape` now
+    -- but kept for code that builds one.
 
     For example::
 
-        [(shape.kind, shape.name, shape.placeholder) for shape in layout.shapes]
+        LayoutShape("2", "shape", "Title 1", Placeholder("title", None), None, "Title")
     """
 
     id: str
@@ -185,14 +185,170 @@ class LayoutShape(_Frame):
     text: str
 
 
+#: :meth:`Layout.placeholder` and :meth:`Master.placeholder`'s names -> the ``p:ph`` types
+#: they match (``None``: a content placeholder, ``"obj"``).
+PLACEHOLDER_NAMES: dict[str, tuple] = {
+    "title": ("title", "ctrTitle"), "body": ("body", None, "obj"),
+    "content": (None, "obj", "body"), "subtitle": ("subTitle",), "date": ("dt",),
+    "footer": ("ftr",), "slide_number": ("sldNum",), "header": ("hdr",),
+    "picture": ("pic",), "chart": ("chart",), "table": ("tbl",),
+}
+
+
+class _TemplatePart:
+    """What a layout and a master share: their shapes -- the same editable
+    :class:`~pptx_agent.Shape` a slide has, addressed ``L<n>.<id>`` / ``M<n>.<id>`` -- and
+    adding shapes, pictures, connectors and tables to them."""
+
+    part_path: str
+    _document: object
+    _key: str
+
+    @property
+    def id(self) -> str:
+        """The address of this layout (``"L2"``) or master (``"M0"``): its
+        ``sldLayoutId`` (``sldMasterId``) less 2147483648, as durable as a slide's id --
+        PowerPoint keeps it when it saves.  Its shapes are ``"L2.<n>"``.
+
+        For example::
+
+            deck.layout("Title and Content").id          # 'L2'
+        """
+        return self._key
+
+    def _sheet(self):
+        if self._document is None:
+            raise ValueError(f"this {type(self).__name__} was made by hand; take it from "
+                             f"deck.{type(self).__name__.lower()}s")
+        return self._document._template_sheet(self.part_path)
+
+    @property
+    def shapes(self) -> list:
+        """Every shape, back to front (groups' members after their group), as editable
+        :class:`~pptx_agent.Shape` objects: text, formatting, fill, position, delete,
+        replace_image -- what a slide's shapes do.  An edit here shows on every slide
+        built on it (:attr:`slides`).
+
+        For example::
+
+            [(shape.id, shape.name, shape.text) for shape in deck.masters[0].shapes]
+        """
+        return self._sheet().shapes
+
+    def shape(self, shape_id: str):
+        """A shape by its address, ``"L2.5"`` (or the local part, ``"5"``).
+
+        For example::
+
+            deck.layout("Title and Content").shape("L2.3").set_prompt("Typ hier")
+        """
+        text = str(shape_id)
+        if "." not in text:
+            text = f"{self._key}.{text}"
+        return self._sheet().shape(text)
+
+    def placeholder(self, which: "str | int"):
+        """The placeholder ``which`` names: ``"title"``, ``"body"`` (or ``"content"``: a
+        content placeholder), ``"subtitle"``, ``"date"``, ``"footer"``, ``"slide_number"``,
+        ``"picture"``, a ``p:ph`` type (``"ctrTitle"``) -- the first such, back to front --
+        or an ``idx`` (``1``).
+
+        For example::
+
+            deck.layout("Title and Content").placeholder("body").set_prompt("Typ hier")
+        """
+        types = PLACEHOLDER_NAMES.get(which) if isinstance(which, str) else None
+        for shape in self.shapes:
+            ph = shape.placeholder
+            if ph is None:
+                continue
+            if isinstance(which, int) and not isinstance(which, bool):
+                if ph.idx == which:
+                    return shape
+            elif types is not None and ph.type in types:
+                return shape
+            elif ph.type == which:
+                return shape
+        have = [(shape.id, shape.placeholder.type or "content", shape.placeholder.idx)
+                for shape in self.shapes if shape.placeholder is not None]
+        raise KeyError(f"no placeholder {which!r} on {self._key}; it has {have}")
+
+    @property
+    def slides(self) -> list:
+        """The slides an edit here shows on: a layout's slides, or every slide of the
+        master's layouts, in presentation order.
+
+        For example::
+
+            [slide.slide_id for slide in deck.layout("Title Slide").slides]
+        """
+        return self._document._slides_on(self.part_path)
+
+    def add_shape(self, *args, **kwargs):
+        """Add an autoshape here, as :meth:`Slide.add_shape <pptx_agent.Slide.add_shape>`
+        does; every slide built on it draws it, behind the slide's own shapes.
+
+        For example::
+
+            deck.masters[0].add_shape("rect", 0, 0, 12192000, 228600, fill="accent1")
+        """
+        return self._sheet().add_shape(*args, **kwargs)
+
+    def add_textbox(self, *args, **kwargs):
+        """Add a text box here, as :meth:`Slide.add_textbox <pptx_agent.Slide.add_textbox>`
+        does -- a legal line, a classification mark.
+
+        For example::
+
+            deck.masters[0].add_textbox(457200, 6400800, 7000000, 300000,
+                                        text="© 2027 Example BV")
+        """
+        return self._sheet().add_textbox(*args, **kwargs)
+
+    def add_picture(self, *args, **kwargs):
+        """Add a picture here (SVG too), as :meth:`Slide.add_picture
+        <pptx_agent.Slide.add_picture>` does -- a logo every slide shows.
+
+        For example::
+
+            deck.masters[0].add_picture("logo.svg", left=10972800, top=228600, width=914400)
+        """
+        return self._sheet().add_picture(*args, **kwargs)
+
+    def add_connector(self, *args, **kwargs):
+        """Add a connector here, as :meth:`Slide.add_connector
+        <pptx_agent.Slide.add_connector>` does -- a rule under the title.
+
+        For example::
+
+            layout.add_connector("straight", (457200, 1371600), (11734800, 1371600))
+        """
+        return self._sheet().add_connector(*args, **kwargs)
+
+    def add_table(self, *args, **kwargs):
+        """Add a table here, as :meth:`Slide.add_table <pptx_agent.Slide.add_table>` does.
+
+        For example::
+
+            layout.add_table(2, 2, 457200, 1600200, 4572000, 914400)
+        """
+        return self._sheet().add_table(*args, **kwargs)
+
+
 @dataclass(frozen=True)
-class Layout:
-    """A slide layout a new slide can be made from, and what it offers.
+class Layout(_TemplatePart):
+    """A slide layout: what a new slide is made from, what it offers, and -- since round 3
+    -- an editable part of its own, as PowerPoint's Slide Master view edits it.
+
+    ``id`` is its address (``"L2"``); :attr:`shapes` are editable :class:`Shape` objects
+    (``"L2.3"``), and every slide built on the layout (:attr:`slides`) shows an edit.
+    :meth:`rename`, :meth:`duplicate` and :meth:`delete` change the layout list.
 
     For example::
 
         layout = deck.layout("Title and Content")
         print([(ph.type, ph.idx, ph.bounds) for ph in layout.placeholders])
+        layout.placeholder("body").set_prompt("Typ hier uw bevinding")
         deck.add_slide(layout)
     """
 
@@ -200,6 +356,8 @@ class Layout:
     part_path: str
     master_part: str
     _package: object = field(default=None, compare=False, hash=False, repr=False)
+    _document: object = field(default=None, compare=False, hash=False, repr=False)
+    _key: str = field(default="", compare=False, hash=False, repr=False)
 
     @property
     def placeholders(self) -> list[LayoutPlaceholder]:
@@ -235,33 +393,58 @@ class Layout:
         return out
 
     @property
-    def shapes(self) -> list[LayoutShape]:
-        """Every shape on the layout, back to front, read-only (:class:`LayoutShape`):
-        placeholders and the layout's own decoration.
+    def master(self) -> "Master":
+        """The master this layout belongs to.
 
         For example::
 
-            [shape.name for shape in deck.layout("Title Slide").shapes]
+            deck.layout("Title Slide").master.id         # 'M0'
         """
-        from . import inherit
+        return next(master for master in self._document.masters
+                    if master.part_path == self.master_part)
 
-        out = []
-        for shape in self._tree():
-            ph = inherit.placeholder_of(shape)
-            placeholder = None
-            if ph is not None:
-                idx = ph.get("idx")
-                placeholder = Placeholder(ph.get("type"),
-                                          int(idx) if idx and idx.isdigit() else None)
-            properties = shape.find(f".//{qn('p:cNvPr')}")
-            texts = ["".join(t.text or "" for t in paragraph.iter(qn("a:t")))
-                     for paragraph in shape.findall(f"{qn('p:txBody')}/{qn('a:p')}")]
-            out.append(LayoutShape(
-                id=(properties.get("id") if properties is not None else None) or "",
-                kind=_KINDS.get(local_name(shape), "unknown"), name=_name_of(shape),
-                placeholder=placeholder, bounds=inherit.frame_of(shape),
-                text="\n".join(texts)))
-        return out
+    @property
+    def type(self) -> str | None:
+        """The layout's ``type`` (``"title"``, ``"obj"``, ``"twoObj"``...); ``None`` for a
+        custom layout.  A slide on a ``"title"`` layout is a title slide, which
+        :meth:`Document.set_footer` leaves out by default, as PowerPoint does.
+
+        For example::
+
+            deck.layout("Title Slide").type              # 'title'
+        """
+        root = self._require_package().tree(self.part_path)
+        return None if root is None else root.get("type")
+
+    def rename(self, name: str) -> "Layout":
+        """Rename the layout (``cSld@name``, what Slide Master view shows); returns it as
+        renamed.  See :meth:`Document.rename_layout`.
+
+        For example::
+
+            deck.layout("Title and Content").rename("Inhoud")
+        """
+        return self._document.rename_layout(self, name)
+
+    def duplicate(self, name: str | None = None) -> "Layout":
+        """A copy right after this one, as Slide Master view's Duplicate Layout makes it.
+        See :meth:`Document.duplicate_layout`.
+
+        For example::
+
+            dutch = deck.layout("Title and Content").duplicate("Inhoud NL")
+        """
+        return self._document.duplicate_layout(self, name=name)
+
+    def delete(self, *, reassign_to: "Layout | str | None" = None) -> None:
+        """Delete this layout.  See :meth:`Document.delete_layout`: one in use is refused
+        unless ``reassign_to`` names the layout its slides move to.
+
+        For example::
+
+            deck.layout("Vertical Title and Text").delete()
+        """
+        self._document.delete_layout(self, reassign_to=reassign_to)
 
     def _require_package(self):
         if self._package is None:
@@ -274,7 +457,54 @@ class Layout:
         return [] if tree is None else [shape for shape in tree if local_name(shape) in _KINDS]
 
     def __repr__(self) -> str:
-        return f"<Layout {self.name!r} {self.part_path}>"
+        return f"<Layout {self._key or '?'} {self.name!r} {self.part_path}>"
+
+
+@dataclass(frozen=True)
+class Master(_TemplatePart):
+    """A slide master: the shapes every slide of its layouts shows (a logo, a legal line,
+    the footer placeholders), its text styles, its theme -- editable as Slide Master view
+    edits it, its shapes the same :class:`Shape` objects a slide has (``"M0.5"``).
+
+    ``name`` is the master's own (``cSld@name``) or, when it has none, its theme's, as
+    PowerPoint shows it; :attr:`layouts` are its layouts in their order.
+
+    For example::
+
+        master = deck.masters[0]
+        legal = next(s for s in master.shapes if "2026" in s.text)
+        legal.set_text(legal.text.replace("2026", "2027"))
+    """
+
+    name: str
+    part_path: str
+    _document: object = field(default=None, compare=False, hash=False, repr=False)
+    _key: str = field(default="", compare=False, hash=False, repr=False)
+
+    @property
+    def layouts(self) -> list[Layout]:
+        """This master's layouts, in its order.
+
+        For example::
+
+            [layout.name for layout in deck.masters[0].layouts]
+        """
+        return [layout for layout in self._document.layouts
+                if layout.master_part == self.part_path]
+
+    def add_layout(self, name: str = "Custom Layout", *, after: "Layout | str | None" = None
+                   ) -> Layout:
+        """A new layout on this master, as Slide Master view's Insert Layout makes it.
+        See :meth:`Document.add_layout`.
+
+        For example::
+
+            legal = deck.masters[0].add_layout("Legal")
+        """
+        return self._document.add_layout(name, master=self, after=after)
+
+    def __repr__(self) -> str:
+        return f"<Master {self._key or '?'} {self.name!r} {self.part_path}>"
 
 
 _KINDS = {"sp": "shape", "pic": "picture", "cxnSp": "connector", "grpSp": "group",
@@ -289,7 +519,41 @@ def _name_of(shape: Element) -> str:
 # -- reading -----------------------------------------------------------------------------
 
 
-def layouts(package: PresentationPackage) -> list[Layout]:
+def template_key(prefix: str, node: Element, fallback: int) -> str:
+    """``L<n>`` / ``M<n>``: the ``sldLayoutId``/``sldMasterId`` less 2147483648 (a file
+    whose id is missing or below the schema's minimum gets ``fallback`` added to it)."""
+    from .ids import TEMPLATE_ID_BASE
+
+    raw = node.get("id") or ""
+    value = int(raw) if raw.isdigit() else 0
+    return f"{prefix}{value - TEMPLATE_ID_BASE if value >= TEMPLATE_ID_BASE else value + fallback}"
+
+
+def masters(package: PresentationPackage, document=None) -> list[Master]:
+    """Every slide master, in ``sldMasterIdLst`` order."""
+    presentation = package.presentation_part()
+    root = package.tree(presentation)
+    found: list[Master] = []
+    for node in findall(root, "p:sldMasterIdLst/p:sldMasterId"):
+        part = package.related_part(presentation, node.get(qn("r:id")))
+        master_root = package.tree(part) if part else None
+        if master_root is None:
+            continue
+        common = find(master_root, "p:cSld")
+        name = (common.get("name") if common is not None else None) or _theme_name(package, part)
+        found.append(Master(name, part, document, template_key("M", node, 1 << 20)))
+    return found
+
+
+def _theme_name(package: PresentationPackage, master_part: str) -> str:
+    from ..oxml.package import REL_THEME
+
+    themes = package.related_parts_of_type(master_part, REL_THEME)
+    root = package.tree(themes[0]) if themes else None
+    return (root.get("name") if root is not None else None) or ""
+
+
+def layouts(package: PresentationPackage, document=None) -> list[Layout]:
     """Every layout, master by master, in each master's own order."""
     presentation = package.presentation_part()
     root = package.tree(presentation)
@@ -306,7 +570,8 @@ def layouts(package: PresentationPackage) -> list[Layout]:
                 continue
             common = find(layout_root, "p:cSld")
             name = (common.get("name") if common is not None else None) or ""
-            found.append(Layout(name, part, master, package))
+            found.append(Layout(name, part, master, package, document,
+                                template_key("L", layout_id, 1 << 21)))
     return found
 
 
@@ -590,6 +855,8 @@ __all__ = [
     "Layout",
     "LayoutPlaceholder",
     "LayoutShape",
+    "Master",
+    "masters",
     "Placeholder",
     "insert_entry",
     "layouts",

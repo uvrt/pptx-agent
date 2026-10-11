@@ -35,7 +35,7 @@ ooxml-edit's Responses round-trip test). Chat Completions has not been run live.
 | `ppt_graphics` | `ppt_add_shape`, `ppt_add_connector`, `ppt_arrange`, `ppt_design_facts` |
 | `ppt_objects` | `ppt_add_picture`, `ppt_add_table`, `ppt_edit_table` |
 | `ppt_review` | `ppt_comments` |
-| `ppt_slides` | `ppt_add_slide`, `ppt_draft_slides`, `ppt_manage_slides`, `ppt_set_theme` |
+| `ppt_slides` | `ppt_add_slide`, `ppt_draft_slides`, `ppt_manage_slides`, `ppt_set_theme`, `ppt_edit_master` |
 
 ## Setup (every provider)
 

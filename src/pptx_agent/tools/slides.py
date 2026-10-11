@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from ooxml_edit.tools import Result, ToolError, array, integer, obj, string, tool
+from ooxml_edit.tools import Result, ToolError, array, boolean, integer, obj, string, tool
 
 from ..edit.theme import MAPPED, SLOTS
-from .common import KIND, box_pt, library_errors, slide as slide_at
+from .common import (KIND, box_pt, library_errors, numbers, resolve, slide as slide_at,
+                     template_key_of, template_options)
 
 SLIDES = "ppt_slides"
 _KEY = string("Retry key: a repeat with the same key makes nothing new.", optional=True)
@@ -233,4 +234,110 @@ def ppt_set_theme(call, doc, colors=None, fonts=None):
                                   "neutral": roles.neutral, "highlight": roles.highlight}})
 
 
-TOOLS = [ppt_add_slide, ppt_draft_slides, ppt_manage_slides, ppt_set_theme]
+def _layouts_json(deck) -> list[dict[str, Any]]:
+    return [{"id": layout.id, "name": layout.name, "slides": len(layout.slides)}
+            for layout in deck.layouts]
+
+
+def _template_layout(deck, address: str | None, field: str):
+    if not address:
+        raise ToolError("invalid_arguments", f"give {field}: a layout, L2 or its name",
+                        field=field, valid_options=template_options(deck))
+    try:
+        return deck.layout(str(address).split(".")[0] if template_key_of(address) else address)
+    except KeyError:
+        raise ToolError("not_found", f"no layout {address!r}", field=field,
+                        valid_options=[f"{lay.id} ({lay.name})" for lay in deck.layouts][:50]
+                        ) from None
+
+
+@tool("ppt_edit_master",
+      "Slide masters and layouts: a layout placeholder's prompt text, Insert > Header & "
+      "Footer, and adding, duplicating, renaming or deleting layouts. Their shapes' text, "
+      "fill and box: ppt_set_text, ppt_set_shape (L2.5, M0.7); new shapes: the add tools "
+      "with slide L2 or M0. Returns the slides affected.",
+      {"doc": string("Document id."),
+       "action": string("What to do.", enum=["set_prompt", "set_footer", "add_layout",
+                                             "duplicate_layout", "rename_layout",
+                                             "delete_layout"]),
+       "target": string("set_prompt: the layout placeholder, L2.3. Layout actions: the "
+                        "layout, L2 or its name (add_layout: the one to follow).",
+                        optional=True),
+       "text": string("set_prompt: the prompt, \\n for the next level. set_footer: the "
+                      "footer; empty: none. add, duplicate, rename: the name.",
+                      optional=True),
+       "reassign_to": string("delete_layout: the layout its slides move to.", optional=True),
+       "slide_number": boolean("set_footer. Default true.", optional=True),
+       "date": string("set_footer: auto (updates), fixed text, or leave out for none.",
+                      optional=True),
+       "slides": array(integer(minimum=1), "set_footer: only these slides (Apply). Default "
+                       "all (Apply to All: masters and layouts too).", optional=True),
+       "on_title_slide": boolean("set_footer. Default false.", optional=True)},
+      kind=KIND, group=SLIDES, mutates=True, refs=("target",))
+@library_errors
+def ppt_edit_master(call, doc, action, target=None, text=None, reassign_to=None,
+                    slide_number=None, date=None, slides=None, on_title_slide=None):
+    deck = call.document
+    if action == "set_prompt":
+        if text is None:
+            raise ToolError("invalid_arguments", "set_prompt needs text", field="text")
+        shape = resolve(deck, target or "", field="target")
+        shape.set_prompt(text)
+        key = template_key_of(shape.id)
+        call.touch(key, shape.id)
+        return Result(summary=f"Set the prompt of {shape.id}", changed=[shape.id],
+                      data={"prompt": shape.prompt,
+                            "note": "a prompt shows in an empty placeholder while editing, "
+                                    "never in a show or an export"})
+    if action == "set_footer":
+        chosen = numbers(deck, slides) if slides is not None else None
+        today = call.session.now().date()
+        changed = deck.set_footer(text, slide_number=True if slide_number is None
+                                  else slide_number, date=date, slides=chosen,
+                                  skip_title=not on_title_slide, today=today)
+        for sid in changed:
+            call.touch(sid)
+        if slides is None:
+            for master in deck.masters:
+                call.touch(master.id)
+        scope = "all slides, masters and layouts" if slides is None else "the slides given"
+        return Result(summary=f"Set the header and footer on {scope}; {len(changed)} slide(s) "
+                      "changed", changed=[f"s:{sid}" for sid in changed],
+                      data={"slides": [f"s:{sid}" for sid in changed]})
+    if action == "add_layout":
+        after = _template_layout(deck, target, "target") if target else None
+        layout = deck.add_layout(text or "Custom Layout", after=after)
+        call.touch(layout.id)
+        return Result(summary=f"Added layout {layout.id} {layout.name!r}", created=[layout.id],
+                      data={"layout": layout.id, "shapes": [
+                          {"id": shape.id, "placeholder": shape.placeholder.type or "content"}
+                          for shape in layout.shapes if shape.placeholder is not None],
+                          "layouts": _layouts_json(deck)})
+    layout = _template_layout(deck, target, "target")
+    if action == "duplicate_layout":
+        copy = deck.duplicate_layout(layout, name=text)
+        call.touch(copy.id)
+        return Result(summary=f"Duplicated {layout.id} as {copy.id} {copy.name!r}",
+                      created=[copy.id], data={"layout": copy.id,
+                                               "layouts": _layouts_json(deck)})
+    if action == "rename_layout":
+        if not text:
+            raise ToolError("invalid_arguments", "rename_layout needs text, the new name",
+                            field="text")
+        renamed = deck.rename_layout(layout, text)
+        return Result(summary=f"Renamed {layout.id} to {renamed.name!r}", changed=[layout.id],
+                      data={"layouts": _layouts_json(deck)})
+    if action == "delete_layout":
+        to = _template_layout(deck, reassign_to, "reassign_to") if reassign_to else None
+        moved = deck.delete_layout(layout, reassign_to=to)
+        for sid in moved:
+            call.touch(sid)
+        data: dict[str, Any] = {"layouts": _layouts_json(deck)}
+        if moved:
+            data["moved"] = [f"s:{sid}" for sid in moved]
+        return Result(summary=f"Deleted layout {layout.id} {layout.name!r}",
+                      removed=[layout.id], data=data)
+    raise ToolError("invalid_arguments", f"unknown action {action!r}", field="action")
+
+
+TOOLS = [ppt_add_slide, ppt_draft_slides, ppt_manage_slides, ppt_set_theme, ppt_edit_master]

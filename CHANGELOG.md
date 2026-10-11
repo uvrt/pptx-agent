@@ -6,6 +6,40 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Slide master and layout editing (production feedback round 3, G5), measured in PowerPoint
+  for Mac 16. `deck.masters` / `deck.master()` give `Master` objects (`id` `M0`, `name`,
+  `part_path`, `layouts`, `slides`, `shapes`); `Layout` gets `id` (`L2`), `master`, `type`,
+  `slides`, `placeholder("body")`, `rename`, `duplicate` and `delete`. `Layout.shapes` and
+  `Master.shapes` are now the editable `Shape` a slide has (they were read-only
+  `LayoutShape` summaries, still importable), addressed `L<n>.<id>` / `M<n>.<id>` where `n`
+  is the `sldLayoutId` / `sldMasterId` less 2147483648 -- ids PowerPoint keeps on save, as it
+  keeps a slide's `sldId`; `deck.shape`, `deck.resolve` and the text API take them. Text,
+  run and paragraph formatting, fill, position, delete, replace_image, and `add_shape`,
+  `add_textbox`, `add_picture` (SVG too), `add_connector`, `add_table` on layouts and
+  masters. `shape.set_prompt(text)` / `shape.prompt`: a layout placeholder's prompt, the
+  first level written and `hasCustomPrompt="1"` set, as typing in Slide Master view does
+  (typing any text into a layout placeholder sets it too; formatting does not).
+  `deck.find_text(..., scope="slides" | "layouts" | "masters" | "all")` and
+  `outline_blocks(scope=)` (`TextBlock.part`; a placeholder holding only a field is left
+  out). `deck.set_footer(text, slide_number=, date="auto" | text | None, slides=,
+  skip_title=)` as Insert > Header & Footer writes it (Apply to All and Apply), and
+  `add_slide` then gives a new slide the layout's footers, as New Slide does.
+  `add_layout`, `duplicate_layout`, `rename_layout`, `delete_layout(reassign_to=)` as Slide
+  Master view does them (a layout in use is refused, as PowerPoint disables it).
+  `shape.inherited_by()` lists what inherits from a layout or master placeholder; deleting
+  one that something inherits from is refused. `deck.affected_slides(target)`.
+- Tools: `ppt_set_text`, `ppt_format_text`, `ppt_set_shape`, `ppt_arrange` take `L2.5` /
+  `M0.7`, and the add tools `slide: L2` / `M0`; every result lists the slides an edit
+  `affects` (`checks.affects`) and checks them. `find_text` / `replace_text` take decks'
+  `stories`: `layouts`, `masters`, `all` (ooxml-edit 0.16.0); a replace that finds nothing on
+  the slides says when the text is on a layout or master. `describe` lists the masters, the
+  layouts' ids, their placeholders' ids and custom prompts, and the text on them that is not
+  a placeholder. The deferred `ppt_edit_master` (`set_prompt`, `set_footer`, `add_layout`,
+  `duplicate_layout`, `rename_layout`, `delete_layout`). Undo by slide (`scope`) finds a
+  change to the slide's layout or master and refuses it as `entangled`
+  (`DocumentFormat.undo_shared`, ooxml-edit 0.16.0). Every definition 11,779 estimated
+  (guard 11,800), the core 3,440 (about 5,091 counted); the strict set unchanged. Golden p17:
+  a template made ready for 2027 in Dutch.
 - SVG pictures (production feedback round 3, I1): `slide.add_picture` takes an SVG and
   stores it as PowerPoint 2016 and later store an inserted SVG, measured in PowerPoint for
   Mac 16: the PNG in `a:blip`, the SVG behind its `asvg:svgBlip` extension (`xmlns:asvg` on

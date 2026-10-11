@@ -97,7 +97,7 @@ from .edit.fit import (WRAP_MARGIN, Overflow, RowsFit, TextFit, TextMeasure, fit
                        measure_text)
 from .edit.ids import ShapeId
 from .edit.labels import LabelError
-from .edit.slides import Layout, LayoutPlaceholder, LayoutShape, Placeholder
+from .edit.slides import Layout, LayoutPlaceholder, LayoutShape, Master, Placeholder
 from .edit.table import Region, Table, TableCell
 from .edit.theme import Theme, ThemeFonts, ThemeRoles, Tint
 from .edit.presets import PRESETS
@@ -137,6 +137,7 @@ __all__ = [
     "Layout",
     "LayoutPlaceholder",
     "LayoutShape",
+    "Master",
     "LineFormat",
     "MarkdownEscapeWarning",
     "NotFullStateSvg",

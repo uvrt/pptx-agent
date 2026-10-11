@@ -66,6 +66,38 @@ def slide(deck, address: str, *, field: str = "slide"):
                         valid_options=[f"s:{s.slide_id}" for s in deck.slides][:50]) from None
 
 
+def template_key_of(address: str) -> str | None:
+    """The layout or master an address is on: ``L2``, ``L2.5``, ``M0.7/p0`` -> ``L2``,
+    ``L2``, ``M0``; ``None`` for a slide's."""
+    from ..edit.ids import is_template_key
+
+    head = str(address).split("/")[0].split(".")[0]
+    return head if is_template_key(head) else None
+
+
+def host(deck, address: str, *, field: str = "slide"):
+    """Where new shapes go: a slide (``s:256``), or a layout (``L2``) or master (``M0``),
+    whose shapes every slide built on it shows."""
+    key = template_key_of(address)
+    if key is None:
+        return slide(deck, address, field=field)
+    try:
+        return deck._template_by_key(key)._sheet()
+    except KeyError:
+        raise ToolError("not_found", f"no layout or master {address!r}", field=field,
+                        valid_options=template_options(deck)) from None
+
+
+def template_options(deck) -> list[str]:
+    return [f"{t.id} ({t.name})" for t in [*deck.masters, *deck.layouts]][:50]
+
+
+def place(target) -> str:
+    """A slide's or a layout's (master's) address as results print it: ``s:256``, ``L2``."""
+    sid = target.slide_id
+    return sid if isinstance(sid, str) else f"s:{sid}"
+
+
 def resolve(deck, address: str, *, field: str = "target"):
     """What ``address`` names (a shape, paragraph, run, cell, notes); ``not_found`` lists
     the shapes on its slide."""
@@ -86,6 +118,13 @@ def shape(deck, address: str, *, field: str = "target"):
 
 
 def _shapes_near(deck, address: str) -> list[str]:
+    key = template_key_of(address)
+    if key is not None:
+        try:
+            target = deck._template_by_key(key)
+        except KeyError:
+            return template_options(deck)
+        return [f"{s.id} ({s.kind}{': ' + s.name if s.name else ''})" for s in target.shapes][:50]
     sid = slide_id_of(address)
     try:
         target = deck.slide(f"s:{sid}") if sid is not None else None
@@ -411,14 +450,34 @@ def checks(entry, touched) -> dict[str, Any]:
     and the validation delta against the document as opened."""
     deck = entry.document
     order = {s.slide_id: n for n, s in enumerate(deck.slides)}
-    slide_ids = sorted({sid for sid in touched if isinstance(sid, int) and sid in order},
-                       key=order.get)
+    affects = _affects(deck, touched)
+    wanted = {sid for sid in touched if isinstance(sid, int)}
+    for sids in affects.values():
+        wanted.update(int(sid[2:]) for sid in sids)
+    slide_ids = sorted({sid for sid in wanted if sid in order}, key=order.get)
     out: dict[str, Any] = {"slides": [f"s:{sid}" for sid in slide_ids]}
+    if affects:
+        out["affects"] = affects
     out.update(facts(deck, slide_ids))
     layout = layout_json(deck, [t for t in touched if isinstance(t, str)])
     if layout:
         out["layout"] = layout
     out["validate"] = validate_delta(entry)
+    return out
+
+
+def _affects(deck, touched) -> dict[str, list[str]]:
+    """For each layout or master a call changed (``L2``, ``M0``): the slides that show the
+    change, which the checks then measure."""
+    out: dict[str, list[str]] = {}
+    for item in touched:
+        key = template_key_of(item) if isinstance(item, str) else None
+        if key is None or key in out:
+            continue
+        try:
+            out[key] = [f"s:{s.slide_id}" for s in deck._template_by_key(key).slides]
+        except KeyError:
+            continue                                   # deleted by the call
     return out
 
 
@@ -454,6 +513,9 @@ def touch_address(call, address: str) -> None:
         call.touch(sid)
         if "." in str(address).split("/")[0]:
             call.touch(str(address).split("/")[0])
+    key = template_key_of(address)
+    if key is not None:
+        call.touch(key)
 
 
 def touch_shape(call, shape) -> None:
@@ -491,6 +553,6 @@ def color_json(color, shape=None) -> dict[str, str] | None:
     return {k: v for k, v in data.items() if v is not None}
 
 
-__all__ = ["KIND", "box_emu", "box_pt", "checks", "emu", "facts", "fit_json", "layout_json",
-           "library_errors", "pt", "resolve", "shape", "slide", "slide_id_of", "spec_of",
-           "text_params", "write_text"]
+__all__ = ["KIND", "box_emu", "box_pt", "checks", "emu", "facts", "fit_json", "host",
+           "layout_json", "library_errors", "place", "pt", "resolve", "shape", "slide",
+           "slide_id_of", "spec_of", "template_key_of", "text_params", "write_text"]

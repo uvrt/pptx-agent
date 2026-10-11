@@ -54,11 +54,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: optional parameters ppt_arrange no longer fits Claude's strict limit of 24 optional
 #: parameters beside the others, so it is sent non-strict (the dispatcher still validates
 #: it) and ppt_add_table takes its place: 29 free-text strings and 24 optional parameters
-#: over the strict tools, within the limits of 32 and 24.
+#: over the strict tools, within the limits of 32 and 24.  Round 3's master and layout
+#: editing (G5) adds the deferred ppt_edit_master (prompts, Header & Footer, the layout
+#: list; about 430), layout and master addresses in the prompt and decks' ``stories``
+#: (layouts, masters, all) on find_text and replace_text: 11,779 for every definition, the
+#: core 3,440 (about 5,091 counted); the guard rises to 11,800.  The strict set is unchanged:
+#: ``stories`` was already an optional parameter of replace_text, only its enum grew.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 5500
-ALL_GUARD = 11400
+ALL_GUARD = 11800
 
 
 def estimate_tokens(definitions) -> int:

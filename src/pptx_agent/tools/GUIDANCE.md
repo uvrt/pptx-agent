@@ -107,6 +107,30 @@ if left:
 Validation is already a gate: `save_document` refuses a deck with new validation problems,
 and only the application can allow them (`Toolbox(allow_new_problems=True)`).
 
+## Masters and layouts: when to edit them, and `affects`
+
+Text that every slide shows -- a legal line, the footer's year and entity, a classification
+mark, a placeholder's prompt -- lives on the slide master or a layout, not on the slides.
+`describe` lists it (`masters[].text`, `layouts[].text`, prompts on the placeholders) and
+`find_text` / `replace_text` reach it with `stories: all` (addresses `M0.7`, `L2.5`).
+
+- **Edit the master or layout when the change is the deck's, not one slide's**: next year's
+  footer, the legal text in the deck's language, prompt text, a logo. One edit, every slide.
+  Edit a slide when only that slide should differ: a slide's own placeholder text and
+  formatting override the layout's and stay as they are.
+- **Header & Footer is `ppt_edit_master set_footer`**, not text typed into slides: it fills
+  the master's and layouts' placeholders and puts the layout's footer, number and date
+  placeholders on each slide, as PowerPoint does, so a later layout change still reaches them.
+- **Every result says which slides an edit `affects`** (`checks.affects`: `{"M0": ["s:256",
+  ...]}`) and runs its fit, collision and empty-placeholder checks on all of them -- a longer
+  legal line can collide on one slide only. Render one or two of them; the layout itself has
+  no render of its own.
+- **Deleting what slides inherit from is refused**: a layout placeholder slides take their
+  position and format from, a master placeholder layouts take theirs from, a layout in use
+  (move its slides first: `delete_layout` with `reassign_to`).
+- **Undo**: plain `undo` takes back a master or layout edit like any other. Undo by slide
+  (`scope`) refuses one (`entangled`), because it is every slide's change, not that slide's.
+
 ## Model routing
 
 | Work | Model | Evidence (main arm, per run) |

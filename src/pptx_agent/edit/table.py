@@ -815,7 +815,7 @@ class TableCell:
 
         shape = self._table._shape()
         package = shape._slide.document.package
-        master = inherit.master_of(package, inherit.layout_of(package, shape._slide.part_path))
+        master = shape._slide._template_parts()[1]
         own = self._tc().find(f"{qn('a:txBody')}/{qn('a:lstStyle')}")
         return inherit.list_styles(package, master, own, None, None, False)
 

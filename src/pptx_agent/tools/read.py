@@ -30,10 +30,40 @@ def describe(call, doc):
     roles = theme.roles
     ramps = {slot: [t.color for t in tints] for slot, tints in theme.ramps.items()}
     layouts = []
+    several = len(deck.masters) > 1
     for layout in deck.layouts:
-        layouts.append({"name": layout.name, "placeholders": [
-            {"type": p.type or "content", "idx": p.idx, "box": box_pt(p.bounds)}
-            for p in layout.placeholders]})
+        shapes = layout.shapes
+        placeholders = []
+        for p, shape in zip(layout.placeholders,
+                            [s for s in shapes if s.placeholder is not None
+                             and s.parent_group is None]):
+            entry = {"id": shape.id, "type": p.type or "content", "idx": p.idx,
+                     "box": box_pt(p.bounds)}
+            if shape.prompt is not None:
+                entry["prompt"] = shape.prompt
+            placeholders.append(entry)
+        item = {"id": layout.id, "name": layout.name, "placeholders": placeholders}
+        if several:
+            item["master"] = layout.master.id
+        text = _own_text(shapes)
+        if text:
+            item["text"] = text
+        layouts.append(item)
+    masters = []
+    for master in deck.masters:
+        item = {"id": master.id, "name": master.name}
+        text = _own_text(master.shapes)
+        if text:
+            item["text"] = text
+        footer = {}
+        for kind, label in (("ftr", "footer"), ("dt", "date")):
+            shape = next((s for s in master.shapes if s.placeholder is not None
+                          and s.placeholder.type == kind), None)
+            if shape is not None and shape.text:
+                footer[label] = {"id": shape.id, "text": shape.text}
+        if footer:
+            item["footer"] = footer
+        masters.append(item)
     data = {
         "doc": doc, "size": {"w": pt(width), "h": pt(height)}, "slides": slides,
         "theme": {"colors": dict(theme.colors), "fonts": {"major": theme.fonts.major,
@@ -41,6 +71,7 @@ def describe(call, doc):
                   "roles": {"primary": roles.primary, "secondary": roles.secondary,
                             "neutral": roles.neutral, "highlight": roles.highlight},
                   "tints": ramps, "table_styles": _table_styles(deck)},
+        "masters": masters,
         "layouts": layouts,
         "properties": {"title": deck.title, "author": deck.author, "language": deck.language},
         "baseline_problems": [str(p) for p in call.entry.baseline_problems],
@@ -51,6 +82,13 @@ def describe(call, doc):
                             "open": sum(1 for thread in threads if not thread.done),
                             "read": "ppt_comments list"}
     return Result(summary=f"{len(slides)} slide(s), {len(layouts)} layout(s)", data=data)
+
+
+def _own_text(shapes) -> list[dict[str, str]]:
+    """A layout's or master's text that is not a placeholder -- a legal line, a
+    classification mark -- which every slide built on it shows."""
+    return [{"id": shape.id, "text": shape.text} for shape in shapes
+            if shape.placeholder is None and shape.kind == "shape" and shape.text.strip()]
 
 
 def _table_styles(deck) -> dict[str, Any]:

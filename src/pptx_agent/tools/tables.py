@@ -15,7 +15,7 @@ from ooxml_edit.tools import (Result, ToolError, array, boolean, integer, number
 from ..edit.tablestyles import FLAGS
 
 from .common import (KIND, box_emu, emu, library_errors, shape as shape_at,
-                     slide as slide_at)
+                     host as slide_at)
 from .shapes import OBJECTS, _box
 
 _KEY = string("Retry key: a repeat with the same key makes nothing new.", optional=True)

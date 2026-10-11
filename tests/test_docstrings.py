@@ -17,7 +17,7 @@ CLASSES = ["Document", "Slide", "Shape", "TextFrame", "Paragraph", "Run", "Table
            "Chart", "Series", "SeriesList", "Diagram", "Fill", "LineFormat", "Color", "Layout",
            "Adjustments", "Hyperlink", "Bullet", "GradientStop", "Arrowhead", "Region",
            "ShapeId", "TextBlock", "ApplyReport", "LabelError", "MarkdownEscapeWarning",
-           "TemplateOpenedWarning", "Placeholder", "LayoutPlaceholder", "LayoutShape",
+           "TemplateOpenedWarning", "Placeholder", "LayoutPlaceholder", "LayoutShape", "Master",
            "Theme", "ThemeFonts", "EffectiveParagraph", "TextFit", "Overflow", "ImageSize"]
 #: Plumbing, or inherited from list: no example needed.
 EXEMPT = {"Chart.address", "Chart.part", "Chart.point_count", "Diagram.address",

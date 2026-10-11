@@ -229,6 +229,14 @@ class TextHost(Protocol):
     def _batch(self) -> ContextManager[None]: ...
 
 
+def _text_written(host) -> None:
+    """Tell the host its text (not its formatting) changed: a layout placeholder marks
+    its text as a custom prompt then, as PowerPoint does when one types into it."""
+    hook = getattr(host, "_text_written", None)
+    if hook is not None:
+        hook()
+
+
 @contextmanager
 def _editing(host: TextHost) -> Iterator[None]:
     """One undo step: batch, checkpoint, edit, mark the part dirty."""
@@ -388,6 +396,7 @@ class TextFrame:
         if spec is not None:
             with self._resolve()._batch():
                 apply_spec(self, spec)
+                _text_written(self._resolve())
             return self
         value = str(value)
         _warn_if_escaped(value, self.text, self.address)
@@ -396,6 +405,7 @@ class TextFrame:
             body = host._text_body(True)
             assert body is not None
             _replace_body_text(body, value)
+            _text_written(host)
         return self
 
     def add_paragraph(self, text: str = "", *, index: int | None = None,
@@ -737,6 +747,7 @@ class Paragraph:
         _warn_if_escaped(value, self.text, self.address)
         with self._change() as element:
             _rebuild_paragraph(element, value)
+            _text_written(self._frame._host())
 
     @property
     def runs(self) -> list["Run"]:
@@ -1293,6 +1304,7 @@ class Run:
         _warn_if_escaped(value, self.text, self.address)
         with self._change() as element:
             subelement(element, "a:t").text = value
+            _text_written(self._paragraph._frame._host())
 
     def delete(self) -> None:
         """Remove the run.

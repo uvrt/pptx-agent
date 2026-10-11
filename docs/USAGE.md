@@ -752,14 +752,44 @@ print(body.type, body.idx, body.sizes[:3])         # -> None 1 (28.0, 24.0, 20.0
 slide = deck.add_slide(layout)
 content = next(s for s in slide.shapes if s.placeholder == (None, 1))
 print(content.placeholder)                         # -> Placeholder(type=None, idx=1)
-print([shape.kind for shape in layout.shapes][:2])   # -> ['shape', 'shape']
+print([shape.id for shape in layout.shapes][:2])     # -> ['L2.2', 'L2.3']
 ```
 
 `layout.placeholders` lists what a slide made from the layout gets: each placeholder's
 `type` (`None` is a content placeholder, `"obj"`), `idx` (what a slide's placeholder matches
 it by), `name`, `bounds` (`left, top, width, height` in EMU) and the default text size of
-each level. `shape.placeholder` is the same `(type, idx)` named tuple. `layout.shapes` are
-read-only: layouts are edited in PowerPoint's slide master view.
+each level. `shape.placeholder` is the same `(type, idx)` named tuple.
+
+### Slide masters and layouts
+
+`layout.shapes` and `deck.masters[0].shapes` are the same editable `Shape` objects a slide
+has, addressed `L2.3` (a layout's `sldLayoutId` less 2147483648) and `M0.7` (the master's
+`sldMasterId` likewise) -- ids PowerPoint keeps when it saves. An edit shows on every slide
+built on the layout or master (`layout.slides`, `deck.affected_slides("M0.7")`).
+
+```python
+from pptx_agent import Document
+
+deck = Document.new()
+deck.add_slide("Title and Content").shapes[0].set_text("Findings")
+legal = deck.masters[0].add_textbox(838200, 6721475, 7315200, 136525)
+legal.set_text("\u00a9 2026 Example Corp")
+for block in deck.find_text("2026", scope="all"):           # slides, layouts and masters
+    deck.resolve(block.address).text = block.text.replace("2026", "2027")
+print(deck.shape(legal.id).text, legal.id)                  # -> © 2027 Example Corp M0.7
+deck.layout("Title and Content").placeholder("body").set_prompt("Typ hier uw bevinding")
+juridisch = deck.add_layout("Juridisch", after="Title and Content")   # Insert Layout
+dutch = deck.duplicate_layout("Title and Content", name="Inhoud NL")
+deck.delete_layout("Comparison")             # refused while a slide uses it (reassign_to=)
+deck.set_footer("Example Corp B.V.", slide_number=True, date=None)  # Header & Footer, Apply to All
+print([s.placeholder.type for s in deck.slides[0].shapes])  # -> ['title', None, 'ftr', 'sldNum']
+```
+
+`set_prompt` writes the first level and sets `hasCustomPrompt`, as typing in Slide Master
+view does; `set_footer` writes what Insert > Header & Footer writes (the master's and every
+layout's placeholders, the master's `<p:hf>`, each slide's date, footer and number
+placeholders; `slides=` for Apply). Deleting a placeholder slides or layouts inherit from
+is refused with their list (`shape.inherited_by()`).
 
 ### Theme colours, fonts and formatting as drawn
 
