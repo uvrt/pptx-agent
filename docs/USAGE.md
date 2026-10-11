@@ -409,10 +409,12 @@ as a table label is, and raises `LabelError` listing the titles otherwise.
 
 A placeholder left empty -- a chart placed over a content layout's body, a subtitle never
 written -- shows "Click to add text" in PowerPoint's edit view, though a show or an export
-draws nothing for it. `slide.empty_placeholders()` lists them (no text, only whitespace or
-only empty paragraphs; a placeholder holding a picture, table or chart is not empty; date,
-footer and slide number are left out), and `slide.delete_empty_placeholders()` deletes them
-in one undo step, keeping an empty title unless `titles=True`.
+draws no prompt; one holding only spaces shows a stray bullet instead, exported too.
+`slide.empty_placeholders()` lists them (no text, only whitespace or only empty paragraphs;
+a placeholder holding a picture, table or chart is not empty; date, footer and slide number
+are left out), and `slide.delete_empty_placeholders()` deletes them in one undo step,
+keeping an empty title unless `titles=True`, and one with a fill or outline, which
+PowerPoint draws whether it holds text or not.
 
 ### Draft slides from Markdown (`insert_outline`)
 

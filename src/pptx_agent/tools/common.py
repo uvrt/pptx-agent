@@ -317,9 +317,10 @@ ALLOWANCE_NOTE = ("fits while needed > available: up to 'allowance' pt is the em
 NEAR_WRAP_NOTE = ("near_wrap: a line has under 0.16 pt to spare; PowerPoint may break it "
                   "where this measurement does not: give it a few points")
 
-EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows these as 'Click to add "
-                           "...' while editing, not in a show or export; fill them or "
-                           "delete them (ppt_manage_slides delete_empty_placeholders)")
+EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows 'Click to add ...' in an "
+                           "empty one while editing (a whitespace-only one shows a stray "
+                           "bullet, in the export too); fill them or delete them "
+                           "(ppt_manage_slides delete_empty_placeholders)")
 
 ROWS_NOTE = ("rows_past: a table's rows grow to fit their text and PowerPoint cuts off what "
              "passes the slide's bottom; keep rows_fit rows and move the rest to a table on "

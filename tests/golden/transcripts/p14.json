@@ -142,7 +142,7 @@
     "doc": "d1",
     "layout": "Title Only",
     "at": 5,
-    "title": "Every region grew; North leads at EUR 61.4m",
+    "title": "North leads every region at EUR 61.4m",
     "ref": "table_slide"
    },
    "expect": {
@@ -240,9 +240,9 @@
  ],
  "output": {
   "name": "business-review-2026.pptx",
-  "sha256": "78af8a5618bd75a79ab36e028ca027269d53400b28dd210deb3314c0e905a4dd",
+  "sha256": "1d54703bd74293a7afb30e8ad54a08813613eac0cde0748d1dd310e9d0f1fba8",
   "calls": 10,
-  "content_sha256": "917c01a7518e2ba36059f3ec910c7f58cf8fc61dd3bdee294309be606901040a"
+  "content_sha256": "c0e1b49cc6c31069cff6d5c4626218bd6a8a4e40f5f54286afb9ddeed7e4ed26"
  },
  "check": {
   "total": 18,

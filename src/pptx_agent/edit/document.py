@@ -2053,19 +2053,23 @@ class Slide(ShapeFactory):
         ]
 
     def empty_placeholders(self) -> list[Shape]:
-        """The placeholders on this slide that hold nothing: PowerPoint shows each as its
-        prompt ("Click to add text", "Click to add title", the icons of a content
-        placeholder) while editing, and draws nothing for it in a slide show, a print or an
-        export (measured), so it is a leftover a reader of the file sees and the audience
-        does not.
+        """The placeholders on this slide that hold nothing, measured in PowerPoint 16:
 
-        A placeholder is empty when it is a ``p:sp`` -- a placeholder that took a picture,
-        table, chart or SmartArt is a ``p:pic`` or ``p:graphicFrame`` and holds that -- and
-        its text body is missing, has no paragraphs, or has only paragraphs whose text is
-        whitespace or nothing (no field either).  Titles and subtitles count: an empty one
-        shows its prompt too.  Left out: the date, footer, slide-number and header
-        placeholders (Insert > Header & Footer turns those on, and PowerPoint fills them),
-        and a shape hidden in the Selection Pane.
+        * no text body, or a single empty paragraph: PowerPoint shows the prompt ("Click to
+          add text", "Click to add title", a content placeholder's icons) while editing, and
+          a show, a print or an export draws no prompt;
+        * text that is only whitespace: no prompt, but its bullet is drawn, editing and
+          exported alike -- a stray bullet;
+        * only empty paragraphs (more than one): no prompt and nothing drawn, an invisible
+          leftover.
+
+        A placeholder's own fill and outline are drawn in every case, prompt or not (see
+        :meth:`delete_empty_placeholders`).  Only a ``p:sp`` can be empty: a placeholder that
+        took a picture, table, chart or SmartArt is a ``p:pic`` or ``p:graphicFrame`` and
+        holds it; a field (a slide number, a date) is text.  Titles and subtitles count.  Left
+        out: the date, footer, slide-number and header placeholders (Insert > Header &
+        Footer turns those on, and PowerPoint fills them), and a shape hidden in the
+        Selection Pane.
 
         For example::
 
@@ -2074,23 +2078,42 @@ class Slide(ShapeFactory):
         return [shape for shape in self.shapes if _is_empty_placeholder(shape._element)]
 
     def delete_empty_placeholders(self, *, titles: bool = False) -> list[str]:
-        """Delete :meth:`empty_placeholders`, keeping an empty title unless ``titles``: a
-        title names the slide in the outline, in navigation and to a screen reader, so the
-        better fix for an empty one is to fill it.  Returns the ids deleted.  One undo
-        step.
+        """Delete :meth:`empty_placeholders` that draw nothing of their own; returns the ids
+        deleted.  One undo step.  Kept: an empty title unless ``titles`` (a title names the
+        slide in the outline, in navigation and to a screen reader, so the better fix is to
+        fill it), and a placeholder with a fill or an outline, its own or its layout
+        placeholder's -- PowerPoint draws that box in a show and an export too, so deleting
+        it would change the slide.
 
         For example::
 
             slide.delete_empty_placeholders()            # ['256.3']
         """
         doomed = [shape for shape in self.empty_placeholders()
-                  if titles or shape.placeholder.type not in _TITLE_TYPES]
+                  if (titles or shape.placeholder.type not in _TITLE_TYPES)
+                  and not self._draws_box(shape)]
         deleted = []
         with self.document.batch():
             for shape in doomed:
                 deleted.append(shape.id)
                 shape.delete()
         return deleted
+
+    def _draws_box(self, shape: Shape) -> bool:
+        """Whether a placeholder draws a fill or an outline: what its own ``p:spPr`` says,
+        else what its layout placeholder's says (a fill and an outline each on its own)."""
+        fills = {qn(tag) for tag in FILL_TAGS}
+        fill = line = None
+        for element in (shape._element, self._layout_placeholder(shape.placeholder)):
+            properties = None if element is None else element.find(qn("p:spPr"))
+            if properties is None:
+                continue
+            if fill is None:
+                fill = next((child.tag for child in properties if child.tag in fills), None)
+            outline = properties.find(qn("a:ln"))
+            if line is None and outline is not None:
+                line = next((child.tag for child in outline if child.tag in fills), None)
+        return any(tag is not None and tag != qn("a:noFill") for tag in (fill, line))
 
     def copy_shapes(self, shapes: "list[Shape | str]", to_slide: "Slide | None" = None, *,
                     at: "tuple[int, int] | None" = None, dx: int = 0, dy: int = 0):

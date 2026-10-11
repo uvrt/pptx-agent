@@ -29,8 +29,12 @@ def body(c, out: Path):
     chart_slide, table_slide = deck.slides[3], deck.slides[4]
     for n, slide in ((4, chart_slide), (5, table_slide)):
         text = title_of(slide) or ""
-        c.check(f"slide {n}: a one-line title", bool(norm(text)) and "\n" not in text
-                and "\v" not in text, text)
+        title = next((sh for sh in slide.shapes if sh.placeholder
+                      and sh.placeholder[0] in ("title", "ctrTitle")), None)
+        fit = title.text_fit() if title is not None else None
+        c.check(f"slide {n}: a title on one line, as drawn", bool(norm(text)) and "\n" not in text
+                and "\v" not in text and fit is not None and tuple(fit.lines) == (1,)
+                and not fit.overflows, (text, fit))
     c.check("slide 4 is on Title and Content", chart_slide.layout.name == "Title and Content",
             chart_slide.layout.name)
     frames = [s for s in chart_slide.shapes if s.kind == "graphic_frame" and s.chart is not None]

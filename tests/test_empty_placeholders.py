@@ -1,5 +1,7 @@
 """Empty placeholders (production feedback round 3, A3): what PowerPoint shows as "Click to
-add text" while editing and draws nothing for in a show or an export.
+add text" while editing and draws no prompt for in a show or an export (measured in
+PowerPoint 16: a whitespace-only one shows a stray bullet instead, and a placeholder's fill
+or outline is drawn either way).
 
 ``Slide.empty_placeholders`` names them, ``delete_empty_placeholders`` removes them in one
 undo step (an empty title stays unless asked), and the tools report them: in every
@@ -121,6 +123,30 @@ def test_deleting_them_is_one_undo_step_and_keeps_the_title():
     assert _ids(slide) == [] and slide.title is None
 
 
+def test_one_that_draws_a_box_is_reported_but_kept():
+    """PowerPoint draws an empty placeholder's fill and outline in the export (measured):
+    deleting it would change the slide."""
+    deck = Document.new()
+    slide = deck.add_slide("Two Content")
+    title, left, right = slide.shapes
+    left.fill = "#FF0000"
+    right.line.color = "accent1"
+    right.line.width = 12700
+    assert _ids(slide) == [title.id, left.id, right.id]
+    assert slide.delete_empty_placeholders() == []
+    left.fill = None
+    left._element.find(qn("p:spPr")).append(make("a:noFill"))   # says "no fill" outright
+    slide._touch()
+    assert slide.delete_empty_placeholders() == [left.id]
+    with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS, workers=0) as toolbox:
+        session = toolbox.session()
+        doc = session.open(deck.to_bytes(), "deck.pptx")
+        kept = toolbox.dispatch(session, "ppt_manage_slides", {
+            "doc": doc, "action": "delete_empty_placeholders", "slide": "s:256"})
+        assert kept.removed == [] and kept.data["kept_drawn"] == [right.id]
+        assert kept.data["empty_title"] == [title.id] and "fill or outline" in kept.summary
+
+
 def test_the_tools_report_them_and_delete_them():
     # The round-3 repro: a chart over a content layout's body, which stays empty.
     deck = Document.new(size="16:9")
@@ -173,8 +199,8 @@ def test_an_empty_title_is_kept_and_said():
 
 
 def test_the_renderer_draws_nothing_for_them():
-    """PowerPoint's export draws no prompt and no empty placeholder (measured: see the round-3
-    notes); neither does pptx2svg."""
+    """PowerPoint's export draws no prompt for an empty placeholder (measured); neither does
+    pptx2svg."""
     deck = Document.new()
     slide = deck.add_slide("Title and Content")
     svg = slide.render_svg()

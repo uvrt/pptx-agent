@@ -41,8 +41,8 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: items a string) added 12 to the core (3,386 -> 3,398, about 5,029 counted by the proxy,
 #: within 5,500) and to every definition (10,269); budget and guard stay.  Round 3's table
 #: styles and Table Design flags (ppt_add_table's style, ppt_edit_table's set_style and
-#: set_flags) and ppt_manage_slides' delete_empty_placeholders added 195 to every definition
-#: (10,464), none to the core (3,398, about 5,029 counted); budget and guard stay.
+#: set_flags) and ppt_manage_slides' delete_empty_placeholders added 198 to every definition
+#: (10,467), none to the core (3,398, about 5,029 counted); budget and guard stay.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 5500
