@@ -1,6 +1,8 @@
 """Rendering slides in a worker process: the function the tool layer's pool runs.
 
 Module-level, so a spawned worker can import it; it gets the deck's bytes and returns PNGs.
+Registered (``worker_task``), so a subprocess worker -- what a daemonic process, a Celery
+prefork child, renders with -- may run it.
 """
 
 from __future__ import annotations
@@ -8,13 +10,17 @@ from __future__ import annotations
 import struct
 import warnings
 
+from ooxml_edit.tools import worker_task
 
+
+@worker_task
 def render_slides(data: bytes, numbers: list[int], width: int,
                   font_dirs: "list[str] | None" = None) -> list[bytes]:
     """PNG bytes of the 1-based slides ``numbers`` of the deck ``data``, ``width`` px wide."""
     return render_slides_reporting(data, numbers, width, font_dirs)[0]
 
 
+@worker_task
 def render_slides_reporting(data: bytes, numbers: list[int], width: int,
                             font_dirs: "list[str] | None" = None
                             ) -> tuple[list[bytes], list[list[dict]]]:

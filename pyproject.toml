@@ -49,8 +49,9 @@ classifiers = [
 # on a snapshot, the lock let go) and slide ids in their slides.  0.15.0: chart formatting
 # (axis scales, colours, markers, combination charts, chart text, point labels, bubble and
 # filled radar charts) and edit_chart's actions for it.  0.16.0: DocumentFormat.undo_shared
-# (undo by slide refuses a layout or master change) and decks' stories on find/replace.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.8.0", "ooxml-edit>=0.16.0", "markdown-it-py>=3.0",
+# (undo by slide refuses a layout or master change) and decks' stories on find/replace.  0.17.0:
+# worker_task, so a daemonic process's subprocess workers run the slide renderer.
+dependencies = ["lxml>=4.9", "ooxml-common>=0.8.0", "ooxml-edit>=0.17.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

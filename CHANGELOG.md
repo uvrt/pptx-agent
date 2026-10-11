@@ -6,6 +6,9 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Rendering in a daemonic process (a Celery prefork worker's child; ooxml-edit 0.17.0):
+  the slide renderer is a registered worker task (`@worker_task`), so ooxml-edit's subprocess
+  workers run it there -- in parallel, with deadlines that kill -- instead of in-process.
 - Slide master and layout editing (production feedback round 3, G5), measured in PowerPoint
   for Mac 16. `deck.masters` / `deck.master()` give `Master` objects (`id` `M0`, `name`,
   `part_path`, `layouts`, `slides`, `shapes`); `Layout` gets `id` (`L2`), `master`, `type`,
