@@ -30,7 +30,7 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Z-order, group, ungroup, duplicate, delete | `ppt_arrange` | |
 | Pictures: insert, replace | `ppt_add_picture` | from an image blob; replacing keeps the frame, height or width |
 | Tables: new; cells, rows, columns, merges, widths, heights, fill, borders; style and Table Design flags | `ppt_add_table`, `ppt_edit_table` (`set_style`, `set_flags`) | cells by row and column or by their labels; a style by name or id, the deck's own (a template's) or any of PowerPoint's 74 built-in styles; header row, total row, first and last column, banded rows and columns |
-| Charts: new from data; read; values, categories, series, titles, axis titles, legend, data labels, gap width | `edit_chart` | column, stacked column, bar, stacked bar, line, pie, scatter, radar (lines, as PowerPoint inserts one; not the filled or marker radar); the embedded workbook changes with the chart |
+| Charts: new from data; read; values, categories, series, titles, axis titles, legend, data labels, gap width, axis scales, gridlines, series and point colours and markers, a column series as a line, chart text, point labels | `edit_chart` | column, stacked column, bar, stacked bar, line, pie, scatter, radar (lines), filled radar, bubble, as PowerPoint inserts each; point labels from the workbook as PowerPoint's Value From Cells; the embedded workbook changes with the chart |
 | SmartArt: node text, adding and removing nodes | `edit_smartart` | diagrams already in the deck; PowerPoint lays the diagram out again on opening |
 | The theme's colours and fonts | `ppt_set_theme` | every theme reference in the deck follows |
 | Document properties | `set_properties` | title, author, language, subject |

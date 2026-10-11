@@ -1,9 +1,11 @@
 """Golden transcripts: the trial's PowerPoint tasks p1-p6, the graphics spike's p7, p8, o1
 and m1 (positions computed by the caller, in points, since the layout tools went), T4's p9 (a
 chart slide from a CSV), p10 (a review in comments), p11 (SmartArt updated in place),
-p12 (a rebrand through the theme), p13 (a radar chart from a CSV) and round 3's p14 (a chart
+p12 (a rebrand through the theme), p13 (a radar chart from a CSV), round 3's p14 (a chart
 slide with its empty placeholder deleted, and a table in the template's own style without
-banding), done with the tools alone and replayed.
+banding) and p15 (a maturity gap chart -- columns, a highlighted point, target markers, a
+fixed axis, no gridlines, 10 pt text -- and an effort-against-impact bubble matrix labelled
+from the workbook), done with the tools alone and replayed.
 
 Each transcript in ``golden/transcripts`` is a reference solution as tool calls -- what a
 model would send, with no code and no files -- recorded with what every call returned.
@@ -123,7 +125,7 @@ def test_a_golden_transcript_replays_to_a_passing_check(path, inputs, tmp_path):
 def test_the_goldens_cover_every_task_in_few_calls():
     tasks = {json.loads(p.read_text())["task"].split("-")[0]: json.loads(p.read_text())
              for p in TRANSCRIPTS}
-    assert sorted(tasks) == ["m1", "o1", "p1", "p10", "p11", "p12", "p13", "p14", "p2", "p3",
+    assert sorted(tasks) == ["m1", "o1", "p1", "p10", "p11", "p12", "p13", "p14", "p15", "p2", "p3",
                              "p4", "p5", "p6", "p7", "p8", "p9"]
     for transcript in tasks.values():
         assert len(transcript["calls"]) <= 10

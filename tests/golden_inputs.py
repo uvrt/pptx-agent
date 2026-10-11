@@ -1,6 +1,7 @@
 """Build the inputs of the trial tasks p2-p6, of the spike's graphics tasks p7, p8, o1 and
-m1, of p10 (a review in comments), p11 (SmartArt), p12 (a rebrand through the theme) and p14
-(a chart and a table on a branded template), for the golden transcripts (test_golden.py).
+m1, of p10 (a review in comments), p11 (SmartArt), p12 (a rebrand through the theme), p14
+(a chart and a table on a branded template) and p15 (a maturity gap chart and an
+effort-against-impact matrix), for the golden transcripts (test_golden.py).
 
 The trial's own builder (recovered from its coordinator's transcript), run against this
 repository's fixtures, writes ``<root>/<task>/input/...``.  p1's template is the committed
@@ -551,6 +552,46 @@ def p14() -> None:
     deck.save(out("p14-brand-chart-table") / "business-review-2026.pptx")
 
 
+# ---------------------------------------------------------------- P15 maturity charts
+P15_TEXT = {
+    "256.2": "Warehouse operations",
+    "256.3": "Maturity assessment, October 2026",
+    "257.2": "Scope",
+    "257.3": "Nine capabilities across the three distribution centres\n"
+             "Scored by the operations panel from 1 (ad hoc) to 5 (optimised)",
+    "258.2": "Approach",
+    "258.3": "Interviews and site visits at Tilburg, Venlo and Ghent\n"
+             "Targets set with the regional directors for the end of 2027\n"
+             "Six recommendations rated for effort, impact and priority",
+    "259.2": "Next steps",
+    "259.3": "Confirm the 2027 targets with the steering committee\n"
+             "Start the first two recommendations in November",
+}
+P15_MATURITY = ("Capability,Current,Target\nGovernance,2.13,4\nPeople,2.10,3\nData,2.17,4\n"
+                "Technology,2.33,3\nRequest,2.33,3\nProcure,2.08,4\nDeploy,2.25,3\n"
+                "Monitor,2.19,4\nRetire,2.33,3\n")
+P15_RECOMMENDATIONS = (
+    "Id,Recommendation,Effort,Impact,Priority\n"
+    "R1,Appoint a process owner per site,1.0,4.5,3\n"
+    "R2,Shared slotting rules,2.0,3.0,2\n"
+    "R3,Replace the yard scheduling tool,4.0,4.0,3\n"
+    "R4,Monthly KPI review,1.5,1.5,1\n"
+    "R5,Supplier portal for inbound bookings,3.5,2.0,2\n"
+    "R6,Automated returns sorting,4.5,1.0,1\n")
+
+
+def p15() -> None:
+    """The vendor-selection deck rewritten as a maturity assessment, with the panel's scores
+    and the recommendations as CSV files."""
+    deck = Document.open(FIX / "generated" / "trial" / "wms-vendor-selection.pptx")
+    for address, text in P15_TEXT.items():
+        deck.shape(address).set_text(text)
+    folder = out("p15-maturity-charts")
+    deck.save(folder / "maturity-assessment.pptx")
+    (folder / "maturity-scores.csv").write_bytes(P15_MATURITY.encode("utf-8"))
+    (folder / "recommendations.csv").write_bytes(P15_RECOMMENDATIONS.encode("utf-8"))
+
+
 BUILDERS = {"p2-quarterly-update": p2, "p3-split-slide": p3, "p4-process-diagram": p4,
             "p5-rebrand": p5, "p6-restructure-deck": p6,
             "p7-phased-approach": halden("p7-phased-approach"),
@@ -558,7 +599,8 @@ BUILDERS = {"p2-quarterly-update": p2, "p3-split-slide": p3, "p4-process-diagram
             "o1-governance-chart": halden("o1-governance-chart", (2, "Programme governance")),
             "m1-priority-matrix": halden("m1-priority-matrix", (3, "Prioritisation")),
             "p10-review-comments": p10, "p11-update-smartart": p11,
-            "p12-theme-rebrand": p12, "p14-brand-chart-table": p14}
+            "p12-theme-rebrand": p12, "p14-brand-chart-table": p14,
+            "p15-maturity-charts": p15}
 
 
 #: Builders that draw from scratch what is otherwise committed (``--draw``).

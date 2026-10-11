@@ -283,6 +283,31 @@ Series names and category labels are as strict as table labels (`LabelError`). A
 is always a position; to address a numeric category by label use
 `chart.category_index(2025)`.
 
+**The look.** Axis scales, gridlines, colours, markers, a column series drawn as a line,
+the chart's text and each point's own label, each one undo step; colours as shapes take
+them (`tx2`, `accent1 lumMod=60% lumOff=40%`, `1F4E79`, `None` for none):
+
+```python
+chart.set_axis_scale("value", minimum=0, maximum=5, major_unit=1)   # a 1-5 maturity scale
+chart.set_gridlines("value", major=False)
+chart.format_series("Current", fill="tx2")
+chart.format_point("Current", "Procure", fill="accent2")            # highlight one column
+chart.set_series_type("Target", "line")                             # targets over the columns
+chart.format_series("Target", line=None, marker="diamond", marker_size=10, marker_fill="accent6")
+chart.set_text_style(size=10)                                       # all the chart's text
+
+ranked = slide.add_chart("bar", ["Worst", "Middle", "Best"], [{"name": "Score", "values": [1.8, 2.4, 3.1]}],
+                         left, top, width, height, category_order="reversed")  # reads top-down
+matrix = slide.add_chart("bubble", effort, [{"name": "Recommendations", "values": impact, "size": priority}],
+                         left, top, width, height, legend=None)
+deck.shape(matrix.id).chart.set_point_labels("Recommendations", ["R1", "R2", "R3"], position="right",
+                                             cells=True)          # as Value From Cells
+```
+
+Reversing an axis crosses the other at its maximum, as PowerPoint needs to keep it in place.
+PowerPoint cannot combine horizontal bars with a line, so `set_series_type` refuses a bar
+chart.
+
 ### SmartArt
 
 ```python

@@ -309,6 +309,18 @@ class Chart(_chart.Chart):
         return find_label(label, enumerate(categories), what="category",
                           where=f"{self.address} (chart)")
 
+    def _series_position(self, which, series) -> int:
+        """A series by name is found as :meth:`series_named` finds it (strictly)."""
+        if isinstance(which, str):
+            return self.series_named(which).index
+        return super()._series_position(which, series)
+
+    def _point(self, root, ser, which) -> int:
+        """A point by category label is found as :meth:`category_index` finds it."""
+        if isinstance(which, str):
+            return self.category_index(which)
+        return super()._point(root, ser, which)
+
     def set_category(self, index, label) -> "Chart":
         """Relabel a category -- by position, or by its current label -- in every series'
         cache and in the workbook::
