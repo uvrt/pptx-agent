@@ -22,6 +22,12 @@ from .common import (ANCHOR, AUTOFIT, KIND, box_emu, box_pt, emu, frame_of, inse
                      spec_of, text_params, write_text)
 from .text import COMMON_PRESETS, preset_of
 
+from ..edit.arrange import EDGES
+
+#: ppt_arrange's align ``to`` and distribute ``within``, as the library's ``to``.
+_ALIGN_TO = {"shapes": "selection", "slide": "slide", "content_area": "box"}
+_WITHIN = {"shapes": "selection", "content_area": "box"}
+
 GRAPHICS = "ppt_graphics"
 OBJECTS = "ppt_objects"
 
@@ -283,7 +289,8 @@ def ppt_set_shape(call, doc, items):
 
 @tool("ppt_add_picture",
       "Insert a picture from an image blob on a slide, or replace a picture's image "
-      "(target), keeping its frame, height or width. Returns its address and native size.",
+      "(target), keeping its frame, height or width. An SVG stays vector, with a PNG "
+      "fallback made for it. Returns its address and native size.",
       {"doc": string("Document id."),
        "image": string("Image blob handle, e.g. b2."),
        "slide": string("Slide to insert on, s:256 or $ref.", optional=True),
@@ -305,28 +312,41 @@ def ppt_add_picture(call, doc, image, slide=None, target=None, box=None, keep=No
     if not blob.mime.startswith("image/"):
         raise ToolError("invalid_arguments", f"{image} is {blob.mime}, not an image",
                         field="image")
-    if target is not None:
-        picture = shape_at(deck, target)
-        if picture.kind != "picture":
-            raise ToolError("invalid_arguments", f"{target} is a {picture.kind}, not a picture",
-                            field="target")
-        picture.replace_image(blob.data, keep=keep or "frame", anchor=anchor or "top_left")
-        address, verb = picture.id, "Replaced the image of"
-    else:
-        host = slide_at(deck, slide)
-        if box is not None:
-            x, y, w, h = box_emu(box)
-            picture = host.add_picture(blob.data, x, y, width=w, height=h)
+    try:
+        if target is not None:
+            picture = shape_at(deck, target)
+            if picture.kind != "picture":
+                raise ToolError("invalid_arguments",
+                                f"{target} is a {picture.kind}, not a picture", field="target")
+            picture.replace_image(blob.data, keep=keep or "frame",
+                                  anchor=anchor or "top_left")
+            address, verb = picture.id, "Replaced the image of"
         else:
-            left, top, _, _ = host.content_area
-            picture = host.add_picture(blob.data, left, top)
-        address, verb = picture.id, "Inserted"
+            host = slide_at(deck, slide)
+            if box is not None:
+                x, y, w, h = box_emu(box)
+                picture = host.add_picture(blob.data, x, y, width=w, height=h)
+            else:
+                left, top, _, _ = host.content_area
+                picture = host.add_picture(blob.data, left, top)
+            address, verb = picture.id, "Inserted"
+    except ImportError as error:          # an SVG's PNG fallback needs pptx-agent[png]
+        raise ToolError("refused", str(error), field="image") from None
     if ref:
         call.define_ref(ref, address)
     call.touch(picture._slide.slide_id, picture.id)
-    size = picture.image_size
-    data = {"address": address, "box": box_pt(picture.bounds),
-            "native_px": [size.width, size.height] if size else None}
+    vector = picture.vector
+    if vector is not None:
+        from ..edit import svgpicture
+
+        native = svgpicture.native_size(svgpicture.parse(vector))
+        size = [round(native[0]), round(native[1])] if native else None
+    else:
+        image = picture.image_size
+        size = [image.width, image.height] if image else None
+    data = {"address": address, "box": box_pt(picture.bounds), "native_px": size}
+    if vector is not None:
+        data["svg"] = True
     return Result(summary=f"{verb} picture {address}",
                   created=[address] if target is None else [],
                   changed=[address] if target is not None else [], data=data)
@@ -429,21 +449,31 @@ def ppt_add_connector(call, doc, items, slide=None, key=None):
 
 
 @tool("ppt_arrange",
-      "Change shapes' z-order, group, ungroup, duplicate or delete them. Returns new "
-      "addresses.",
+      "Change shapes' z-order; group, ungroup, duplicate, delete, align or distribute "
+      "them (equal gaps). Returns new addresses and moved boxes.",
       {"doc": string("Document id."),
        "targets": array(string(), "Shapes, or $refs.", min_items=1),
        "action": string("What to do.", enum=["front", "back", "forward", "backward", "group",
-                                             "ungroup", "duplicate", "delete"]),
+                                             "ungroup", "duplicate", "delete", "align",
+                                             "distribute"]),
        "dx": number("duplicate: offset. Default 0.", minimum=-10000, maximum=10000,
                     optional=True),
        "dy": number("duplicate: offset. Default 0.", minimum=-10000, maximum=10000,
                     optional=True),
        "ref": string("group, or duplicate of one shape: ref name for the new shape.",
+                     optional=True),
+       "edge": string("align.", enum=list(EDGES), optional=True),
+       "to": string("align: to the targets' bounds (default), slide or content area.",
+                    enum=list(_ALIGN_TO), optional=True),
+       "axis": string("distribute.", enum=["horizontal", "vertical"], optional=True),
+       "within": string("distribute: between the outermost targets (default) or across "
+                        "the content area.", enum=list(_WITHIN), optional=True),
+       "gap": number("distribute: a fixed gap instead.", minimum=0, maximum=10000,
                      optional=True)},
       kind=KIND, group=GRAPHICS, mutates=True, refs=("targets[]",))
 @library_errors
-def ppt_arrange(call, doc, targets, action, dx=0, dy=0, ref=None):
+def ppt_arrange(call, doc, targets, action, dx=0, dy=0, ref=None, edge=None, to=None,
+                axis=None, within=None, gap=None):
     deck = call.document
     shapes = [shape_at(deck, address, field=f"targets[{i}]") for i, address in
               enumerate(targets)]
@@ -451,6 +481,15 @@ def ppt_arrange(call, doc, targets, action, dx=0, dy=0, ref=None):
         call.touch(shape._slide.slide_id)
         if action not in ("delete", "ungroup"):
             call.touch(shape.id)
+    for name, value, owner in (("edge", edge, "align"), ("to", to, "align"),
+                               ("axis", axis, "distribute"), ("within", within, "distribute"),
+                               ("gap", gap, "distribute")):
+        if value is not None and action != owner:
+            raise ToolError("invalid_arguments", f"{name} is for {owner}, not {action}",
+                            field=name)
+    if action in ("align", "distribute"):
+        return _line_up(call, shapes, action, edge=edge, to=to, axis=axis, within=within,
+                        gap=gap)
     created: list[str] = []
     removed: list[str] = []
     changed: list[str] = []
@@ -490,6 +529,39 @@ def ppt_arrange(call, doc, targets, action, dx=0, dy=0, ref=None):
     call.touch(*created, *changed)
     return Result(summary=f"{action}: {len(shapes)} shape(s)", created=created,
                   removed=removed, changed=changed)
+
+
+def _line_up(call, shapes, action, *, edge, to, axis, within, gap) -> Result:
+    """ppt_arrange's align and distribute: :mod:`pptx_agent.edit.arrange` on the targets,
+    the content area being :attr:`Slide.content_area <pptx_agent.Slide.content_area>` (the
+    layout's body placeholders, else the band under the title)."""
+    from ..edit import arrange
+
+    host = shapes[0]._slide
+    if any(shape._slide.slide_id != host.slide_id for shape in shapes):
+        raise ToolError("invalid_arguments", "the targets must be on one slide",
+                        field="targets")
+    if action == "align":
+        if edge is None:
+            raise ToolError("invalid_arguments", "align needs an edge", field="edge",
+                            valid_options=list(EDGES))
+        where = to or "shapes"
+        moved = arrange.align(shapes, edge, to=_ALIGN_TO[where],
+                              box=host.content_area if where == "content_area" else None)
+        how = f"{edge} of the {where.replace('_', ' ')}"
+    else:
+        if axis is None:
+            raise ToolError("invalid_arguments", "distribute needs an axis", field="axis",
+                            valid_options=["horizontal", "vertical"])
+        where = within or "shapes"
+        moved = arrange.distribute(shapes, axis, to=_WITHIN[where],
+                                   box=host.content_area if where == "content_area" else None,
+                                   gap=None if gap is None else emu(gap))
+        how = f"{axis}ly within the {where.replace('_', ' ')}"
+    changed = [shape.id for shape in moved]
+    boxes = {shape.id: box_pt(shape.drawn_bounds) for shape in arrange.outermost(shapes)[:20]}
+    return Result(summary=f"{action}: {len(changed)} of {len(boxes)} shape(s) moved, {how}",
+                  changed=changed, data={"moved": changed, "boxes": boxes})
 
 
 TOOLS = [ppt_add_shape, ppt_set_shape, ppt_add_picture, ppt_add_connector, ppt_arrange]

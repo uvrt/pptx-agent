@@ -64,7 +64,8 @@ line above the block it names, an id at the end of the line it names in a headin
   breaks are ``<br>``.  As in docx-agent, its cells are named by the table's id:
   ``256.7/cell<row>,<column>``.  A cell a merge covers is empty.
 * **A picture** is ``![alt text](source)``: the alt text is ``cNvPr@descr``, the source the
-  media part (``ppt/media/image1.png``), or a linked picture's address.
+  media part (``ppt/media/image1.png``), or a linked picture's address.  An SVG picture's
+  comment says ``picture svg``, and its source is the PNG it shows.
 * **A chart** is one line: its type (``column``, ``bar``, ``line``, ``pie``...; a combination
   joined by ``+``), title, series and categories.  **SmartArt** is a list of its node text,
   nested by level.

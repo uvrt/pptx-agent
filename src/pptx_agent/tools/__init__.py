@@ -24,9 +24,10 @@ What is here (the tool layer's roadmap numbers them):
   ``set_properties`` and ``batch``;
 * the shared ``describe``'s deck handler and ``ppt_read_slides`` (:mod:`.read`);
 * text: ``ppt_set_text`` (speaker notes too) and ``ppt_format_text`` (table cells too);
-* shapes: ``ppt_add_shape``, ``ppt_set_shape``, ``ppt_add_picture``, ``ppt_add_connector``,
-  ``ppt_arrange``; ``ppt_add_shape`` with ``measure: true`` measures text before building;
-  tables: ``ppt_add_table``, ``ppt_edit_table`` (fill and borders too);
+* shapes: ``ppt_add_shape``, ``ppt_set_shape``, ``ppt_add_picture`` (SVG pictures too),
+  ``ppt_add_connector``, ``ppt_arrange`` (align and distribute too); ``ppt_add_shape``
+  with ``measure: true`` measures text before building; tables: ``ppt_add_table``,
+  ``ppt_edit_table`` (fill and borders too);
 * slides: ``ppt_add_slide``, ``ppt_draft_slides``, ``ppt_manage_slides``, ``ppt_set_theme``;
 * charts and SmartArt, through the shared ``edit_chart`` (``action: "read"`` reads one) and
   ``edit_smartart`` (:mod:`.charts`);
@@ -38,6 +39,8 @@ Positions are the model's own, in points: the layout tools (``ppt_layout``, ``pp
 trial 3 -- no model called them in about forty runs.  Their library calls stay
 (:mod:`pptx_agent.edit.layout`, :mod:`~pptx_agent.edit.arrange`,
 :mod:`~pptx_agent.edit.scales`, :meth:`Slide.copy_shapes`, :mod:`~pptx_agent.edit.svgprofile`).
+Align and distribute came back in round 3 as ``ppt_arrange`` actions, for house rules that
+require equal spacing: one call that guarantees it, which the application's rules name.
 
 Lengths are points at this boundary (12,700 EMU each).  Every changing call returns
 ``checks``: text that does not fit, collisions and shapes off the slide on the slides it
@@ -108,7 +111,8 @@ graphics, ppt_design_facts reports what the application's guidance may ask about
 #: take 20 of the 24, so it is left to the dispatcher's validation, as are the option-heavy
 #: shape tools.  edit_chart joined them in T4: with its add action it has 14 optional
 #: parameters, more than half the request's.  ppt_align left the list with the layout tools
-#: (post-T4).
+#: (post-T4).  ppt_arrange, strict until round 3, has eight optional parameters with align
+#: and distribute and no longer fits beside the others; ppt_add_table takes its place.
 STRICT_FIRST = ("ppt_add_slide", "ppt_manage_slides", "ppt_draft_slides")
 
 _PRESENTATION = b"ppt/presentation.xml"

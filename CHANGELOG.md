@@ -6,6 +6,30 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- SVG pictures (production feedback round 3, I1): `slide.add_picture` takes an SVG and
+  stores it as PowerPoint 2016 and later store an inserted SVG, measured in PowerPoint for
+  Mac 16: the PNG in `a:blip`, the SVG behind its `asvg:svgBlip` extension (`xmlns:asvg` on
+  the element), a `ppt/media/imageN.svg` part (`image/svg+xml`) behind an ordinary image
+  relationship, the picture named "Graphic N" with its aspect unlocked. The PNG fallback is
+  `fallback=` or the SVG drawn at the placed size and `fallback_dpi` (300) by pptx2svg (an
+  `ImportError` names `pptx-agent[png]` without it); the native size is the SVG's width and
+  height, else its viewBox, at 96 dpi. The SVG is parsed as untrusted data first (no DTD,
+  no entities, at most 16 MiB), stored once, and kept as given. `picture.vector` reads it,
+  `picture.set_vector(svg | None)` attaches, replaces or removes it (one undo step), and
+  `picture.replace_image(png, svg=...)` (or an SVG `image`) keeps both images in step. The
+  outline marks the picture `picture svg`, the geometry `image.svg`. `ppt_add_picture`
+  takes `image/svg+xml` blobs, to insert and to replace, and makes the fallback. In
+  PowerPoint the result opens unprompted, draws the vector, and offers the Graphics Format
+  tab (Graphics Fill, Convert to Shape).
+- Align and distribute in the tools (round 3, A5): `ppt_arrange` actions `align` (`edge`,
+  `to`: `shapes`, `slide` or `content_area`) and `distribute` (`axis`, `within`: `shapes`
+  or `content_area`, optional `gap`) on its targets, through `pptx_agent.edit.arrange`; the
+  content area is `Slide.content_area`. Each is one undo step and returns the boxes. For
+  house rules that require equal spacing (GUIDANCE.md). The every-definition guard rises
+  to 11,400 (11,309 estimated, +196), the core unchanged; ppt_arrange is now sent
+  non-strict (eight optional parameters) and ppt_add_table strict in its place. Golden
+  p16: the Halden approach slide, four phases with SVG icons spaced across the content
+  area, 7 calls.
 - Chart formatting (production feedback round 3, G1-G4; ooxml-edit 0.15.0): a chart's axis
   scale (a 1-5 maturity axis by 1, categories top-down for a ranked bar chart), gridlines,
   series and point colours, lines and markers, a column series drawn as a line (target
