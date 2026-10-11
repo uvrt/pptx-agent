@@ -6,6 +6,9 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A placeholder holding only whitespace now renders with the stray bullet PowerPoint draws
+  for it (ooxml-common 0.13.0), so the render shows what `empty_placeholders` reports;
+  one of empty paragraphs still renders nothing.
 - An SVG picture's fallback PNG is drawn from the SVG at the size PowerPoint reads from its
   root (ooxml-common 0.12.0's `svgimage.with_pixel_size`), in place of this module's own
   rewrite: the same pixels for `px`, `pt`, `pc`, `in`, `cm` and `mm`, and now PowerPoint's

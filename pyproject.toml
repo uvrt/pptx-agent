@@ -53,7 +53,7 @@ classifiers = [
 # worker_task, so a daemonic process's subprocess workers run the slide renderer.
 # ooxml-common 0.12.0: svgimage, which restates an SVG picture's root size in pixels, as
 # PowerPoint reads it, before its fallback PNG is rasterised.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.12.0", "ooxml-edit>=0.17.0", "markdown-it-py>=3.0",
+dependencies = ["lxml>=4.9", "ooxml-common>=0.13.0", "ooxml-edit>=0.17.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]
