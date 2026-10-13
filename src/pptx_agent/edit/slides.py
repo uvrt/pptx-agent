@@ -781,9 +781,10 @@ def renew_creation_id(package: PresentationPackage, slide_part: str, salt: int) 
         package.mark_dirty(slide_part)
 
 
-def slide_from_layout(package: PresentationPackage, layout_part: str) -> bytes:
+def slide_from_layout(package: PresentationPackage, layout_part: str,
+                      language: str | None = None) -> bytes:
     """A new slide's XML: the layout's placeholders, empty, inheriting everything, in the
-    deck's default language."""
+    deck's default language (``language`` where the deck states none)."""
     layout = package.tree(layout_part)
     tree = find(layout, "p:cSld/p:spTree")
     if tree is None:
@@ -803,7 +804,7 @@ def slide_from_layout(package: PresentationPackage, layout_part: str) -> bytes:
 
     from .authoring import default_language
 
-    language = default_language(package)
+    language = default_language(package, language)
     next_id = 2
     for shape in tree:
         if local_name(shape) != "sp":

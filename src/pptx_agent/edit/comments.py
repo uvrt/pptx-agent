@@ -487,8 +487,9 @@ class CommentOps:
             slide = shape._slide
         package = self.package
         from .authoring import default_language
+        from .document import language_of
 
-        language = default_language(package)
+        language = default_language(package, language_of(self))
         created = _stamp(date)
         with self.batch():
             self.history.checkpoint()
@@ -546,8 +547,9 @@ class CommentOps:
             raise ValueError("a reply needs an author")
         package = self.package
         from .authoring import default_language
+        from .document import language_of
 
-        language = default_language(package)
+        language = default_language(package, language_of(self))
         created = _stamp(date)
         with self.batch():
             self.history.checkpoint()
@@ -618,8 +620,9 @@ class CommentOps:
         if not str(text).strip():
             raise ValueError("a comment needs text")
         from .authoring import default_language
+        from .document import language_of
 
-        language = default_language(self.package)
+        language = default_language(self.package, language_of(self))
         with self.batch():
             self.history.checkpoint()
             part, node, thread, _ = _locate(self, identifier)

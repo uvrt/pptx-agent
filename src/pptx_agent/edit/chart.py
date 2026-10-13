@@ -35,12 +35,16 @@ from .labels import find_label
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Shape
 
-#: What PowerPoint writes into the runs of a title it creates.
+#: What PowerPoint writes into the runs of a title it creates: its editing language, for
+#: which the deck's locale stands in (:func:`~pptx_agent.edit.document.language_of`); this
+#: is en-US's, the default locale's.
 TITLE_LANG = "en-US"
 
 
 def graphic_host(shape: "Shape") -> GraphicHost:
     """A slide's graphic frame as ooxml-edit's charts and diagrams see it."""
+    from .document import language_of
+
     slide = shape._slide
     document = slide.document
 
@@ -52,7 +56,8 @@ def graphic_host(shape: "Shape") -> GraphicHost:
 
     return GraphicHost(package=document.package, part=slide.part_path, frame=shape._element,
                        edit=edit, address=shape.id, application="PowerPoint",
-                       document="deck", lang=TITLE_LANG, look=POWERPOINT_LOOK)
+                       document="deck", lang=language_of(document),
+                       look=POWERPOINT_LOOK)
 
 
 class Chart(_chart.Chart):

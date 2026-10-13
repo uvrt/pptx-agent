@@ -386,9 +386,13 @@ class _Measured:
     def __init__(self, slide: "Slide") -> None:
         import pptx2svg
 
+        from .document import locale_of
+
         document = slide.document
+        # The deck's locale, as its render: a date field's text is measured as drawn.
         options = pptx2svg.ConvertOptions(slide_numbers=[slide.index + 1],
-                                          warn_on_font_substitution=False)
+                                          warn_on_font_substitution=False,
+                                          locale=locale_of(document))
         model = pptx2svg.convert_pptx_to_model(document.to_bytes(), options)
         from pptx2svg.fonts.check import resolved_families
 
@@ -723,6 +727,7 @@ def _scratch(document: "Document") -> "Document":
     cached = document.__dict__.get("_measure_scratch")
     if cached is not None and version is not None and cached[0] == version:
         cached[1].font_dirs = document.font_dirs
+        cached[1].locale = document.locale
         return cached[1]
     copy = copy_of(document)
     document.__dict__["_measure_scratch"] = (version, copy)

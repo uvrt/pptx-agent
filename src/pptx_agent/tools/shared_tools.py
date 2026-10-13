@@ -14,7 +14,7 @@ from ooxml_edit.tools import Result, ToolError, collect_warnings, page_list, sha
 
 from .common import (KIND, facts, library_errors, numbers, slide_id_of, template_key_of,
                      validate_delta)
-from ..edit.document import font_dirs_of
+from ..edit.document import font_dirs_of, locale_of
 from .render import png_size, render_slides_reporting
 
 #: Slides a render may hold, and the default width (1280 px: 1,196 Claude tokens at 16:9).
@@ -38,7 +38,7 @@ def new_document(call, kind, template_blob=None, size=None, title=None, author=N
                         field="size", valid_options=["16:9", "4:3"])
     template = call.blob(template_blob).data if template_blob else None
     deck = Document.new(size=size, template=template, title=title, author=author,
-                        created=call.now())
+                        created=call.now(), locale=call.locale)
     doc_id = call.session.adopt(deck, KIND, name or "new.pptx",
                                 source=template_blob or "new")
     width, height = deck.slide_size
@@ -239,22 +239,24 @@ def render(call, doc, slides=None, pages=None, width=None):
     ids = {n: deck.slides[n - 1].slide_id for n in wanted}
     # The font folders, resolved here (the session's, else OOXML_FONT_DIRS) and handed to
     # the worker, which sees neither; they key the cache, so renders with different
-    # folders do not mix.
+    # folders do not mix.  The locale likewise: the session's, handed over and keying.
     fonts = font_dirs_of(deck)
+    locale = locale_of(deck)
     missing = [n for n in wanted
-               if entry.render_cache.get((version, ids[n], width, fonts)) is None]
+               if entry.render_cache.get((version, ids[n], width, fonts, locale)) is None]
     if missing:
         # The deck's bytes are the snapshot, taken under the lock; the rasteriser works on
         # them with the lock let go, so another call may edit the deck meanwhile.  What is
         # drawn, numbered and cached is this version's (the result's version).
         data = deck.to_bytes()
         images, lost = call.run_unlocked(render_slides_reporting, data, missing, width,
-                                         list(fonts))
+                                         list(fonts), locale)
         for number, png, left_out in zip(missing, images, lost):
-            entry.render_cache.put((version, ids[number], width, fonts), (png, left_out))
+            entry.render_cache.put((version, ids[number], width, fonts, locale),
+                                   (png, left_out))
     described, unrendered = [], []
     for number in wanted:
-        png, left_out = entry.render_cache.get((version, ids[number], width, fonts))
+        png, left_out = entry.render_cache.get((version, ids[number], width, fonts, locale))
         w, h = png_size(png)
         image = call.image(png, w, h, label=f"slide {number} (s:{ids[number]})")
         described.append(image.describe())
@@ -293,7 +295,8 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
     ids = [deck.slides[n - 1].slide_id for n in chosen]
     entry = call.entry
     version = entry.version
-    key = ("check", tuple(ids), tuple(sorted(set(wanted))), bool(boxes), font_dirs_of(deck))
+    key = ("check", tuple(ids), tuple(sorted(set(wanted))), bool(boxes), font_dirs_of(deck),
+           locale_of(deck))
     data = entry.check_cache.get((version, key))
     if data is None:
         target = deck
@@ -301,12 +304,13 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
             # Measuring is the slow part: it runs on a copy of this version, opened from the
             # bytes taken under the lock, with the lock let go -- so an edit elsewhere in the
             # deck does not wait for it.  Inside a batch it runs on the deck, under the lock.
-            data_bytes, font_dirs = deck.to_bytes(), deck.font_dirs
+            data_bytes, font_dirs, locale = deck.to_bytes(), deck.font_dirs, deck.locale
         with call.unlocked() as released:
             if released:
                 with collect_warnings():          # said when the deck was opened, not now
                     target = type(deck).open(data_bytes)
                 target.font_dirs = font_dirs
+                target.locale = locale
             data = {"slides": [f"s:{sid}" for sid in ids]}
             data.update(facts(target, ids, boxes=boxes, include=wanted))
             if "facts" in wanted or "design" in wanted:

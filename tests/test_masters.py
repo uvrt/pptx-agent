@@ -303,10 +303,11 @@ def test_set_footer_apply_to_all_as_powerpoint_writes_it():
     for path in ("ppt/slideMasters/slideMaster1.xml", deck.layout("L2").part_path,
                  deck.layout("L7").part_path):
         found = dict(_footers(deck, path))
-        assert found["ftr"] == "© 2027 Example Corp" and found["dt"] == "1/5/2027"
+        # en-US datetime1 is M/d/yy (measured: pptx2svg's DATE_FORMATS)
+        assert found["ftr"] == "© 2027 Example Corp" and found["dt"] == "1/5/27"
     slide = deck.slides[1]
     assert _footers(deck, slide.part_path) == [
-        ("dt", "1/5/2027"), ("ftr", "© 2027 Example Corp"), ("sldNum", "2")]
+        ("dt", "1/5/27"), ("ftr", "© 2027 Example Corp"), ("sldNum", "2")]
     dt_shape = next(s for s in slide.shapes if s.placeholder and s.placeholder.type == "dt")
     field = dt_shape._element.find(f".//{A}fld")
     assert field.get("type") == "datetime1"
@@ -431,7 +432,7 @@ def test_edit_master_tool_actions(tools):
     assert footer.ok and footer.data == {"slides": ["s:257", "s:258"]}
     toolbox, session = tools
     deck = session.entry("d1").document
-    assert dict(_footers(deck, deck.slides[1].part_path))["dt"] == "1/4/2027"   # en-US: M/D/YYYY
+    assert dict(_footers(deck, deck.slides[1].part_path))["dt"] == "1/4/27"   # en-US: M/d/yy
     dup = call(tools, "ppt_edit_master", {"action": "duplicate_layout", "target": "L2",
                                           "text": "Inhoud NL"})
     assert dup.data["layout"] == "L12" and dup.created == ["L12"]

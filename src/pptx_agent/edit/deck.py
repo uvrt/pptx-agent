@@ -42,13 +42,18 @@ SECTION_EXT_URI = "{521415D9-36F7-43E2-AB2F-B90AF26B5E84}"
 
 def new(cls, *, size=None, template=None, title: str | None = None,
         author: str | None = None, language: str | None = None,
-        created: datetime | None = None) -> "Document":
+        created: datetime | None = None, locale=None) -> "Document":
     created = (created or now()).replace(microsecond=0)
     if template is None:
         width, height = blank.slide_size("16:9" if size is None else size)
-        data = blank.build(width, height, language=language or "en-US", created=created,
+        # No language given: the locale's (en-US without one), as PowerPoint writes its
+        # editing language into a new deck.
+        fallback = locale.language if locale is not None else "en-US"
+        data = blank.build(width, height, language=language or fallback, created=created,
                            title=title, author=author)
-        return _open(cls, data)
+        made = _open(cls, data)
+        made.locale = locale
+        return made
     document = _open(cls, _read(template))
     _strip_template(document)
     properties = CoreProperties(document.package)
@@ -65,7 +70,9 @@ def new(cls, *, size=None, template=None, title: str | None = None,
         set_language(document, language)
     if size is not None:
         document.set_slide_size(size)
-    return _open(cls, document.to_bytes())
+    made = _open(cls, document.to_bytes())
+    made.locale = locale
+    return made
 
 
 def _open(cls, data: bytes) -> "Document":

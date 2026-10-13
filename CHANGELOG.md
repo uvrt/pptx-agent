@@ -6,6 +6,26 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- The user's locale (ooxml-common 0.15.0's `Locale`, ooxml-edit 0.19.0's
+  `Toolbox(locale=...)`): `Document.locale` and `Document.new(locale=...)`, set from the
+  session for every deck that joins it. Every render passes it to pptx2svg
+  (`ConvertOptions(locale=...)`) -- `Document.render_svg`/`render_png`, the agent view, the
+  `render` tool's worker process (a subprocess worker too; the locale keys its cache) and
+  the text measurement behind `check`. A new chart's `c:lang` and text, a chart title's
+  runs, a new deck's language and new text in a deck that states no language take the
+  locale's language where they took en-US. en-US without one, never the server's: the
+  output is unchanged. No tool definition changes.
+- A new date field's cached text (Header & Footer's `date="auto"`) is what PowerPoint draws
+  for the field's format and language -- pptx2svg's measured `DATE_FORMATS` -- where it was
+  a guess (`M/D/YYYY` for en-US, `D/M/YYYY` for every other language): en-US `datetime1`
+  is `M/d/yy` (`1/5/27`), nl-NL `05-01-2027`; a language without a table takes the
+  locale's, else en-US's, as pptx2svg draws it. Only the cache changes; PowerPoint redraws
+  the field.
+- A date scale's tick labels (`DateScale.ticks`) name months and weekdays themselves
+  instead of through `strftime`, whose names followed the process's `LC_TIME`: English, as
+  before under the C locale, or with `language=` the names pptx2svg measured from
+  PowerPoint's date fields (nl, de, fr). PowerPoint's own date axes follow its interface
+  language, which no file or locale here states, so nothing picks a language for them.
 - ooxml-edit 0.18.0 makes workbooks a shared-tool kind, and the shared definitions every
   deck request carries grow with it (`describe`, `find_text`, `new_document`'s `kind`,
   `save_document`'s `format`): the core 3,440 -> 3,504 estimated (about 5,186 counted by

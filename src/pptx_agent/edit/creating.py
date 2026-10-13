@@ -94,7 +94,8 @@ class ShapeFactory:
             raise ValueError(f"{preset!r} is not a preset geometry (ST_ShapeType)")
         _check_size(width, height)
         slide, container, group = self._factory()
-        language = authoring.default_language(slide.document.package)
+        language = authoring.default_language(slide.document.package,
+                                              language_of(slide.document))
         values = _adjustment_values(preset, adjustments or {})
 
         def build(identifier: int, local: str) -> Element:
@@ -130,7 +131,8 @@ class ShapeFactory:
                              f"not {autofit!r}")
         _check_size(width, height)
         slide, container, group = self._factory()
-        language = authoring.default_language(slide.document.package)
+        language = authoring.default_language(slide.document.package,
+                                              language_of(slide.document))
 
         def build(identifier: int, local: str) -> Element:
             label = name or authoring.default_name(authoring.TEXT_BOX_NAME, identifier)
@@ -207,7 +209,8 @@ class ShapeFactory:
             style = resolve(slide.document, style)
         if group is not None:
             raise ValueError("PowerPoint does not allow a table in a group")
-        language = authoring.default_language(slide.document.package)
+        language = authoring.default_language(slide.document.package,
+                                              language_of(slide.document))
 
         def build(identifier: int, local: str) -> Element:
             label = name or authoring.default_name(authoring.TABLE_NAME, identifier)
@@ -255,7 +258,9 @@ class ShapeFactory:
         slide, container, group = self._factory()
         if group is not None:
             raise ValueError("add a chart to the slide, then group it")
-        language = authoring.default_language(slide.document.package)
+        language = authoring.default_language(slide.document.package,
+                                              language_of(slide.document))
+        locale = locale_of(slide.document)
         made = []
 
         def build(identifier: int, local: str) -> Element:
@@ -264,7 +269,8 @@ class ShapeFactory:
                                   categories, series, title=title,
                                   axis_titles=dict(axis_titles or {}), legend=legend,
                                   number_format=number_format, look=POWERPOINT_LOOK,
-                                  lang=language, category_order=category_order,
+                                  lang=language, locale=locale,
+                                  category_order=category_order,
                                   gridlines=gridlines, bubble_scale=bubble_scale))
             return authoring.chart_frame(identifier, label, local, left, top, width, height,
                                          made[-1].graphic())
@@ -273,6 +279,22 @@ class ShapeFactory:
 
 
 # -- creation ----------------------------------------------------------------------------------
+
+
+def language_of(document) -> str:
+    """:func:`~pptx_agent.edit.document.language_of` (imported late: document imports this
+    module)."""
+    from .document import language_of as of
+
+    return of(document)
+
+
+def locale_of(document):
+    """:func:`~pptx_agent.edit.document.locale_of`, imported late as :func:`language_of`."""
+    from .document import locale_of as of
+
+    return of(document)
+
 
 
 def _check_size(width: int, height: int) -> None:

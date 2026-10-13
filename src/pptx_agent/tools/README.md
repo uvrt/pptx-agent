@@ -67,6 +67,25 @@ separated by `os.pathsep`) is read where the toolbox runs; `font_dirs=[]` reads 
 No tool definition or prompt changes. A deck opened outside the tools takes the same
 setting as `Document.font_dirs`.
 
+**The user's locale.** The regional settings a deck is drawn and edited in -- an
+`ooxml_common.locales.Locale` -- are configuration too, per toolbox or per session:
+
+```python
+from ooxml_common.locales import Locale
+
+dutch = Locale(decimal_separator=",", thousands_separator=".", date_order="dmy",
+               language="nl-NL", list_separator=";")
+toolbox = Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS, locale=dutch)
+other = toolbox.session(locale=None)                 # en-US
+```
+
+Every render (in the worker process too) passes it to pptx2svg -- a chart's decimal and
+thousands separators, the language a date field with none is drawn in -- and the deck
+edits in it: a new deck's language, the language of new text in a deck that states none,
+a new chart's `c:lang`, a new date field's cached text. Without one it is en-US, never the
+server's own. No tool definition or prompt changes. A deck outside the tools takes it as
+`Document.locale` (or `Document.new(locale=...)`).
+
 The provider SDKs read their keys from the environment (`ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`). When the loop ends, `session.take_outputs()` holds what `save_document`
 wrote, as bytes.

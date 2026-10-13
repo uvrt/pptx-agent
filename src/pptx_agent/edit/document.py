@@ -20,6 +20,8 @@ if TYPE_CHECKING:  # pragma: no cover
     import datetime as _datetime_module  # noqa: F401
     from datetime import datetime
 
+    from ooxml_common.locales import Locale
+
     from ..outline.read import TextBlock
     from .design import DesignFacts
     from .diagram import DiagramNode
@@ -2967,6 +2969,16 @@ class Document(CommentOps):
     #: (``Toolbox(font_dirs=...)``).
     font_dirs: "tuple[str, ...] | None" = None
 
+    #: The regional settings this deck is drawn and edited in -- an
+    #: :class:`ooxml_common.locales.Locale`: what a render passes pptx2svg
+    #: (``ConvertOptions(locale=...)``: a chart's decimal and thousands separators, the
+    #: language of a date field that names none), the language new text takes in a deck
+    #: that states none, the language of a new chart's text and of a new date field's
+    #: cached text.  ``None`` (the default) is en-US
+    #: (:data:`ooxml_common.locales.EN_US`), never the operating system's.  The agent tool
+    #: layer sets it from its session (``Toolbox(locale=...)``).
+    locale: "Locale | None" = None
+
     def __init__(self, package: OoxmlPackage) -> None:
         self.package = package
         self.history = History(package)
@@ -3006,7 +3018,8 @@ class Document(CommentOps):
     def new(cls, *, size: "str | tuple[int, int] | None" = None,
             template: "str | os.PathLike[str] | bytes | None" = None,
             title: str | None = None, author: str | None = None,
-            language: str | None = None, created: "datetime | None" = None) -> "Document":
+            language: str | None = None, created: "datetime | None" = None,
+            locale: "Locale | None" = None) -> "Document":
         """A new deck with no slides; add them with :meth:`add_slide`.
 
         Without a ``template`` it is the deck PowerPoint makes for File > New: the Office
@@ -3015,7 +3028,7 @@ class Document(CommentOps):
         with Caption, Title and Vertical Text, Vertical Title and Text), at ``size`` --
         ``"16:9"`` (the default), ``"4:3"`` or ``(width, height)`` in EMU, laid out for it
         as PowerPoint lays its master out for another size.  ``language`` is the default
-        text language (``"en-US"``).
+        text language: not given, ``locale``'s (:attr:`locale`; ``"en-US"`` without one).
 
         With a ``template`` -- a ``.pptx`` or ``.potx``, as a path or bytes -- the deck
         starts from its masters, layouts and theme, without its slides; ``size`` and
@@ -3023,8 +3036,9 @@ class Document(CommentOps):
         :attr:`language` would.
 
         ``title`` and ``author`` go into the core properties; ``created`` (default: now)
-        is both the creation and modification time.  Creating the deck is the base state:
-        there is nothing to undo.
+        is both the creation and modification time.  ``locale`` -- an
+        :class:`ooxml_common.locales.Locale` -- becomes the new deck's :attr:`locale`.
+        Creating the deck is the base state: there is nothing to undo.
 
         For example::
 
@@ -3033,7 +3047,7 @@ class Document(CommentOps):
         from . import deck
 
         return deck.new(cls, size=size, template=template, title=title, author=author,
-                        language=language, created=created)
+                        language=language, created=created, locale=locale)
 
     def save(self, target: str | os.PathLike[str]) -> None:
         """Write the deck.  The extension decides what the file declares itself to be:
@@ -3203,7 +3217,8 @@ class Document(CommentOps):
 
     @property
     def language(self) -> str:
-        """The default text language (``"en-US"``): what new text and new shapes take.
+        """The default text language: what new text and new shapes take -- the deck's own
+        (``defaultTextStyle``), else its :attr:`locale`'s (``"en-US"`` without one).
 
         For example::
 
@@ -3211,7 +3226,7 @@ class Document(CommentOps):
         """
         from .authoring import default_language
 
-        return default_language(self.package)
+        return default_language(self.package, language_of(self))
 
     @language.setter
     def language(self, value: str) -> None:
@@ -3585,7 +3600,8 @@ class Document(CommentOps):
         with self.batch():
             self.history.checkpoint()
             part = package.unused_part_name("ppt/slides/slide{n}.xml")
-            package.add_part(part, _slides.slide_from_layout(package, layout.part_path),
+            package.add_part(part, _slides.slide_from_layout(package, layout.part_path,
+                                                                 language_of(self)),
                              CT_SLIDE, override=True)
             package.add_relationship(part, REL_SLIDE_LAYOUT, layout.part_path)
             slide_id = _slides.insert_entry(package, part, index)
@@ -3962,13 +3978,15 @@ class Document(CommentOps):
         pptx2svg = _require_renderer()
         if self.font_dirs is not None and not options.get("agent"):
             options.setdefault("font_dirs", list(self.font_dirs))
+        options.setdefault("locale", locale_of(self))
         if options.pop("agent", False):
             convert = getattr(pptx2svg, "convert_pptx_to_agent_svg", None)
             if convert is None:
                 raise RuntimeError("this pptx2svg has no agent view "
                                    "(convert_pptx_to_agent_svg); upgrade pptx2svg")
             return convert(self.to_bytes(),
-                           pptx2svg.ConvertOptions(slide_numbers=self._numbers(slides)))
+                           pptx2svg.ConvertOptions(slide_numbers=self._numbers(slides),
+                                                   locale=options["locale"]))
         convert_options = pptx2svg.ConvertOptions(slide_numbers=self._numbers(slides),
                                                   **options)
         return pptx2svg.convert_pptx_to_svg(self.to_bytes(), convert_options)
@@ -3987,7 +4005,8 @@ class Document(CommentOps):
         pptx2svg = _require_renderer()
         if self.font_dirs is not None:
             options.setdefault("font_dirs", list(self.font_dirs))
-        render_keys = {"width", "height", "font_mapping", "measurer", "warnings"}
+        options.setdefault("locale", locale_of(self))
+        render_keys = {"width", "height", "font_mapping", "measurer", "warnings", "locale"}
         convert_options = pptx2svg.ConvertOptions(
             slide_numbers=self._numbers(slides),
             **{k: v for k, v in options.items() if k in render_keys}
@@ -4130,10 +4149,29 @@ def font_dirs_of(document: "Document | None") -> tuple[str, ...]:
     return tuple(str(path) for path in user_font_dirs(getattr(document, "font_dirs", None)))
 
 
+def locale_of(document: "Document | None") -> "Locale":
+    """The regional settings ``document`` is drawn and edited in: its
+    :attr:`Document.locale`, else en-US (:data:`ooxml_common.locales.EN_US`) -- what a
+    render passes pptx2svg, and what a worker process is handed."""
+    locale = getattr(document, "locale", None)
+    if locale is None:
+        from ooxml_common.locales import EN_US
+
+        return EN_US
+    return locale
+
+
+def language_of(document: "Document | None") -> str:
+    """The language of ``document``'s :func:`locale_of`: what new text takes where the deck
+    states no language of its own."""
+    return locale_of(document).language
+
+
 def copy_of(document: "Document") -> "Document":
     """A fresh copy of ``document`` (from its bytes) that renders and measures as it does."""
     copy = Document.open(document.to_bytes())
     copy.font_dirs = document.font_dirs
+    copy.locale = document.locale
     return copy
 
 
