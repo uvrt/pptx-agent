@@ -24,10 +24,12 @@ DUTCH = Locale(decimal_separator=",", thousands_separator=".", date_order="dmy",
                language="nl-NL", list_separator=";")
 A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 C = "{http://schemas.openxmlformats.org/drawingml/2006/chart}"
+#: Every deck here is made at this time, so none depends on the day the test runs.
+CREATED = dt.datetime(2026, 10, 7, 12, 0, tzinfo=dt.timezone.utc)
 
 
 def _chart_deck(locale=None) -> Document:
-    deck = Document.new(locale=locale)
+    deck = Document.new(locale=locale, created=CREATED)
     slide = deck.add_slide("Blank")
     slide.add_chart("column", ["Q1", "Q2"], [{"name": "North", "values": [0.4, 1.3]}],
                     457200, 457200, 8229600, 4572000)
@@ -39,9 +41,9 @@ def _texts(svg: str) -> list[str]:
 
 
 def test_without_a_locale_a_deck_is_en_us():
-    deck = Document.new()
+    deck = Document.new(created=CREATED)
     assert deck.locale is None and deck.language == "en-US"
-    assert Document.new(locale=EN_US).to_bytes() == deck.to_bytes()
+    assert Document.new(locale=EN_US, created=CREATED).to_bytes() == deck.to_bytes()
 
 
 def test_a_new_deck_takes_the_locales_language():
@@ -86,7 +88,7 @@ def _footer_date(deck: Document) -> tuple[str, str, str]:
 
 
 def _deck_with_slide(**options) -> Document:
-    deck = Document.new(**options)
+    deck = Document.new(created=CREATED, **options)
     deck.add_slide("Title and Content")
     return deck
 
