@@ -6,6 +6,22 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Tables from data (X1): `ppt_add_table` and `ppt_edit_table`'s `set_cells` take `from` --
+  a dataset `d:<id>` or another open document's table `t:<name>`, as ooxml-edit 0.22.0's
+  `edit_chart` does -- with `from_columns` (the source's columns by name, in order; default
+  all) and `header` (the header row's texts; `[]` for none; default the column names). Every
+  source row is placed; numbers are written as chart category labels are (General, the
+  session locale's decimal separator), dates as the source gives them. `ppt_add_table`'s
+  `rows` and `columns` are optional with `from` (the table fits it); `set_cells` writes
+  from row `index`. A source too big for a table (200 rows with the header, 50 columns,
+  5,000 cells) or for the table written into is refused, never cut. The result's
+  `data.from` gives the source, its document and version, the header's and first row's
+  table rows, and per placed column its table column, source rows and their sources;
+  nothing of it is saved in the deck. Every definition grows by 196 estimated tokens
+  (11,897 -> 12,093; the guard 11,900 -> 12,100), the core not at all; ppt_add_table, now
+  with nine optional parameters, is sent non-strict and ppt_set_theme strict in its place.
+  ooxml-edit 0.22.0 is the floor.
+
 - The user's locale (ooxml-common 0.15.0's `Locale`, ooxml-edit 0.19.0's
   `Toolbox(locale=...)`): `Document.locale` and `Document.new(locale=...)`, set from the
   session for every deck that joins it. Every render passes it to pptx2svg
