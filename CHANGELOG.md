@@ -6,6 +6,11 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- ooxml-edit 0.18.0 makes workbooks a shared-tool kind, and the shared definitions every
+  deck request carries grow with it (`describe`, `find_text`, `new_document`'s `kind`,
+  `save_document`'s `format`): the core 3,440 -> 3,504 estimated (about 5,186 counted by
+  the proxy, within 6,000), every definition 11,844; the guard rises to 11,900. A deck
+  still saves as pptx, potx or outline: a workbook format is refused with those three.
 - A placeholder holding only whitespace now renders with the stray bullet PowerPoint draws
   for it (ooxml-common 0.13.0), so the render shows what `empty_placeholders` reports;
   one of empty paragraphs still renders nothing.

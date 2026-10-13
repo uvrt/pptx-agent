@@ -61,10 +61,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: core 3,440 (about 5,091 counted); the guard rises to 11,800.  The strict set is unchanged:
 #: ``stories`` was already an optional parameter of replace_text, only its enum grew.  On
 #: 2026-10-11 the user raised the core budget from 5,500 to 6,000 counted tokens per format.
+#: ooxml-edit 0.18's workbook kind in the shared tools (``describe``'s and ``find_text``'s
+#: descriptions, find_text's ``range``, ``xlsx`` in new_document's ``kind``, ``xlsx``,
+#: ``xlsm`` and ``xltx`` in save_document's ``format``) added 64 to the core (3,440 -> 3,504,
+#: about 5,186 counted by the proxy, within 6,000) and to every definition (11,844); the
+#: guard rises to 11,900.  The strict set is unchanged: no new parameter, find_text's
+#: ``range`` only gained a description.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 11800
+ALL_GUARD = 11900
 
 
 def estimate_tokens(definitions) -> int:
@@ -601,6 +607,14 @@ def test_check_and_save_behind_the_gate(toolbox, session):
     outline = ok(call(toolbox, session, "save_document", doc="d1", name="out.md",
                       format="outline"))
     assert session.take_outputs()[0].data.startswith(b"<!--")
+
+
+@pytest.mark.parametrize("fmt", ["xlsx", "xlsm", "xltx", "docx"])
+def test_a_deck_refuses_to_save_as_another_kind(toolbox, session, fmt):
+    # The shared format enum names every kind's formats (ooxml-edit 0.18: workbooks too).
+    result = call(toolbox, session, "save_document", doc="d1", name=f"out.{fmt}", format=fmt)
+    assert not result.ok and result.error.code == "invalid_arguments"
+    assert result.error.field == "format" and session.take_outputs() == []
 
 
 def test_save_lists_the_fit_and_collision_facts_left_as_facts_not_a_refusal(toolbox, session):
