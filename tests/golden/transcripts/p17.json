@@ -4,8 +4,8 @@
   {
    "file": "input/example-template.pptx",
    "as": "document",
-   "sha256": "3e9607c24740fb8662dc3061ca99edab44d5d82377f5a3eef03ce19ce4f783ff",
-   "content_sha256": "01bace7afdc9afd121c90e25c62af863cbd67423b9d96c3d229808e614dfdee9"
+   "sha256": "81310055662a4abeb66eaea67ec342f75e3e0e163167a7441bd2e35943f15869",
+   "content_sha256": "5b00cfef137241fa8a9c4ef8dba992d1ac26ff6e2acf04a490aa7bfd21c65c71"
   }
  ],
  "calls": [
@@ -139,9 +139,9 @@
  ],
  "output": {
   "name": "example-template.pptx",
-  "sha256": "428cf890915153bf7a7e9d527d719afeea5cc7909338aedec936f2630a9bbc03",
+  "sha256": "8fbf77aca4b8e018e63aea7bdb6f2a801352361eaada26184df1df60d210cad4",
   "calls": 8,
-  "content_sha256": "259c1f0f03348fe8676a0506705563a967ae9e6604fc1e68443bb39db3d4f375"
+  "content_sha256": "657470e7c666de51ece1a1290620048595c764e9307e2db7753817a3bf4ac1f2"
  },
  "check": {
   "total": 18,

@@ -625,9 +625,10 @@ def p17() -> None:
     the master, a custom prompt in the content layout, a "Legal" layout with its notice, and
     four slides on it -- no footers yet."""
     folder = out("p17-template-new-year")
-    deck = Document.new()
+    # ``created`` is also the date the master's and layouts' date fields show: left out, it
+    # is the day the input is built, and the input then hashes differently every day.
+    deck = Document.new(created=DATE)
     deck.title = "Example Corp template"
-    deck.created = deck.modified = DATE
     master = deck.masters[0]
     legal = master.add_textbox(838200, 6721475, 7315200, 136525, name="Legal line")
     legal.set_text("\u00a9 2026 Example Corp Ltd. Confidential. All rights reserved.")
