@@ -56,7 +56,9 @@ classifiers = [
 # ooxml-common 0.15.0: ooxml_common.locales (Locale, EN_US).  ooxml-edit 0.19.0:
 # Toolbox(locale=...), Session.locale and call.locale, add_chart(..., locale=).
 # pptx2svg: ConvertOptions(locale=...) (pptx2svg on main since #28; its version is still 0.1).
-dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.19.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.22.0: sources (O3) -- Tool.sources, call.source and Rows.provenance, which
+# ppt_add_table's and ppt_edit_table's ``from`` read a dataset or another document's table by.
+dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.22.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]
