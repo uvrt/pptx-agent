@@ -67,10 +67,18 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: about 5,186 counted by the proxy, within 6,000) and to every definition (11,844); the
 #: guard rises to 11,900.  The strict set is unchanged: no new parameter, find_text's
 #: ``range`` only gained a description.
+#: ooxml-edit 0.22 (O3) put ``from`` and ``columns`` on the deferred edit_chart (11,897).
+#: X1, tables from data (``from``, ``from_columns`` and ``header`` on ppt_add_table and
+#: ppt_edit_table, rows and columns optional with ``from``) added 196 to every definition
+#: (12,093), none to the core (3,504, about 5,186 counted); the guard rises to 12,100.  With
+#: nine optional parameters ppt_add_table no longer fits Claude's strict limit of 24
+#: optional parameters beside the others, so it is sent non-strict (the dispatcher still
+#: validates it) and ppt_set_theme takes its place: 27 free-text strings and 24 optional
+#: parameters over the strict tools.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 11900
+ALL_GUARD = 12100
 
 
 def estimate_tokens(definitions) -> int:

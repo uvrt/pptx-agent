@@ -86,6 +86,37 @@ a new chart's `c:lang`, a new date field's cached text. Without one it is en-US,
 server's own. No tool definition or prompt changes. A deck outside the tools takes it as
 `Document.locale` (or `Document.new(locale=...)`).
 
+### Tables from data
+
+`ppt_add_table` and `ppt_edit_table`'s `set_cells` take a table's text from a source, as
+`edit_chart` takes a chart's (ooxml-edit 0.22.0): `from` is a dataset (`d:<id>`) or a table of
+another open document (`t:<name>`), `from_columns` picks its columns by name, in the order
+placed (default: all), and every row is placed. A header row of the column names goes
+above them unless `header` gives its texts, or `[]` for none. Numbers are written as a
+chart's category labels write them (General, the session locale's decimal separator),
+dates as the source gives them, a blank as an empty cell. `ppt_add_table` sizes the table
+to fit; `set_cells` writes from row `index` (default 0), column 0, and refuses a source
+the table has no room for. Nothing is cut: past 200 rows, 50 columns or 5,000 cells the call
+is refused (`limit`).
+
+```json
+{"doc": "d1", "slide": "s:256", "box": {"x": 40, "y": 100, "w": 880, "h": 300},
+ "from": "d:checks", "from_columns": ["check", "rating", "due"]}
+```
+
+The result's `data.from` says where every placed value came from -- the source, its
+document and version, `header_row` and `first_row` (table rows from 0; source row `n`,
+from 1, is table row `first_row + n - 1`), and per column its table column, source column,
+source rows as runs and their sources:
+
+```json
+{"source": "d:checks", "doc": "d2", "version": 3, "header_row": 0, "first_row": 1,
+ "columns": [{"col": 1, "column": "rating", "rows": "1-12",
+              "sources": ["Checks!C2:C13"]}, ...]}
+```
+
+It is not written into the deck.
+
 The provider SDKs read their keys from the environment (`ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`). When the loop ends, `session.take_outputs()` holds what `save_document`
 wrote, as bytes.
