@@ -205,3 +205,22 @@ def test_the_renderer_draws_nothing_for_them():
     slide = deck.add_slide("Title and Content")
     svg = slide.render_svg()
     assert "Click to add" not in svg and "<text" not in svg
+
+
+def test_a_whitespace_one_is_reported_and_drawn_with_its_stray_bullet():
+    """PowerPoint draws the bullet of a placeholder that holds only whitespace, editing and
+    exported (measured: a space, a tab, a no-break space, several; ooxml-common's
+    ``tests/test_blank_paragraphs.py``), and nothing for one of empty paragraphs; pptx2svg
+    draws the same, so the render shows what ``empty_placeholders`` warns about."""
+    deck = Document.new()
+    slide = deck.add_slide("Title and Content")
+    title, body = slide.shapes
+    title.set_text("Q3 review")
+    for blank in ("   ", "\t", " "):
+        body.set_text(blank)
+        assert _ids(slide) == [body.id]
+        svg = slide.render_svg()
+        assert svg.count("•") == 1 and "Click to add" not in svg, repr(blank)
+    body.set_text("\n\n")
+    assert _ids(slide) == [body.id]
+    assert "•" not in slide.render_svg()
