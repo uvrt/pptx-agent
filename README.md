@@ -38,6 +38,11 @@ and pptx2svg warns. Faces of your own, in a folder the system does not search, a
 variable `OOXML_FONT_DIRS`: rendered and measured with
 ([tools/README.md](src/pptx_agent/tools/README.md#setup-every-provider)).
 
+The user's regional settings -- a chart's decimal separator, the language of a date field
+that states none, of a new deck and of new text -- are `Document.locale` (or
+`Toolbox(locale=...)`), an `ooxml_common.locales.Locale`; en-US unless given, never the
+server's own.
+
 ## Example
 
 ```python

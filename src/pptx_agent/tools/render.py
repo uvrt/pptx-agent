@@ -9,20 +9,21 @@ from __future__ import annotations
 
 import struct
 import warnings
+from typing import Any
 
 from ooxml_edit.tools import worker_task
 
 
 @worker_task
 def render_slides(data: bytes, numbers: list[int], width: int,
-                  font_dirs: "list[str] | None" = None) -> list[bytes]:
+                  font_dirs: "list[str] | None" = None, locale: Any = None) -> list[bytes]:
     """PNG bytes of the 1-based slides ``numbers`` of the deck ``data``, ``width`` px wide."""
-    return render_slides_reporting(data, numbers, width, font_dirs)[0]
+    return render_slides_reporting(data, numbers, width, font_dirs, locale)[0]
 
 
 @worker_task
 def render_slides_reporting(data: bytes, numbers: list[int], width: int,
-                            font_dirs: "list[str] | None" = None
+                            font_dirs: "list[str] | None" = None, locale: Any = None
                             ) -> tuple[list[bytes], list[list[dict]]]:
     """:func:`render_slides`, and for each slide the text its image leaves out: pptx2svg's
     ``glyphs-missing`` warnings -- no font the renderer has can draw it -- as
@@ -30,12 +31,15 @@ def render_slides_reporting(data: bytes, numbers: list[int], width: int,
 
     ``font_dirs`` is the application's font folders (``Document.font_dirs``), resolved by
     the caller -- the session's, or ``OOXML_FONT_DIRS`` as the caller read it -- since the
-    worker sees neither; ``None`` leaves the worker's own default."""
+    worker sees neither; ``None`` leaves the worker's own default.  ``locale`` is the
+    session's (``call.locale``, an :class:`ooxml_common.locales.Locale`: picklable), handed
+    over the same way; ``None`` is en-US."""
     from ..edit.document import Document
 
     deck = Document.open(data)
     if font_dirs is not None:
         deck.font_dirs = tuple(font_dirs)
+    deck.locale = locale
     found: list = []
     with warnings.catch_warnings():
         # The same facts come back in ``found``; the worker's stderr is nobody's to read.

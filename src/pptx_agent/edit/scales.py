@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import math
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -44,6 +45,60 @@ from typing import Any, Iterable, Mapping, Sequence
 WHERE = ("start", "center", "end")
 #: Date tick intervals.
 DATE_UNITS = ("day", "week", "month", "quarter", "year")
+
+
+#: English month names, their abbreviations, weekday names (Monday first) and their
+#: abbreviations: the C locale's, what ``strftime`` wrote for a date scale's labels before
+#: this module named them itself.
+_ENGLISH = (
+    ("January", "February", "March", "April", "May", "June", "July", "August", "September",
+     "October", "November", "December"),
+    ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+    ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
+    ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+)
+#: The ``strftime`` directives whose text depends on the C library's locale (``LC_TIME``),
+#: as the C locale ("POSIX") spells the composite ones out.
+_C_LOCALE = {"c": "%a %b %_d %H:%M:%S %Y", "x": "%m/%d/%y", "X": "%H:%M:%S"}
+_DIRECTIVE = re.compile(r"%(_d|.)", re.DOTALL)
+
+
+def _names(language: str | None) -> tuple[tuple[str, ...], ...]:
+    """Month names, abbreviated month names, weekday names and abbreviated weekday names for
+    a date scale's labels in ``language``: the names PowerPoint writes in that language's
+    date fields -- pptx2svg's measured table (:data:`pptx2svg.resolve.fields.NAMES`) -- where
+    it has the language, else English.  The table has no abbreviated weekdays: those stay
+    English."""
+    primary = (language or "").replace("_", "-").split("-")[0].lower()
+    if primary and primary != "en":
+        try:
+            from pptx2svg.resolve.fields import NAMES
+        except ImportError:                   # pragma: no cover - the extras-less install
+            NAMES = {}
+        if primary in NAMES:
+            months, short_months, weekdays, _ = NAMES[primary]
+            return months, short_months, weekdays, _ENGLISH[3]
+    return _ENGLISH
+
+
+def date_label(day: _dt.date, pattern: str, language: str | None = None) -> str:
+    """``day`` in the ``strftime`` ``pattern``, with every name -- ``%b``/``%h``, ``%B``,
+    ``%a``, ``%A``, ``%p`` and ``%c``, ``%x``, ``%X`` -- written by this module
+    (:func:`_names`) rather than by the C library, whose names follow the process's
+    ``LC_TIME``: the same label on every server."""
+    months, short_months, weekdays, short_weekdays = _names(language)
+
+    def name(match: "re.Match[str]") -> str:
+        letter = match.group(1)
+        if letter in _C_LOCALE:
+            return _DIRECTIVE.sub(name, _C_LOCALE[letter])
+        text = {"b": short_months[day.month - 1], "h": short_months[day.month - 1],
+                "B": months[day.month - 1], "A": weekdays[day.weekday()],
+                "a": short_weekdays[day.weekday()], "p": "AM",
+                "_d": f"{day.day:>2}"}.get(letter)
+        return match.group(0) if text is None else text.replace("%", "%%")
+
+    return day.strftime(_DIRECTIVE.sub(name, pattern))
 
 
 class ScaleError(ValueError):
@@ -237,12 +292,20 @@ class DateScale(Scale):
         return self._at(self._offset(day, part) / self.days)
 
     def ticks(self, *, every: str = "month", step: float | None = None,
-              format: str | None = None, **_: Any) -> list[Tick]:
+              format: str | None = None, language: str | None = None,
+              **_: Any) -> list[Tick]:
         """One tick per ``every`` (day, week from Monday, month, quarter, year) -- each
         ``step`` of them (default 1) -- that overlaps the scale, clipped to it: its first
         day's start, its middle and its last day's end.  ``format`` is a ``strftime``
         pattern for the label (``{q}`` is the quarter's number, ``{d}`` the day without a
-        leading zero)."""
+        leading zero).
+
+        Month and weekday names are English (``Nov 2026``) unless ``language`` names one
+        whose names pptx2svg has measured from PowerPoint's date fields (``nl-NL``:
+        ``nov 2026``, ``mrt``; de, fr likewise) -- never the server's ``LC_TIME``
+        (:func:`date_label`).  These labels are text placed on a slide, so they are in
+        the language the caller asks for; PowerPoint's own date axes follow its interface
+        language (measured), which neither the deck nor its locale states."""
         if every not in DATE_UNITS:
             raise ScaleError(f"every must be one of {', '.join(DATE_UNITS)}, not {every!r}")
         stride = int(step or 1)
@@ -260,8 +323,8 @@ class DateScale(Scale):
             a, b = max(begin, self.first), min(finish, self.last)
             left = self.position(a, "start")
             right = self.position(b, "end")
-            label = begin.strftime(pattern.replace("{q}", str((begin.month - 1) // 3 + 1))
-                                   .replace("{d}", str(begin.day)))
+            label = date_label(begin, pattern.replace("{q}", str((begin.month - 1) // 3 + 1))
+                               .replace("{d}", str(begin.day)), language)
             out.append(Tick(begin.isoformat(), label, left, (left + right) / 2, right))
         return out
 

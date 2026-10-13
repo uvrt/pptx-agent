@@ -283,8 +283,9 @@ def add_notes(document, slide_part: str, slide_number: int) -> Element:
 
 def _language(document) -> str:
     from .authoring import default_language
+    from .document import language_of
 
-    return default_language(document.package)
+    return default_language(document.package, language_of(document))
 
 
 __all__ = ["CT_NOTES_MASTER", "CT_NOTES_SLIDE", "add_notes", "master_placeholder",

@@ -732,8 +732,9 @@ def insert_outline(document: "Document", text: str, *, at: int | None = None,
             warnings.warn(OutlineWarning(f"a {kind} in the outline is not drafted"), stacklevel=3)
 
     from ..edit.authoring import default_language
+    from ..edit.document import language_of
 
-    language = default_language(document.package)
+    language = default_language(document.package, language_of(document))
     made = []
     with document.batch():
         document.history.checkpoint()

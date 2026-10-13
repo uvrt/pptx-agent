@@ -32,7 +32,9 @@ Names are PowerPoint's English ones, numbered one below the shape's ``cNvPr@id``
 left out on purpose: ``a16:creationId`` and ``p14:modId``, which are random GUIDs and
 numbers -- a new shape gets this library's durable id stamp instead, and output stays
 deterministic.  The text language is the presentation's default text language, where
-PowerPoint uses its editing language.
+PowerPoint uses its editing language; a presentation that states none takes the language
+of the deck's locale (``Document.locale``; en-US without one), the editing language's
+stand-in.
 """
 
 from __future__ import annotations
@@ -43,7 +45,9 @@ from ..oxml.xml import NAMESPACES, PA_ID_EXT_URI, Element, find, make, qn
 
 #: PowerPoint's default table style, Medium Style 2 - Accent 1 (measured).
 DEFAULT_TABLE_STYLE = "{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"
-#: Used when the presentation names no default text language.
+#: Used when the presentation names no default text language and the caller gives no
+#: locale (:func:`default_language`'s ``fallback``): en-US, as
+#: :data:`ooxml_common.locales.EN_US`.
 FALLBACK_LANGUAGE = "en-US"
 
 #: ``a:ext`` URIs PowerPoint keys table column and row ids with.
@@ -148,19 +152,22 @@ def default_name(base: str, identifier: int) -> str:
     return f"{base} {identifier - 1}"
 
 
-def default_language(package) -> str:
-    """The presentation's default text language (``defaultTextStyle``), else en-US."""
+def default_language(package, fallback: str | None = None) -> str:
+    """The presentation's default text language (``defaultTextStyle``), else ``fallback``
+    -- the language of the deck's locale (:func:`~pptx_agent.edit.document.language_of`),
+    where PowerPoint takes its editing language -- else :data:`FALLBACK_LANGUAGE`."""
+    fallback = fallback or FALLBACK_LANGUAGE
     try:
         root = package.tree(package.presentation_part())
     except ValueError:
-        return FALLBACK_LANGUAGE
+        return fallback
     if root is None:
-        return FALLBACK_LANGUAGE
+        return fallback
     for path in ("p:defaultTextStyle/a:defPPr/a:defRPr", "p:defaultTextStyle/a:lvl1pPr/a:defRPr"):
         node = find(root, path)
         if node is not None and node.get("lang"):
             return node.get("lang")
-    return FALLBACK_LANGUAGE
+    return fallback
 
 
 # -- pieces --------------------------------------------------------------------------------

@@ -141,8 +141,10 @@ def _open(data: bytes):
 
 def _configure(deck, session) -> None:
     """A deck joining a session renders and measures with the session's font folders
-    (``Toolbox(font_dirs=...)``; ``None``: ``OOXML_FONT_DIRS``)."""
+    (``Toolbox(font_dirs=...)``; ``None``: ``OOXML_FONT_DIRS``) and is drawn and edited in
+    its locale (``Toolbox(locale=...)``; en-US unless given)."""
     deck.font_dirs = session.font_dirs
+    deck.locale = session.locale
 
 
 def _summary(deck) -> dict:

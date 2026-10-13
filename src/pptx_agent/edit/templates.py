@@ -34,6 +34,8 @@ from __future__ import annotations
 import copy
 import uuid
 from datetime import date as _date
+from datetime import datetime as _datetime
+from datetime import time as _time
 from typing import TYPE_CHECKING, Iterable
 
 from ..oxml.package import REL_SLIDE_LAYOUT, REL_SLIDE_MASTER
@@ -303,11 +305,23 @@ def delete_layout(document: "Document", layout: "Layout",
 # -- Header & Footer ---------------------------------------------------------------------------
 
 
-def _date_text(language: str, today: _date) -> str:
-    """``datetime1``'s text: the short date as the deck's language writes it."""
-    if language.lower().startswith("en-us"):
-        return f"{today.month}/{today.day}/{today.year}"
-    return f"{today.day}/{today.month}/{today.year}"
+def _date_text(kind: str, language: str | None, today: _date, fallback: str) -> str:
+    """A new date field's cached text: ``today`` in the format of its ``kind``
+    (``datetime1`` .. ``datetime13``) in the field's ``language``, from pptx2svg's table of
+    what PowerPoint draws (:data:`pptx2svg.resolve.fields.DATE_FORMATS`, measured; en-US's
+    ``datetime1`` is ``M/d/yy``).  A language the table lacks takes the locale's language
+    ``fallback`` where the table has it, else en-US's -- as pptx2svg draws the field.  The
+    time of a format with one is midnight: the text is only a cache, which PowerPoint
+    replaces with its clock when it draws the field.  Without pptx2svg, en-US's ``M/d/yy``."""
+    try:
+        from pptx2svg.resolve.fields import (DATE_FORMATS, date_format_index,
+                                             fallback_language, format_date, table_language)
+    except ImportError:                       # pragma: no cover - the extras-less install
+        return f"{today.month}/{today.day}/{today.year % 100:02d}"
+    index = date_format_index(kind) or 1
+    key = table_language(language) or fallback_language(fallback)
+    moment = _datetime.combine(today, _time())
+    return format_date(moment, DATE_FORMATS[key][index - 1], key)
 
 
 def _guid(*parts: object) -> str:
@@ -362,7 +376,8 @@ def _write_footer_text(sp: Element, text: str, language: str) -> None:
         _insert_content(paragraph, run, language)
 
 
-def _write_date(sp: Element, date: str, language: str, today: _date, part: str) -> None:
+def _write_date(sp: Element, date: str, language: str, today: _date, part: str,
+                fallback: str) -> None:
     paragraph = _paragraph(sp)
     old = paragraph.find(qn("a:fld"))
     kind = old.get("type") if old is not None else None
@@ -371,8 +386,9 @@ def _write_date(sp: Element, date: str, language: str, today: _date, part: str) 
         if not (kind or "").startswith("datetime") or kind == "datetimeFigureOut":
             kind = "datetime1"
         node = make("a:fld", id=_guid(part, "dt"), type=kind)
-        node.append(_rpr(kept, language, smart=True))
-        subelement(node, "a:t").text = _date_text(language, today)
+        rpr = _rpr(kept, language, smart=True)
+        node.append(rpr)
+        subelement(node, "a:t").text = _date_text(kind, rpr.get("lang"), today, fallback)
     else:
         node = make("a:r")
         node.append(_rpr(kept, language, smart=False))
@@ -389,7 +405,8 @@ def _placeholders(tree: Element, kind: str) -> list[Element]:
 
 
 def _copy_to_slide(slide: "Slide", source: Element, kind: str, number: int, *, text: str,
-                   date: str | None, language: str, today: _date) -> Element:
+                   date: str | None, language: str, today: _date,
+                   fallback: str) -> Element:
     """A slide's ``dt``/``ftr``/``sldNum`` placeholder copied from its layout's, as Header &
     Footer adds one: its name and ``p:ph``, an empty ``spPr`` (it inherits its place)."""
     from . import inherit
@@ -430,7 +447,7 @@ def _copy_to_slide(slide: "Slide", source: Element, kind: str, number: int, *, t
     elif kind == "ftr":
         _write_footer_text(sp, text, language)
     else:
-        _write_date(sp, date, language, today, slide.part_path)
+        _write_date(sp, date, language, today, slide.part_path, fallback)
     append_in_order(slide._sp_tree(), sp)
     return sp
 
@@ -442,6 +459,7 @@ def footers_for_new_slide(document: "Document", slide: "Slide") -> bool:
     ``0`` (measured: PowerPoint's New Slide).  A master without ``<p:hf>`` (Header & Footer
     never applied) gives none.  Returns whether any was added."""
     from . import inherit
+    from .document import language_of
 
     package = document.package
     layout_part = inherit.layout_of(package, slide.part_path)
@@ -464,7 +482,8 @@ def footers_for_new_slide(document: "Document", slide: "Slide") -> bool:
         if not source:
             continue
         sp = _copy_to_slide(slide, source[0], kind, slide.index + 1, text="", date="auto",
-                            language=_language(document), today=_date.today())
+                            language=_language(document), today=_date.today(),
+                            fallback=language_of(document))
         paragraph = find(sp, "p:txBody/a:p")
         for child in list(paragraph):
             remove(child)
@@ -482,8 +501,9 @@ def footers_for_new_slide(document: "Document", slide: "Slide") -> bool:
 
 def _language(document: "Document") -> str:
     from .authoring import default_language
+    from .document import language_of
 
-    return default_language(document.package)
+    return default_language(document.package, language_of(document))
 
 
 def set_footer(document: "Document", *, text: str | None, slide_number: bool,
@@ -492,9 +512,11 @@ def set_footer(document: "Document", *, text: str | None, slide_number: bool,
     """See :meth:`Document.set_footer`; returns the ``sldId`` of every slide changed."""
     from . import inherit
     from .authoring import default_language
+    from .document import language_of
 
     package = document.package
-    language = default_language(package)
+    fallback = language_of(document)
+    language = default_language(package, fallback)
     today = today or _date.today()
     text = text or ""
     if date is not None and not str(date).strip():
@@ -519,7 +541,7 @@ def set_footer(document: "Document", *, text: str | None, slide_number: bool,
                     for sp in _placeholders(tree, "ftr") if text else ():
                         _write_footer_text(sp, text, language)
                     for sp in _placeholders(tree, "dt") if date is not None else ():
-                        _write_date(sp, date, language, today, part)
+                        _write_date(sp, date, language, today, part, fallback)
                     package.mark_dirty(part)
                 hf = subelement(package.tree(master.part_path), "p:hf")
                 for attribute in list(hf.attrib):
@@ -548,13 +570,15 @@ def set_footer(document: "Document", *, text: str | None, slide_number: bool,
                         if kind == "ftr":
                             _write_footer_text(sp, text, language)
                         elif kind == "dt":
-                            _write_date(sp, date, language, today, slide.part_path)
+                            _write_date(sp, date, language, today, slide.part_path,
+                                        fallback)
                     touched = True
                     continue
                 source = _placeholders(layout_tree, kind) if layout_tree is not None else []
                 if source:
                     _copy_to_slide(slide, source[0], kind, slide.index + 1, text=text,
-                                   date=date, language=language, today=today)
+                                   date=date, language=language, today=today,
+                                   fallback=fallback)
                     touched = True
             if touched:
                 slide._touch()
