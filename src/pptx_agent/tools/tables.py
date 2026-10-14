@@ -21,8 +21,24 @@ The result's ``data.from`` says where each placed value came from, as ``edit_cha
 does: the source, its document and version, the table row of the header (``header_row``,
 ``None`` without one) and of the first source row (``first_row``; source row ``n``, from
 1, is table row ``first_row + n - 1``), and per placed column its table column (``col``),
-source column, source rows (from 1, as runs) and their sources, merged.  None of it is
-written into the deck.
+source column, source rows (from 1, as runs) and their sources, merged.
+
+**The record in the deck.**  What ``from`` says is also kept in the deck, in the table's
+graphic frame (:mod:`pptx_agent.edit.provenance`: a ``UVRT_PROVENANCE`` tag in the frame's
+tags part), through :meth:`Call.keep_provenance <ooxml_edit.tools.dispatch.Call.keep_provenance>`,
+in the same undo step; :func:`read_provenance` (``Session.provenance``) and
+``Document.provenance()`` read it back.  The record is kept true or dropped, never left
+naming a cell its value did not come to:
+
+- ``ppt_add_table`` from a source writes it; ``set_cells`` from a source replaces it;
+- ``set_cells`` without ``from``, ``ppt_set_text`` and ``replace_text`` on a cell of the
+  block (its header row to its last source row), and ``merge`` over one, drop that column's
+  entry; with no entry left, the record goes;
+- ``insert_row`` above the block (or at its first row) moves it down, ``delete_row`` above
+  it moves it up; either inside the block (the header too) drops the record; below it,
+  nothing changes;
+- ``insert_column`` moves the entries at or right of it right; ``delete_column`` drops its
+  entry and moves those right of it left.
 """
 
 from __future__ import annotations
@@ -33,6 +49,7 @@ from ooxml_edit.tools import (Result, ToolError, array, boolean, integer, number
                               tool)
 from ooxml_edit.tools import sources
 
+from ..edit import provenance as _provenance
 from ..edit.tablestyles import FLAGS
 
 from .common import (KIND, box_emu, emu, library_errors, shape as shape_at,
@@ -147,6 +164,7 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
     result = table_json(frame, call.document.shape(frame.id).table)
     if placed is not None:
         result["from"] = placed.provenance(0)
+        call.keep_provenance(frame.id, placed.rows, result["from"])
     return Result(summary=f"Added a {rows}x{columns} table {frame.id}"
                   + (f" from {placed.rows.address}" if placed else ""), created=[frame.id],
                   data=result)
@@ -310,7 +328,10 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
         return value
 
     changed = [frame.id]
+    record = _provenance.read(frame)
+    after = record
     if action == "set_cells":
+        written = []
         for i, cell in enumerate(need("cells", cells)):
             row, col = cell.get("row"), cell.get("col")
             if "row_label" in cell or "col_label" in cell:
@@ -328,18 +349,29 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
                 found = table.cell(row, col)
             found.text = cell["text"]
             changed.append(found.address)
+            written.append(_provenance.cell_of(found.address)[1:])
+        after = _provenance.after_cells(record, written)
     elif action == "insert_row":
+        at = table.rows if index is None else index
         table.insert_row(index, like=like)
+        after = _provenance.after_row_insert(record, at)
     elif action == "delete_row":
         table.delete_row(need("index", index))
+        after = _provenance.after_row_delete(record, index)
     elif action == "insert_column":
+        at = table.columns if index is None else index
         table.insert_column(index, like=like)
+        after = _provenance.after_column_insert(record, at)
     elif action == "delete_column":
         table.delete_column(need("index", index))
+        after = _provenance.after_column_delete(record, index)
     elif action == "merge":
         area = need("span", span)
-        table.merge(area["row"], area["col"], area.get("to_row", area["row"]),
-                    area.get("to_col", area["col"]))
+        to_row, to_col = area.get("to_row", area["row"]), area.get("to_col", area["col"])
+        table.merge(area["row"], area["col"], to_row, to_col)
+        after = _provenance.after_cells(record, [
+            (row, col) for row in range(area["row"], to_row + 1)
+            for col in range(area["col"], to_col + 1)])
     elif action == "split":
         area = need("span", span)
         table.split(area["row"], area["col"])
@@ -369,6 +401,8 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
             raise ToolError("invalid_arguments", "set_flags needs a flag", field="flags",
                             valid_options=list(FLAGS))
         table.set_flags(**flags)
+    if after != record:
+        call.store_provenance(frame.id, after)
     call.touch(frame._slide.slide_id)
     fresh = call.document.shape(frame.id)
     return Result(summary=f"{action} on table {frame.id}", changed=changed,
@@ -399,6 +433,7 @@ def _set_from(call, frame, table, source, from_columns, header, top: int) -> Res
     fresh = call.document.shape(frame.id)
     data = table_json(fresh, fresh.table)
     data["from"] = placed.provenance(top)
+    call.keep_provenance(frame.id, placed.rows, data["from"])
     return Result(summary=f"set_cells on table {frame.id} from {placed.rows.address}",
                   changed=changed, warnings=warnings, data=data)
 
@@ -427,6 +462,37 @@ def _format_cells(table, rows, columns, fill, borders) -> int:
                                     color=border.get("color"))
             count += 1
     return count
+
+
+def forget_cells(call, addresses) -> None:
+    """Cells written without a source (``ppt_set_text``, ``replace_text``): the records of
+    their tables drop the columns written in the block (:func:`~pptx_agent.edit.provenance.after_cells`)."""
+    by_frame: dict[str, list[tuple[int, int]]] = {}
+    for address in addresses:
+        cell = _provenance.cell_of(address)
+        if cell is not None:
+            by_frame.setdefault(cell[0], []).append(cell[1:])
+    for frame_id, cells in by_frame.items():
+        try:
+            frame = call.document.shape(frame_id)
+        except (KeyError, IndexError, ValueError):
+            continue
+        record = _provenance.read(frame)
+        after = _provenance.after_cells(record, cells)
+        if after != record:
+            call.store_provenance(frame.id, after)
+
+
+def store_provenance(deck, address: str, record) -> None:
+    """``DocumentFormat.store_provenance``: ``record`` into the frame at ``address`` (a
+    table's or a chart's), ``None`` dropping it (:func:`pptx_agent.edit.provenance.store`)."""
+    _provenance.store(deck.shape(str(address)), record)
+
+
+def read_provenance(deck) -> dict[str, Any]:
+    """``DocumentFormat.read_provenance``: ``{frame address: record}`` (:meth:`Document.provenance
+    <pptx_agent.Document.provenance>`)."""
+    return deck.provenance()
 
 
 TOOLS = [ppt_add_table, ppt_edit_table]

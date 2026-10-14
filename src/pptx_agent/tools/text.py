@@ -66,6 +66,7 @@ def _fit_of(target) -> dict[str, Any] | None:
 def ppt_set_text(call, doc, items):
     deck = call.document
     fits = {}
+    written: list[str] = []
     for index, item in enumerate(items):
         if "text" not in item and "paragraphs" not in item:
             raise ToolError("invalid_arguments", "give text or paragraphs",
@@ -73,6 +74,10 @@ def ppt_set_text(call, doc, items):
         target = resolve(deck, item["target"], field=f"items[{index}].target")
         write_text(target, item, field=f"items[{index}]")
         touch_address(call, item["target"])
+        written.append(str(getattr(target, "address", None) or item["target"]))
+    from .tables import forget_cells     # (tables imports shapes, which imports this)
+
+    forget_cells(call, written)          # a table's source record drops what was replaced
     if len(items) <= MAX_ITEM_FITS and not call.in_batch:
         for item in items:
             fit = _fit_of(deck.resolve(item["target"]))

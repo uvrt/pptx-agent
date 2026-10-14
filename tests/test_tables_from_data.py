@@ -169,7 +169,9 @@ def test_a_table_from_a_dataset_header_rows_and_provenance(toolbox, session):
     deck = session.entry("d1").document
     xml = deck.shape(result.created[0]).table
     assert xml.cell(3, 1).text == "1.25"
-    assert b"G!B2" not in deck.to_bytes()              # provenance stays out of the deck
+    # The deck keeps the record too (test_provenance), without the session's handle.
+    assert deck.provenance()[result.created[0]]["columns"][1]["sources"] == \
+        ["G!B2", "G!B3", "G!B4"]
 
 
 def test_columns_are_picked_and_ordered_by_name_and_default_to_all(toolbox, session):

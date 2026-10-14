@@ -16,6 +16,7 @@ from .common import (KIND, facts, library_errors, numbers, slide_id_of, template
                      validate_delta)
 from ..edit.document import font_dirs_of, locale_of
 from .render import png_size, render_slides_reporting
+from .tables import forget_cells
 
 #: Slides a render may hold, and the default width (1280 px: 1,196 Claude tokens at 16:9).
 MAX_RENDER = 4
@@ -204,6 +205,7 @@ def replace_text(call, doc, find, replace, expect, regex=False, slides=None, ran
         key = template_key_of(block.address)
         if key is not None:
             call.touch(key)
+    forget_cells(call, changed)          # a table's source record drops what was replaced
     result = Result(summary=f"Replaced {total} occurrence(s) in {len(changed)} place(s)",
                     changed=changed, data={"count": total})
     if not total and _scope(stories) != "all":

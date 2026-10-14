@@ -115,7 +115,18 @@ source rows as runs and their sources:
               "sources": ["Checks!C2:C13"]}, ...]}
 ```
 
-It is not written into the deck.
+The deck keeps it too, in the table's frame (the source without the session's document
+handle, and the source document's name added), as `edit_chart` with `from`
+keeps a chart's -- a `UVRT_PROVENANCE` tag in the graphic frame's tags part
+(`p:nvPr/p:custDataLst/p:tags` -> `ppt/tags/tagN.xml`), which PowerPoint keeps through
+open, edit and save. It is read back after a save with `session.provenance(doc)` or
+`Document.open(...).provenance()` -> `{frame address: record}`. A table edit keeps the
+record true or drops what it no longer says: a cell of the block written without a source
+(`set_cells`, `ppt_set_text`, `replace_text`, `merge`) drops its column; a row inserted or
+deleted above the block moves it, inside it drops the record; a column inserted or deleted
+moves the columns' entries (and drops the deleted one's). Copies of the frame, its slide
+or its shapes have their own copy of the tags part; deleting the frame or the slide
+deletes it.
 
 The provider SDKs read their keys from the environment (`ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`). When the loop ends, `session.take_outputs()` holds what `save_document`
