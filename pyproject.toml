@@ -61,7 +61,9 @@ classifiers = [
 # ooxml-edit 0.25.0: provenance records (ooxml_edit.provenance) and the format hooks
 # DocumentFormat.store_provenance/read_provenance, Call.keep_provenance, Session.provenance,
 # which keep a table's or chart's ``from`` in the deck (pptx_agent.edit.provenance).
-dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.25.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.26.0: batch applies its ops one by one (atomic: true for all or none), and
+# rolls a failed op back with History.savepoint before the format's restored hook.
+dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.26.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

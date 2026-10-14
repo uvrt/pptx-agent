@@ -75,10 +75,15 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: optional parameters beside the others, so it is sent non-strict (the dispatcher still
 #: validates it) and ppt_set_theme takes its place: 27 free-text strings and 24 optional
 #: parameters over the strict tools.
+#: ooxml-edit 0.26.0 (round 5, T1): ``batch`` applies its ops one by one by default and
+#: takes ``atomic`` for all or none; its description and the new parameter add 22 to the
+#: core (3,504 -> 3,526, about 5,218 counted by the proxy) and to every definition
+#: (12,096 -> 12,119); the guard rises to 12,120.  The strict set is unchanged: ``batch``
+#: is never strict.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12100
+ALL_GUARD = 12120
 
 
 def estimate_tokens(definitions) -> int:
@@ -230,6 +235,48 @@ def test_forty_shapes_and_their_connectors_by_ref_in_one_call(toolbox, session):
     assert result.checks["slides"] == ["s:256"] and "overflows" in result.checks
     ok(call(toolbox, session, "undo", doc="d1"))
     assert len(deck.slides[0].shapes) == 1
+
+
+def test_a_batch_skips_a_failing_op_and_applies_the_rest_as_one_step(toolbox, session):
+    # Round 5, T1: a bad id or enum in one op no longer loses the whole batch.
+    entry = session.entry("d1")
+    deck = entry.document
+    before = entry.version
+    result = ok(call(toolbox, session, "batch", ops=[
+        {"tool": "ppt_add_shape", "arguments": {"doc": "d1", "slide": "s:256", "items": [
+            {"preset": "rect", "box": {"x": 40, "y": 160, "w": 120, "h": 50}, "ref": "a"}]}},
+        {"tool": "ppt_add_shape", "arguments": {"doc": "d1", "slide": "s:256", "items": [
+            {"preset": "hexagon-ish", "box": {"x": 300, "y": 160, "w": 60, "h": 60},
+             "ref": "b"}]}},
+        {"tool": "ppt_add_connector", "arguments": {"doc": "d1", "items": [
+            {"kind": "straight", "from": {"shape": "$a"}, "to": {"shape": "$b"}}]}},
+        {"tool": "ppt_set_text", "arguments": {"doc": "d1", "items": [
+            {"target": "256.999", "text": "nowhere"}]}},
+        {"tool": "ppt_set_text", "arguments": {"doc": "d1", "items": [
+            {"target": "$a", "text": "Kept"}]}}]))
+    assert result.data["applied"] == 2 and result.data["failed"] == [1, 2, 3]
+    errors = {op["op"]: op["error"] for op in result.data["ops"] if "error" in op}
+    assert errors[1]["code"] == "invalid_arguments" and "rect" in errors[1]["valid_options"]
+    assert errors[2]["message"].startswith("$b was to be made by ops[1], which failed")
+    assert errors[3]["code"] == "not_found"
+    assert "ops[1] (ppt_add_shape)" in result.summary and "ops[3] (ppt_set_text)" in result.summary
+    assert entry.version == before + 1 and set(result.refs) == {"a"}
+    assert deck.shape(result.refs["a"]).text_frame.text == "Kept"
+    assert len(deck.slides[0].shapes) == 2
+    ok(call(toolbox, session, "undo", doc="d1"))          # one step takes back what applied
+    assert len(deck.slides[0].shapes) == 1 and entry.refs == {}
+
+
+def test_an_atomic_batch_is_all_or_none(toolbox, session):
+    entry = session.entry("d1")
+    before = entry.version
+    result = call(toolbox, session, "batch", atomic=True, ops=[
+        {"tool": "ppt_add_shape", "arguments": {"doc": "d1", "slide": "s:256", "items": [
+            {"preset": "rect", "box": {"x": 40, "y": 160, "w": 120, "h": 50}}]}},
+        {"tool": "ppt_set_text", "arguments": {"doc": "d1", "items": [
+            {"target": "256.999", "text": "nowhere"}]}}])
+    assert result.error.code == "not_found" and "nothing in the batch" in result.error.message
+    assert entry.version == before and len(entry.document.slides[0].shapes) == 1
 
 
 def test_a_failing_item_changes_nothing(toolbox, session):

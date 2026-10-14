@@ -6,6 +6,15 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- `batch` applies its ops one by one by default (ooxml-edit 0.26.0, round 5 T1): a failing
+  op -- a wrong shape id, an enum the schema refuses, a `$ref` that names nothing -- is
+  skipped with its own error and the others still apply as one undo step; `data` lists
+  each op's outcome with `applied` and `failed` counts, and the summary names the ops to
+  resend. A `$ref` a failed op would have made says which op failed. `atomic: true` keeps
+  the all-or-none batch. The deck's `restored` hook (`_reset_caches`) now also runs after a
+  failed op is rolled back inside the batch. The definitions grow by 22 estimated tokens
+  (core 3,504 -> 3,526, about 5,218 counted by the proxy; every definition 12,096 ->
+  12,119, guard 12,100 -> 12,120); the strict set is unchanged.
 - Source addresses in the deck: what a table's or chart's `from` says is now kept in the
   deck, not only in the result (ooxml-edit 0.25.0's `ooxml_edit.provenance` record: the
   source without the session's document handle, the source document's name, its version,

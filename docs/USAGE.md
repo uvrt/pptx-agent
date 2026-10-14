@@ -681,7 +681,8 @@ with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS) as toolbox:
 `pptx_agent.tools` is the deck side of `ooxml_edit.tools`: the tools a model edits decks
 with, no code and no files. Lengths are points at this boundary. Tools that make many
 things take `items[]`, an item may name what it makes (`"ref": "plan"`) and any later
-target may be `"$plan"`; `batch` runs calls to different tools as one, all or nothing.
+target may be `"$plan"`; `batch` runs calls to different tools as one undo step, skipping a
+failing op with its error (`atomic: true`: all or nothing).
 Every changing call returns `checks` for the slides it touched -- overflows, collisions,
 shapes off the slide, lines close to wrapping, fits within the allowance (stated), and
 new validation problems -- and, when there are any, `layout`: at most five facts about the
