@@ -9,6 +9,7 @@ Specifications accepted wherever a colour is (``run.color = ...``, ``shape.fill 
 
     "4472C4" / "#4472C4"              an explicit RGB colour   -> <a:srgbClr val="4472C4"/>
     "accent1"                         a theme colour           -> <a:schemeClr val="accent1"/>
+    "text1" / "Text 1" / "Accent 1"   Office's names for them  -> tx1, accent1 (any case)
     "accent1 lumMod=75% lumOff=25%"   a tint or shade of one   -> the same, with modifiers
     Color.theme("accent1", lum_mod=0.75, lum_off=0.25)          the same, from Python
 
@@ -20,6 +21,8 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+
+from ooxml_edit.charts.format import scheme_color, split_color
 
 from ..oxml.xml import COLOR_TAGS, Element, local_name, make, qn
 
@@ -107,8 +110,11 @@ class Color:
 
             Color.theme("accent1", lum_mod=0.75)
         """
-        if name not in SCHEME_COLORS:
-            raise ValueError(f"{name!r} is not a theme colour; expected one of {sorted(SCHEME_COLORS)}")
+        scheme = scheme_color(name, SCHEME_COLORS)
+        if scheme is None:
+            raise ValueError(f"{name!r} is not a theme colour; expected one of "
+                             f"{sorted(SCHEME_COLORS)} (or Office's names, text1...)")
+        name = scheme
         transforms = []
         # Office writes tint/shade before lumMod/lumOff, and alpha last; follow it.
         for key, value in (("tint", tint), ("shade", shade), ("lumMod", lum_mod),
@@ -129,16 +135,18 @@ class Color:
             return spec
         if not isinstance(spec, str):
             raise TypeError(f"expected a colour string or Color, got {type(spec).__name__}")
-        base, *modifiers = spec.split()
-        if base in SCHEME_COLORS:
-            color = cls("scheme", base)
+        base, modifiers = split_color(spec, SCHEME_COLORS)
+        scheme = scheme_color(base, SCHEME_COLORS)
+        if scheme is not None:
+            color = cls("scheme", scheme)
         else:
             try:
                 color = cls.rgb(base)
             except ValueError:
                 raise ValueError(
                     f"{base!r} is neither a hex colour nor a theme colour "
-                    f"({', '.join(sorted(SCHEME_COLORS))})"
+                    f"({', '.join(sorted(SCHEME_COLORS))}; Office's names such as text1 or "
+                    "background2 are read as these)"
                 ) from None
         transforms = []
         for modifier in modifiers:

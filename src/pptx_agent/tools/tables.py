@@ -45,8 +45,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ooxml_edit.tools import (Result, ToolError, array, boolean, integer, number, obj, string,
-                              tool)
+from ooxml_edit.tools import (Result, ToolError, array, boolean, integer, names_as, number, obj,
+                              string, tool)
 from ooxml_edit.tools import sources
 
 from ..edit import provenance as _provenance
@@ -58,6 +58,8 @@ from .shapes import OBJECTS, _box
 
 _KEY = string("Retry key: a repeat with the same key makes nothing new.", optional=True)
 _STYLE = string("Table style name or id; describe lists the deck's own.", optional=True)
+#: ``columns`` given as names, as ``edit_chart`` takes them: ``from_columns`` here.
+_COLUMN_NAMES = {"columns": names_as("columns", "from_columns")}
 _FROM_COLUMNS = array(string(), "from's columns, in order. Default all.", optional=True)
 _HEADER = array(string(), "from's header texts; [] none. Default column names.",
                 optional=True)
@@ -120,7 +122,8 @@ def table_json(frame, table) -> dict[str, Any]:
        "style": _STYLE,
        "ref": string("Ref name for the table.", optional=True),
        "key": _KEY},
-      kind=KIND, group=OBJECTS, mutates=True, refs=("slide",), sources=("from",))
+      kind=KIND, group=OBJECTS, mutates=True, refs=("slide",), sources=("from",),
+      aliases=_COLUMN_NAMES)
 @library_errors
 def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, style=None,
                   ref=None, key=None, header=None, from_columns=None, **given):
@@ -305,7 +308,8 @@ _SIDES = ["top", "bottom", "left", "right", "all"]
        "style": _STYLE,
        "flags": obj({flag: boolean(optional=True) for flag in FLAGS},
                     "set_flags: on or off; others stay.", optional=True)},
-      kind=KIND, group=OBJECTS, mutates=True, refs=("target",), sources=("from",))
+      kind=KIND, group=OBJECTS, mutates=True, refs=("target",), sources=("from",),
+      aliases=_COLUMN_NAMES)
 @library_errors
 def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None, span=None,
                    sizes=None, rows=None, columns=None, fill=None, borders=None, style=None,

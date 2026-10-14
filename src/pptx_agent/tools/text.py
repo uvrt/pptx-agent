@@ -10,7 +10,7 @@ from ooxml_edit.tools import (CORE, Result, ToolError, array, boolean, integer, 
                               string, tool)
 
 from ..edit.text import Paragraph, Run, TextFrame
-from .common import (ALIGN, ANCHOR, AUTOFIT, BULLET, KIND, emu, fit_json, insets_param,
+from .common import (ALIGN, ANCHOR, AUTOFIT, AUTOFIT_ALIASES, BULLET, KIND, emu, fit_json, insets_param,
                      library_errors, resolve, text_params, touch_address, write_text)
 
 TEXT_GROUP = "ppt_text"
@@ -113,7 +113,7 @@ _FRAME_KEYS = ("autofit", "font_scale", "insets", "anchor", "wrap")
            "space_before": number(minimum=0, maximum=1000, optional=True),
            "space_after": number(minimum=0, maximum=1000, optional=True),
            "line_spacing": number("Times single.", minimum=0.1, maximum=10, optional=True),
-           "autofit": string(enum=AUTOFIT, optional=True),
+           "autofit": string(enum=AUTOFIT, aliases=AUTOFIT_ALIASES, optional=True),
            "font_scale": number("Stored shrink, 0.25-1, as PowerPoint draws it.",
                                 minimum=0.25, maximum=1, optional=True),
            "insets": insets_param(),

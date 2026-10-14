@@ -338,3 +338,12 @@ def test_set_cells_from_a_source_is_one_undo_step(toolbox, session):
             **{"from": "t:checks", "from_columns": ["check"]}))
     ok(call(toolbox, session, "undo", doc="d1"))
     assert session.entry("d1").document.shape(target).table.cell(1, 0).text == "old"
+
+
+def test_column_names_given_as_columns_are_read_as_from_columns(toolbox, session):
+    result = ok(add(toolbox, session, **{"from": "d:scores", "columns": ["rating", "check"]}))
+    assert result.data["cells"][0] == ["rating", "check"]
+    assert "columns read as from_columns" in result.warnings
+    # A count stays a count.
+    counted = ok(add(toolbox, session, rows=2, columns=3))
+    assert counted.data["columns"] == 3 and not counted.warnings

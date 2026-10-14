@@ -6,6 +6,31 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Fewer wasted turns on names a model naturally writes (round 5, T6-T8; ooxml-edit
+  0.27.0), none of it in the definitions: the estimated tokens are unchanged (core 3,526,
+  every definition 12,119 by the guard's count) and so is the strict set.
+  - Colours: PowerPoint's names for the theme colours are read as the scheme names --
+    `text1`, `text2`, `background1`, `background2` as `tx1`, `tx2`, `bg1`, `bg2`, and
+    Word's `dark1`...`light2`, `hyperlink`, `followedHyperlink` -- in any case and with a
+    space before the number (`"Text 1"`, `"Accent 1 lumMod=75%"`), wherever a colour is
+    taken (`Color.parse`, `Color.theme`, so every tool) and in charts. A colour that is
+    none still lists the scheme names, and says Office's are read as them.
+  - `autofit: "shrink"` is read as `normal` and `"resize"` as `shape`, with a warning
+    (`items[0].frame.autofit 'shrink' read as 'normal'`): `normal` is `a:normAutofit`,
+    whose `fontScale` ECMA-376 Part 1, 21.1.2.1.3, describes as decreasing the font size
+    "in order to auto-fit text within a bounding box" (PowerPoint's "Shrink text on
+    overflow"); `shape` is `a:spAutoFit`, 21.1.2.1.4 ("Resize shape to fit text"). An
+    autofit close to a mode says "did you mean", as every enum now does.
+  - `ppt_add_table` and `ppt_edit_table` read `columns` given as names (a list of
+    strings that are not numbers) as `from_columns`, as `edit_chart` names them;
+    `edit_chart` reads `from_columns` as `columns` and, adding, `slide` as `target`.
+  - `text` with `paragraphs: []` (or `text: ""` with paragraphs) is no longer "both": the
+    empty one is left out (`common.given_text`).
+  - Refusals say what would do: an unknown argument close to a real one says "did you
+    mean"; `key` on `ppt_set_text` and the other setters says keys are for the tools that
+    create something and the setter is safe to repeat; a ref name with capitals or `-`
+    says the rule in words and a name that would do (`catChart`: `cat_chart`).
+
 - `batch` applies its ops one by one by default (ooxml-edit 0.26.0, round 5 T1): a failing
   op -- a wrong shape id, an enum the schema refuses, a `$ref` that names nothing -- is
   skipped with its own error and the others still apply as one undo step; `data` lists

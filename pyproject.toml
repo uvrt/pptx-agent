@@ -63,7 +63,10 @@ classifiers = [
 # which keep a table's or chart's ``from`` in the deck (pptx_agent.edit.provenance).
 # ooxml-edit 0.26.0: batch applies its ops one by one (atomic: true for all or none), and
 # rolls a failed op back with History.savepoint before the format's restored hook.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.26.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.27.0: value and argument-name aliases (string(aliases=), Tool.aliases,
+# names_as), refusals that say "did you mean", and charts.format.scheme_color, which the
+# deck's colours read Office's theme colour names by.
+dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.27.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

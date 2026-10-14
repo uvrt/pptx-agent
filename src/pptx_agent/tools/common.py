@@ -212,6 +212,13 @@ def refused(message: str, **details: Any) -> ToolError:
 ALIGN = ["left", "center", "right", "justify"]
 ANCHOR = ["top", "middle", "bottom"]
 AUTOFIT = ["none", "normal", "shape"]
+#: PowerPoint's own words for the autofit modes, read as them (never sent).  ``normal`` is
+#: ``a:normAutofit``, which ECMA-376 Part 1, 21.1.2.1.3, gives a ``fontScale``: "In order to
+#: auto-fit text within a bounding box it is sometimes necessary to decrease the font size by
+#: a certain percentage" -- PowerPoint's "Shrink text on overflow"; ``shape`` is
+#: ``a:spAutoFit`` (21.1.2.1.4), the shape auto-fit to contain the text -- "Resize shape to
+#: fit text".
+AUTOFIT_ALIASES = {"shrink": "normal", "resize": "shape"}
 BULLET = ["none", "bullet", "number"]
 
 
@@ -251,7 +258,8 @@ def frame_params() -> dict[str, Param]:
         "insets": insets_param("Default 7.2, 3.6, 7.2, 3.6."),
         "anchor": string(enum=ANCHOR, optional=True),
         "wrap": boolean("Default true.", optional=True),
-        "autofit": string("Default none.", enum=AUTOFIT, optional=True),
+        "autofit": string("Default none.", enum=AUTOFIT, aliases=AUTOFIT_ALIASES,
+                          optional=True),
     }
 
 
@@ -269,6 +277,7 @@ def spec_of(item: Mapping[str, Any], *, field: str = "") -> TextSpec | None:
     """The :class:`TextSpec` an item states: ``paragraphs`` (and ``frame``), or ``None``
     for plain ``text``; both at once is an error."""
     where = f"{field}." if field else ""
+    item = given_text(item)
     if "text" in item and "paragraphs" in item:
         raise ToolError("invalid_arguments", "give text or paragraphs, not both",
                         field=f"{where}paragraphs", valid_options=["text", "paragraphs"])
@@ -284,6 +293,18 @@ def spec_of(item: Mapping[str, Any], *, field: str = "") -> TextSpec | None:
             space_after=_points(paragraph.get("space_after")),
             line_spacing=paragraph.get("line_spacing")))
     return TextSpec(paragraphs, **frame_of(item.get("frame") or {}))
+
+
+def given_text(item: Mapping[str, Any]) -> Mapping[str, Any]:
+    """``item`` without an empty ``paragraphs`` (``[]``) or ``text`` (``""``) when the other
+    is given: a model that fills one often sends the other empty, and an empty one says
+    nothing the other does not."""
+    if "text" in item and "paragraphs" in item:
+        if item["paragraphs"] == []:
+            return {key: value for key, value in item.items() if key != "paragraphs"}
+        if item["text"] == "":
+            return {key: value for key, value in item.items() if key != "text"}
+    return item
 
 
 def frame_of(frame: Mapping[str, Any]) -> dict[str, Any]:
@@ -317,6 +338,7 @@ def _points(value: float | None) -> Pt | None:
 def write_text(target, item: Mapping[str, Any], *, field: str = "") -> None:
     """Write an item's ``text`` or ``paragraphs`` (and ``frame``) into a shape, cell or
     notes frame: plain text keeps each surviving character's formatting."""
+    item = given_text(item)
     spec = spec_of(item, field=field)
     text_frame = target if hasattr(target, "paragraphs") and not hasattr(target, "kind") \
         else getattr(target, "text_frame", None)
