@@ -31,6 +31,10 @@ ROWS = [("Alpha", 3.5, "2026-01-05", True, "fine"),
         ("Gamma", 1.25, "2026-03-15", True, "late")]
 
 
+#: The checks' column types, as a workbook's date column gives them: ``due`` is a date.
+TYPES = ("text", "number", "date", "bool", "text")
+
+
 def _letter(index: int) -> str:
     return chr(ord("A") + index)
 
@@ -73,10 +77,14 @@ GRID = DocumentFormat(kind="grid", open=lambda data: Grid({}), detect=lambda dat
 
 
 @tool("ds_put", "Keep a made-up dataset.",
-      {"id": string("Its id."), "size": string("rows x columns of filler.", optional=True)},
+      {"id": string("Its id."), "size": string("rows x columns of filler.", optional=True),
+       "typed": string("Label the columns' types, as a workbook's t: does.", optional=True)},
       documents=())
-def ds_put(call, id, size=None):
-    if size:
+def ds_put(call, id, size=None, typed=None):
+    if typed:
+        call.define_dataset(id, Dataset(COLUMNS, ROWS, sources=_sources(ROWS), keys=1,
+                                        types=TYPES), source=None)
+    elif size:
         rows, columns = (int(n) for n in size.split("x"))
         names = [f"c{i}" for i in range(columns)]
         call.define_dataset(id, Dataset(names, [[r] * columns for r in range(rows)]),
@@ -347,3 +355,68 @@ def test_column_names_given_as_columns_are_read_as_from_columns(toolbox, session
     # A count stays a count.
     counted = ok(add(toolbox, session, rows=2, columns=3))
     assert counted.data["columns"] == 3 and not counted.warnings
+
+
+# -- dates (T18b) --------------------------------------------------------------------------------
+
+DUTCH = Locale(decimal_separator=",", thousands_separator=".", date_order="dmy",
+               language="nl-BE", list_separator=";")
+#: The checks' due dates as each locale writes them.
+DUE = {"en-US": ["1/5/2026", "2/10/2026", "3/15/2026"],
+       "nl-BE": ["5/1/2026", "10/2/2026", "15/3/2026"]}
+
+
+def _dated(toolbox, locale):
+    session = _session(toolbox, locale=locale)
+    ok(call(toolbox, session, "ds_put", id="dated", typed="yes"))
+    return session
+
+
+@pytest.mark.parametrize("locale, due", [(None, DUE["en-US"]), (DUTCH, DUE["nl-BE"])])
+def test_a_date_columns_iso_text_is_written_in_the_sessions_locale(toolbox, locale, due):
+    session = _dated(toolbox, locale)
+    result = ok(add(toolbox, session, **{"from": "d:dated", "from_columns": ["check", "due"]}))
+    assert [row[1] for row in result.data["cells"][1:]] == due
+    deck = session.entry("d1").document
+    assert deck.shape(result.created[0]).table.cell(1, 1).text == due[0]
+    # The record names the cells, never their values.
+    kept = deck.provenance()[result.created[0]]
+    assert kept["columns"][1]["sources"] == ["G!C2", "G!C3", "G!C4"]
+    assert not any(text in json.dumps(kept) for text in due + ["2026-01-05"])
+    # set_cells writes the same.
+    target = _table(toolbox, session, 4, 2)
+    edited = ok(call(toolbox, session, "ppt_edit_table", doc="d1", target=target,
+                     action="set_cells", **{"from": "d:dated",
+                                            "from_columns": ["check", "due"]}))
+    assert [row[1] for row in edited.data["cells"][1:]] == due
+
+
+def test_an_unlabelled_iso_column_is_written_as_it_is(toolbox):
+    session = _dated(toolbox, DUTCH)
+    data = ok(add(toolbox, session, **{"from": "t:checks",
+                                       "from_columns": ["due"]})).data
+    assert data["cells"][1] == ["2026-01-05"]           # no type: text
+
+
+CHART = {"x": 40, "y": 300, "w": 300, "h": 200}
+
+
+@pytest.mark.parametrize("locale, key", [(None, "en-US"), (DUTCH, "nl-BE")])
+def test_a_chart_from_a_date_column_and_set_values_matched_either_way(toolbox, locale, key):
+    session = _dated(toolbox, locale)
+    made = ok(call(toolbox, session, "edit_chart", doc="d1", action="add", target="s:256",
+                   box=CHART, chart_type="column",
+                   **{"from": "d:dated", "columns": ["due", "rating"]})).created[0]
+    read = ok(call(toolbox, session, "edit_chart", doc="d1", target=made, action="read"))
+    assert read.data["categories"] == DUE[key]
+    # An older deck's chart, its categories written ISO and in another order.
+    older = ok(call(toolbox, session, "edit_chart", doc="d1", action="add", target="s:256",
+                    box=CHART, chart_type="column",
+                    categories=["2026-03-15", "2026-01-05", "2026-02-10"],
+                    data=[{"name": "rating", "values": [0, 0, 0]}])).created[0]
+    for target, order in ((made, [3.5, 4, 1.25]), (older, [1.25, 3.5, 4])):
+        ok(call(toolbox, session, "edit_chart", doc="d1", target=target, action="set_values",
+                series="rating", **{"from": "d:dated", "columns": ["due", "rating"]}))
+        read = ok(call(toolbox, session, "edit_chart", doc="d1", target=target,
+                       action="read"))
+        assert read.data["series"][0]["values"] == order

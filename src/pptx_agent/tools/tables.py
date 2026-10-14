@@ -11,10 +11,12 @@ literal strings (``from``: a dataset ``d:<id>``, or a table of an open document,
 column, in the source's order); every row is placed, in the source's order.  Above the
 rows goes a header row: the column names as the source has them, unless ``header`` gives
 its texts, or ``[]`` for none.  A value is written as the chart labels write a category
-(:func:`ooxml_edit.tools.sources.label`): text as it is -- so a date as the source gives
-it, ISO 8601 text from a workbook -- a number as the General format writes it with the
-session locale's decimal separator, a logical value ``TRUE`` or ``FALSE``, a blank as an
-empty cell.  Nothing is cut: a source too big for a table (200 rows with the header, 50
+(:meth:`ooxml_edit.tools.sources.Rows.label`): text as it is; a date in the session
+locale's day order (``3/1/2026`` en-US, ``1/3/2026`` nl-BE) -- a Python date, and the ISO
+8601 text of a ``date``, ``datetime`` or ``time`` column (a workbook's date cells, a
+derive's dates), so one deck never mixes ``1/3/2026`` and ``2026-01-20``; a number as the
+General format writes it with the session locale's decimal separator, a logical value
+``TRUE`` or ``FALSE``, a blank as an empty cell.  Nothing is cut: a source too big for a table (200 rows with the header, 50
 columns, 5,000 cells), or for the table it is written into, is refused, saying by how much.
 
 The result's ``data.from`` says where each placed value came from, as ``edit_chart``'s
@@ -228,7 +230,7 @@ def _text(rows, row: int, column: int, locale) -> str:
     value = rows.dataset.rows[row][column]
     if value is None or value == "":
         return ""
-    text = sources.label(value, locale)
+    text = rows.label(row, column, locale)
     if text is None:
         raise ToolError("invalid_arguments", f"{rows.where(row, column)} is "
                         f"{sources.what(value)}: a cell takes text, a number, a logical value "
