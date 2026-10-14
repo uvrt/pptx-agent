@@ -58,7 +58,10 @@ classifiers = [
 # pptx2svg: ConvertOptions(locale=...) (pptx2svg on main since #28; its version is still 0.1).
 # ooxml-edit 0.22.0: sources (O3) -- Tool.sources, call.source and Rows.provenance, which
 # ppt_add_table's and ppt_edit_table's ``from`` read a dataset or another document's table by.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.22.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.25.0: provenance records (ooxml_edit.provenance) and the format hooks
+# DocumentFormat.store_provenance/read_provenance, Call.keep_provenance, Session.provenance,
+# which keep a table's or chart's ``from`` in the deck (pptx_agent.edit.provenance).
+dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.25.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

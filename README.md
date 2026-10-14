@@ -65,6 +65,12 @@ Ids are stable (`"<sldId>.<cNvPr id>"`, never positions), and the rendered SVG t
 shape with the same id, so an agent can point at what it sees. Open and save reproduces
 every part of a deck byte for byte.
 
+Where values placed from a source came from -- a table or a chart the agent tools built
+`from` a dataset or another document's table -- is kept in the deck, as a tag on the
+table's or chart's frame that PowerPoint keeps through a save, and read back with
+`Document.open("deck.pptx").provenance()` -> `{frame address: record}`
+(`{"v": 1, "source": "t:sales", "document": "budget.xlsx", "columns": [...]}`).
+
 ## What is supported
 
 - **Library:** open and save (`.pptx`, `.potx`), text with formatting, notes, fills,
