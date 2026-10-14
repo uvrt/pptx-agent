@@ -800,3 +800,82 @@ def test_ppt_comments_errors_name_what_to_fix(toolbox, session):
     bad_target = call(toolbox, session, "ppt_comments", doc="d1", action="add", author="D",
                       items=[{"target": "256.99", "text": "x"}])
     assert bad_target.error.code == "not_found"
+
+
+# -- aliases and refusals (round 5: T6, T7, T8) ---------------------------------------------------
+
+
+def _box_shape(toolbox, session, **item):
+    return ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rect", "box": {"x": 40, "y": 160, "w": 200, "h": 60}, "ref": "box1",
+         **item}]))
+
+
+def test_autofit_shrink_is_read_as_normal(toolbox, session):
+    made = _box_shape(toolbox, session, text="Plan", frame={"autofit": "shrink"})
+    assert made.warnings[0] == "items[0].frame.autofit 'shrink' read as 'normal'"
+    shape = session.entry("d1").document.shape(made.refs["box1"])
+    assert shape.text_frame.autofit == "normal"
+    result = ok(call(toolbox, session, "ppt_format_text", doc="d1",
+                     items=[{"target": "$box1", "autofit": "Resize"}]))
+    assert result.warnings[0] == "items[0].autofit 'Resize' read as 'shape'"
+    assert shape.text_frame.autofit == "shape"
+    # The aliases cost nothing: the definitions never carry them.
+    assert "valueAliases" not in json.dumps(toolbox.definitions("anthropic"))
+
+
+def test_an_autofit_close_to_a_mode_says_did_you_mean(toolbox, session):
+    error = call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 9, "h": 9}, "text": "a",
+         "frame": {"autofit": "Normal"}}]).error
+    assert "did you mean 'normal'?" in error.message
+    assert error.valid_options == ["none", "normal", "shape"]
+
+
+def test_an_empty_paragraphs_list_beside_text_is_left_out(toolbox, session):
+    made = _box_shape(toolbox, session, text="Plan", paragraphs=[])
+    shape = session.entry("d1").document.shape(made.refs["box1"])
+    assert shape.text_frame.text == "Plan"
+    ok(call(toolbox, session, "ppt_set_text", doc="d1", items=[
+        {"target": "$box1", "text": "Next", "paragraphs": []}]))
+    assert shape.text_frame.text == "Next"
+    ok(call(toolbox, session, "ppt_set_text", doc="d1", items=[
+        {"target": "$box1", "text": "", "paragraphs": [{"runs": [{"text": "Last"}]}]}]))
+    assert shape.text_frame.text == "Last"
+    both = call(toolbox, session, "ppt_set_text", doc="d1", items=[
+        {"target": "$box1", "text": "a", "paragraphs": [{"runs": [{"text": "b"}]}]}])
+    assert both.error.message == "give text or paragraphs, not both"
+
+
+def test_a_key_on_set_text_says_setters_are_safe_to_repeat(toolbox, session):
+    _box_shape(toolbox, session, text="Plan")
+    error = call(toolbox, session, "ppt_set_text", doc="d1", key="k1",
+                 items=[{"target": "$box1", "text": "x"}]).error
+    assert error.field == "key" and "safe to repeat" in error.message
+
+
+def test_office_theme_colour_names_are_read_as_scheme_colours(toolbox, session):
+    made = _box_shape(toolbox, session, paragraphs=[
+        {"runs": [{"text": "Plan", "color": "Text 2"}]}])
+    deck = session.entry("d1").document
+    shape = deck.shape(made.refs["box1"])
+    assert shape.text_frame.paragraph(0).run(0).color == "tx2"
+    ok(call(toolbox, session, "ppt_set_shape", doc="d1", items=[
+        {"target": "$box1", "fill": "background1 lumMod=85%"}]))
+    assert shape.fill.color == "bg1 lumMod=85%"
+    error = call(toolbox, session, "ppt_set_shape", doc="d1", items=[
+        {"target": "$box1", "fill": "text3"}]).error
+    assert "tx1" in error.message and "text1" in error.message
+
+
+def test_a_ref_name_with_capitals_is_refused_with_one_that_would_do(toolbox, session):
+    error = call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 9, "h": 9}, "ref": "catChart"}]).error
+    assert "lowercase letter" in error.message and "'cat_chart'" in error.message
+
+
+def test_edit_chart_takes_slide_for_target_when_adding(toolbox, session):
+    result = ok(call(toolbox, session, "edit_chart", doc="d1", action="add", slide="s:256",
+                     box={"x": 40, "y": 100, "w": 300, "h": 200}, chart_type="column", categories=["A", "B"],
+                     data=[{"name": "S", "values": [1, 2]}]))
+    assert "slide read as target" in result.warnings

@@ -1,7 +1,8 @@
 # What the deck tools support
 
 The tools in `pptx_agent.tools`, as a model sees them. Lengths are points, colours theme names
-(`accent1`, `tx1 lumMod=75%`) or `#RRGGBB`. Every changing call is one undo step and returns
+(`accent1`, `tx1 lumMod=75%`; PowerPoint's own names, `Text 1` or `background2`, are read
+as them) or `#RRGGBB`. Every changing call is one undo step and returns
 facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 
 ## Supported
