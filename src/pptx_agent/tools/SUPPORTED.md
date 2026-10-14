@@ -18,7 +18,7 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Look at slides | `render` | PNG, at most 4 a call; says which text the image leaves out for want of a font (`missing_glyphs`) |
 | Fit, collisions, validation, design facts | `check` | overflows, collisions (`boxes` too), shapes off the slide, empty placeholders ("Click to add text"), problem facts, design facts, validation |
 | Undo and redo | `undo` | one call is one step; refs come back with the state; undo by slide (`scope`) refuses a change to a layout or master the slide shows (`entangled`: other slides show it too) |
-| Several calls as one step | `batch` | in order, all or nothing, checks once at the end |
+| Several calls as one step | `batch` | in order, checks once at the end; a failing op is skipped with its error and the rest apply (`atomic: true`: all or nothing) |
 | Slides from a layout, with title, body and notes | `ppt_add_slide` | the deck's own layouts and placeholders |
 | Slides from a Markdown outline | `ppt_draft_slides` | into the deck's layouts |
 | Duplicate, move, delete a slide; find one by title; delete a slide's empty placeholders | `ppt_manage_slides` | a duplicate does not take its original's comments; `delete_empty_placeholders` keeps an empty title |
