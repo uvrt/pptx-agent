@@ -1756,7 +1756,9 @@ class Shape(ShapeFactory):
         a ``creationId`` -- because it is a different shape and must not answer to the
         original's address.  A group's copy renumbers every shape inside it too, and a
         connector inside it that was glued to a shape inside it is glued to that shape's
-        copy; one glued to a shape outside the group stays glued to that shape.
+        copy; one glued to a shape outside the group stays glued to that shape.  The copy
+        has its own chart, diagram and tags parts (a source record stays with each frame);
+        pictures and media are shared.
 
         For example::
 
@@ -1770,6 +1772,12 @@ class Shape(ShapeFactory):
         clone = copy.deepcopy(self._element)
         _strip_identity(clone)
         renumber_copy(clone, self._slide._next_shape_ids)
+        # What is per-shape state -- a frame's tags (its source record), a chart, a
+        # diagram -- is copied for the copy, as copy_shapes copies it; media is shared.
+        from .copying import _carry_relationships
+
+        package, part = self._slide.document.package, self._slide.part_path
+        _carry_relationships(clone, package, part, package, part)
         append_in_order(parent, clone)
         self._slide._invalidate()
 
@@ -3122,6 +3130,23 @@ class Document(CommentOps):
         if target is not None:
             problems = sorted(set(problems) | set(package_type_problems(self.package, target)))
         return problems
+
+    def provenance(self) -> dict[str, dict]:
+        """Where the values placed from a source came from, as the deck keeps it:
+        ``{frame address: record}`` for every table or chart frame on the slides that has
+        a record (:mod:`pptx_agent.edit.provenance`) -- each an
+        :mod:`ooxml_edit.provenance` record, as ``ppt_add_table``, ``ppt_edit_table`` and
+        ``edit_chart`` with ``from`` wrote it.  A record that does not read is skipped,
+        with a :class:`~pptx_agent.edit.provenance.ProvenanceWarning`.
+
+        For example::
+
+            Document.open("board.pptx").provenance()
+            # {'256.4': {'v': 1, 'source': 't:sales', 'document': 'budget.xlsx', ...}}
+        """
+        from .provenance import records
+
+        return records(self)
 
     def _replacements(self, *, template: bool | None,
                       macro: bool | None = None) -> dict[str, bytes]:

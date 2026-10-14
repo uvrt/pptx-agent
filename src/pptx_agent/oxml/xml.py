@@ -124,6 +124,10 @@ PRESENTATION_CHILD_ORDER: dict[str, tuple] = {
     "p:nvCxnSpPr": ("p:cNvPr", "p:cNvCxnSpPr", "p:nvPr"),
     "p:nvGrpSpPr": ("p:cNvPr", "p:cNvGrpSpPr", "p:nvPr"),
     "p:nvGraphicFramePr": ("p:cNvPr", "p:cNvGraphicFramePr", "p:nvPr"),
+    # CT_ApplicationNonVisualDrawingProps: a frame's tags (source records) go before extLst.
+    "p:nvPr": ("p:ph", ("a:audioCd", "a:wavAudioFile", "a:audioFile", "a:videoFile",
+                        "a:quickTimeFile"), "p:custDataLst", "p:extLst"),
+    "p:custDataLst": ("p:custData", "p:tags"),
     "p:cNvCxnSpPr": ("a:cxnSpLocks", "a:stCxn", "a:endCxn", "a:extLst"),
     "p:sp": ("p:nvSpPr", "p:spPr", "p:style", "p:txBody", "p:extLst"),
     "p:pic": ("p:nvPicPr", "p:blipFill", "p:spPr", "p:style", "p:extLst"),
