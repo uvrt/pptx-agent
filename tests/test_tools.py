@@ -195,6 +195,19 @@ def test_describe_lists_slides_theme_and_layouts(toolbox, session):
     assert any(layout["name"] == "Blank" for layout in data["layouts"])
 
 
+def test_describe_lists_the_sessions_datasets_without_their_values(toolbox, session):
+    """Round 5, T11: a dataset a deck may place from is in describe (ooxml-edit 0.30.0)."""
+    from ooxml_edit.tools import Dataset, DatasetEntry
+
+    assert "datasets" not in ok(call(toolbox, session, "describe", doc="d1")).data
+    session.keep_datasets([DatasetEntry("owners", Dataset.from_records(
+        [{"Owner": "Kim", "n": 2}, {"Owner": "Lee", "n": 1}], types={"n": "number"}))])
+    data = ok(call(toolbox, session, "describe", doc="d1")).data
+    assert data["datasets"] == [{"id": "d:owners", "columns": ["Owner", "n"],
+                                 "types": {"n": "number"}, "rows": 2, "from": "application"}]
+    assert "Kim" not in json.dumps(data["datasets"])
+
+
 def test_read_slides_outline_and_geometry_page(toolbox, session):
     outline = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="outline")).data
     assert "<!-- 256.2 -->" in outline
