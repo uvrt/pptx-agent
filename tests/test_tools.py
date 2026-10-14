@@ -869,9 +869,25 @@ def test_office_theme_colour_names_are_read_as_scheme_colours(toolbox, session):
 
 
 def test_a_ref_name_with_capitals_is_refused_with_one_that_would_do(toolbox, session):
+    shapes = len(session.entry("d1").document.slides[0].shapes)
     error = call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
-        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 9, "h": 9}, "ref": "catChart"}]).error
+        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 90, "h": 90}, "text": "a",
+         "ref": "catChart"}]).error
+    assert error.code == "invalid_arguments" and error.field == "ref"
     assert "lowercase letter" in error.message and "'cat_chart'" in error.message
+    assert len(session.entry("d1").document.slides[0].shapes) == shapes   # rolled back
+    # On a valid edit_chart add too.
+    error = call(toolbox, session, "edit_chart", doc="d1", action="add", target="s:256",
+                 box={"x": 40, "y": 100, "w": 300, "h": 200}, chart_type="column",
+                 categories=["A"], data=[{"name": "S", "values": [1]}], ref="catChart").error
+    assert error.field == "ref" and "'cat_chart'" in error.message
+
+
+def test_a_preset_called_rectangle_says_did_you_mean_rect(toolbox, session):
+    error = call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rectangle", "box": {"x": 0, "y": 0, "w": 9, "h": 9}}]).error
+    assert error.field == "items[0].preset"
+    assert "did you mean 'rect'?" in error.message
 
 
 def test_edit_chart_takes_slide_for_target_when_adding(toolbox, session):
