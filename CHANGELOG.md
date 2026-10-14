@@ -6,6 +6,35 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Source addresses in the deck: what a table's or chart's `from` says is now kept in the
+  deck, not only in the result (ooxml-edit 0.25.0's `ooxml_edit.provenance` record: the
+  source without the session's document handle, the source document's name, its version,
+  and per column -- or category and series -- the rows placed and their sources). It goes
+  in the graphic frame's tags part, the place PowerPoint for Mac kept through open, edit
+  and save (measured 2026-10-14): `p:nvGraphicFramePr/p:nvPr/p:custDataLst/p:tags r:id` ->
+  a slide relationship of type `.../relationships/tags` -> `ppt/tags/tagN.xml`
+  (`application/vnd.openxmlformats-officedocument.presentationml.tags+xml`) holding
+  `<p:tagLst><p:tag name="UVRT_PROVENANCE" val="{json}"/></p:tagLst>`; the name is upper
+  case, as PowerPoint's object model writes tag names. `p:custDataLst` goes in its schema
+  place (before `p:extLst`); other tags on the frame stay, and a tags part shared with
+  another frame is copied before it is written. Written by `ppt_add_table` and
+  `ppt_edit_table`'s `set_cells` with `from` (`call.keep_provenance`) and by `edit_chart`
+  with `from` (the format's `store_provenance`; the chart part keeps its own copy), in the
+  call's undo step; read by `Session.provenance(doc)` and the new `Document.provenance()`
+  -> `{frame address: record}` (`pptx_agent.edit.provenance`; a record that does not read
+  is skipped with a `ProvenanceWarning`; a chart frame without the tag falls back on its
+  chart part's record). A record is never left untrue: a cell of a table's block written
+  without a source (`set_cells`, `ppt_set_text`, `replace_text`, `merge`) drops that
+  column's entry, the last one the record; a row inserted or deleted above the block moves
+  it, one inside it (its header too) drops the record, one below changes nothing; a column
+  inserted or deleted moves the entries and drops the deleted column's. `edit_chart`'s own
+  drops (ooxml-edit) drop the tag too, and with the last tag the part and its relationship
+  go. Copies are their own: `Shape.duplicate` (`ppt_arrange` duplicate) now copies a
+  frame's per-shape parts -- tags, and also a chart (with its workbook) and a diagram,
+  which a duplicate used to share with the original -- as `copy_shapes` and
+  `duplicate_slide` already did; deleting a shape or a slide leaves no tags part behind.
+  No tool definition changes (12,096 estimated tokens, as before); `strict_problems` stays empty; the
+  goldens are unchanged. ooxml-edit 0.25.0 is the floor.
 - Tables from data (X1): `ppt_add_table` and `ppt_edit_table`'s `set_cells` take `from` --
   a dataset `d:<id>` or another open document's table `t:<name>`, as ooxml-edit 0.22.0's
   `edit_chart` does -- with `from_columns` (the source's columns by name, in order; default

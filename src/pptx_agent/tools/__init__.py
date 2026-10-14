@@ -76,6 +76,7 @@ from ooxml_edit.tools import CORE, DocumentFormat, ToolGroup, shared
 from ..edit.chart import ChartDataError, ChartDataWarning
 from ..edit.deck import TemplateOpenedWarning
 from ..edit.labels import LabelError
+from ..edit.provenance import ProvenanceWarning
 from ..edit.text import MarkdownEscapeWarning
 from ..edit.units import UnitWarning
 from ..fullstate import FullStateError
@@ -187,14 +188,15 @@ def _template_parts(deck) -> list[str]:
 FORMAT = DocumentFormat(
     kind=KIND, open=_open, detect=detect, problems=lambda deck: deck.validate(),
     warnings=(TemplateOpenedWarning, MarkdownEscapeWarning, ChartDataWarning, OutlineWarning,
-              UnitWarning),
+              UnitWarning, ProvenanceWarning),
     prompt=PROMPT,
     errors={LabelError: ("label_not_found", lambda exc: exc.candidates[:50]),
             ChartDataError: "refused", FullStateError: "refused"},
     summary=_summary, checks=checks, strict_first=STRICT_FIRST,
     undo_scope=_slide_scope, undo_shared=_template_parts,
     restored=lambda deck: deck._reset_caches(),
-    configure=_configure)
+    configure=_configure,
+    store_provenance=tables.store_provenance, read_provenance=tables.read_provenance)
 
 GROUPS = [*shared.GROUPS,
           ToolGroup(text.TEXT_GROUP, "Formatting text: runs, paragraphs, frames, table cells."),
