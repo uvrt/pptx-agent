@@ -256,10 +256,12 @@ def _chart_record(shape: "Shape") -> dict[str, Any] | None:
 # -- table rules --------------------------------------------------------------------------------
 #
 # A table record (ppt_add_table, ppt_edit_table's set_cells from) says: the header row
-# (``header_row``, absent without one), the first source row's table row (``first_row``;
-# source row n, from 1, is table row first_row + n - 1), and per placed column its table
-# column (``col``) and source rows (``rows``, runs from 1).  The block is the rows from the
-# header (or first_row) to the last source row's, in the entries' columns.  The rules keep
+# (``header_row``, absent without one), the first placed source row's table row
+# (``first_row``; the n-th source row placed is table row first_row + n - 1: source row n
+# when every row is placed, as a table continued on the next slides places some), and per
+# placed column its table column (``col``) and source rows (``rows``, runs from 1).  The
+# block is the rows from the header (or first_row) to the last placed row, in the
+# entries' columns.  The rules keep
 # that true or drop what it no longer says: a stale address is worse than none.
 
 
@@ -272,8 +274,7 @@ def _block_rows(found: Mapping[str, Any]) -> tuple[int, int] | None:
     top = top if isinstance(top, int) else first
     last = first - 1
     for entry in found.get("columns") or []:
-        for number in _numbers(entry.get("rows")):
-            last = max(last, first + number - 1)
+        last = max(last, first + len(_numbers(entry.get("rows"))) - 1)
     return min(top, first), max(last, top)
 
 

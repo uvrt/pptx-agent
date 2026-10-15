@@ -234,6 +234,11 @@ m = slide.measure_table([["Item", "Owner"], *rows_of_text], size=12)
 m.fits, [(page.start, page.stop - 1) for page in m.pages]   # (False, [(1, 12), (13, 24), (25, 30)])
 ```
 
+The tool layer's `ppt_add_table` with `continue: true` places such pages itself: a table per
+page under the header row, the next pages on new slides after the target (its layout, its
+title text, the same box), each row set to its measured height so the page is drawn as
+measured.
+
 A table's style and its Table Design flags (Header Row, Total Row, First and Last Column,
 Banded Rows and Columns) say how PowerPoint draws it. `deck.table_styles` lists the styles a
 table can take: the deck's own from `ppt/tableStyles.xml` first (a brand template's), then

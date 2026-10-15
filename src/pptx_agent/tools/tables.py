@@ -17,13 +17,28 @@ locale's day order (``3/1/2026`` en-US, ``1/3/2026`` nl-BE) -- a Python date, an
 derive's dates), so one deck never mixes ``1/3/2026`` and ``2026-01-20``; a number as the
 General format writes it with the session locale's decimal separator, a logical value
 ``TRUE`` or ``FALSE``, a blank as an empty cell.  Nothing is cut: a source too big for a table (200 rows with the header, 50
-columns, 5,000 cells), or for the table it is written into, is refused, saying by how much.
+columns, 5,000 cells), or for the table it is written into, is refused, saying by how much;
+``rows`` fewer than the source's is refused saying how to place fewer -- a row range of the
+source (``t:items/#1:#9``, ``d:by_region/#10:``) -- or to go on over more slides.
+
+**Continuing on the next slides.**  ``ppt_add_table`` with ``continue: true`` places every
+row: the rows that fit the box (its ``h``, or the slide's content area when ``h`` is 0)
+on the slide, under the header row, and the rest on new slides right after it, a page
+each, as many as it takes -- each slide on the target slide's layout, its title the target
+slide's title text (as it is: the model may retitle them), its other empty placeholders
+deleted, the table in the same box with the header row repeated.  The pages are measured
+first as ``measure: true`` measures them (:meth:`Slide.measure_table
+<pptx_agent.Slide.measure_table>`), and each table's rows are set to their measured
+heights, so a page is drawn as measured and not stretched by a box shared evenly among
+rows.  The result lists each page: its slide, table, rows (from 1, the source's), height
+and ``from``; each table keeps its own record.
 
 The result's ``data.from`` says where each placed value came from, as ``edit_chart``'s
 does: the source, its document and version, the table row of the header (``header_row``,
-``None`` without one) and of the first source row (``first_row``; source row ``n``, from
-1, is table row ``first_row + n - 1``), and per placed column its table column (``col``),
-source column, source rows (from 1, as runs) and their sources, merged.
+``None`` without one) and of the first source row placed (``first_row``; the ``n``-th
+source row placed is table row ``first_row + n - 1`` -- source row ``n`` when every row is
+placed), and per placed column its table column (``col``), source column, source rows
+(from 1, as runs: a continued page's are ``10-18``) and their sources, merged.
 
 **The record in the deck.**  What ``from`` says is also kept in the deck, in the table's
 graphic frame (:mod:`pptx_agent.edit.provenance`: a ``UVRT_PROVENANCE`` tag in the frame's
@@ -129,6 +144,8 @@ def table_json(frame, table) -> dict[str, Any]:
        "ref": string("Ref name for the table.", optional=True),
        "measure": boolean("Add nothing: row heights, pages of h (0: content area), "
                           "header repeated.", optional=True),
+       "continue": boolean("Rows past the page go on new slides after it, same box.",
+                           optional=True),
        "key": _KEY},
       kind=KIND, group=OBJECTS, mutates=True, refs=("slide",), sources=("from",),
       aliases=_COLUMN_NAMES, reads=lambda arguments: bool(arguments.get("measure")))
@@ -137,6 +154,7 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
                   ref=None, key=None, header=None, from_columns=None, size=None, widths=None,
                   measure=False, **given):
     source = given.get("from")
+    more = bool(given.get("continue"))
     placed = None
     if source is None:
         _no_source(from_columns, header)
@@ -149,11 +167,15 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
         placed = _placed(call, source, from_columns, header)
         need_rows, need_columns = placed.size
         _fits(placed, MAX_ROWS, MAX_COLUMNS)
-        for name, value, needed in (("rows", rows, need_rows),
-                                    ("columns", columns, need_columns)):
-            if value is not None and value < needed:
-                raise ToolError("invalid_arguments", f"{name} is {value}, but from needs "
-                                f"{needed}: leave {name} out to fit it", field=name)
+        if more and rows is not None and rows != need_rows:
+            raise ToolError("invalid_arguments", "continue places every row of from, on as "
+                            "many slides as they take: leave rows out", field="rows")
+        if rows is not None and rows < need_rows:
+            _too_few_rows(source, placed, rows)
+        if columns is not None and columns < need_columns:
+            raise ToolError("invalid_arguments", f"columns is {columns}, but from needs "
+                            f"{need_columns}: leave columns out to fit it, or pick fewer in "
+                            "from_columns", field="columns")
         rows = rows if rows is not None else need_rows
         columns = columns if columns is not None else need_columns
         data = placed.texts()
@@ -172,6 +194,9 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
     if measure:
         return _measure(call, host, box, rows, columns, data, style_id, size, column_widths,
                         placed)
+    if more:
+        return _continued(call, host, box, rows, columns, data, style_id, size, column_widths,
+                          placed, ref)
     frame = build_table(host, rows, columns, x, y, w, h, data, style=style_id, size=size,
                         widths=column_widths)
     if ref:
@@ -184,6 +209,86 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
     return Result(summary=f"Added a {rows}x{columns} table {frame.id}"
                   + (f" from {placed.rows.address}" if placed else ""), created=[frame.id],
                   data=result)
+
+
+def _too_few_rows(source: str, placed: "_Placed", rows: int) -> None:
+    """Refuse ``rows`` fewer than the source gives, saying how to place fewer: a row range
+    of the source (offered when the source can take one), or ``continue``."""
+    body = len(placed.rows.dataset.rows)
+    header = 1 if placed.header else 0
+    fewer = sources.first_rows(source, max(rows - header, 1))
+    example = fewer or "a row range, t:<table>/#1:#9"
+    raise ToolError("invalid_arguments", f"rows is {rows}, but from has {body} rows"
+                    + (" and a header" if header else "") + f": place fewer with {example}, "
+                    "continue: true to go on over the next slides, or leave rows out "
+                    "(nothing is cut)", field="rows", valid_options=[fewer] if fewer else None)
+
+
+def _continued(call, host, box, rows, columns, data, style, size, widths, placed,
+               ref) -> Result:
+    """``ppt_add_table`` with ``continue``: the table measured into pages
+    (:meth:`Slide.measure_table <pptx_agent.Slide.measure_table>`), the first page placed on
+    ``host`` and each next one on a new slide after it (:func:`_next_slide`), every page
+    under the header row, its rows at their measured heights."""
+    if getattr(host, "kind", None) in ("layout", "master"):
+        raise ToolError("invalid_arguments", f"continue adds slides: give a slide, not a "
+                        f"{host.kind}", field="continue")
+    if widths is None and box["w"] <= 0:
+        raise ToolError("invalid_arguments", "continuing needs a width over 0, or widths",
+                        field="box.w")
+    header = placed.header != [] if placed is not None else True
+    measured = host.measure_table(data, rows=rows, columns=columns,
+                                  width=None if widths else emu(box["w"]),
+                                  height=emu(box["h"]) if box["h"] > 0 else None,
+                                  style=style, size=size, widths=widths, header=header)
+    first, heights = measured.header_rows, measured.heights
+    texts = [list(row) for row in (data or [])] + [[] for _ in range(rows - len(data or []))]
+    x, y, w, _ = box_emu(box)
+    pages, created, slide = [], [], host
+    for n, page in enumerate(measured.pages or (range(first, first),)):
+        if n:
+            slide = _next_slide(call.document, host, slide)
+            created.append(f"s:{slide.slide_id}")
+        page_heights = list(heights[:first]) + list(heights[page.start:page.stop])
+        frame = build_table(slide, len(page_heights), columns, x, y, w, sum(page_heights),
+                            texts[:first] + texts[page.start:page.stop], style=style,
+                            size=size, widths=widths)
+        table = frame.table
+        for row, height in enumerate(page_heights):
+            table.set_row_height(row, height)
+        call.touch(slide.slide_id)
+        created.append(frame.id)
+        entry = {"slide": f"s:{slide.slide_id}", "table": frame.id,
+                 "rows": f"{page.start - first + 1}-{page.stop - first}",
+                 "h": pt(sum(page_heights))}
+        if placed is not None:
+            entry["from"] = placed.provenance(0, range(page.start - first, page.stop - first))
+            call.keep_provenance(frame.id, placed.rows, entry["from"])
+        pages.append(entry)
+    if ref:
+        call.define_ref(ref, pages[0]["table"])
+    result = table_json(*_table(call.document, pages[0]["table"]))
+    result["pages"] = pages
+    if measured.too_tall:
+        result["too_tall"] = [row - first + 1 for row in measured.too_tall]
+    spread = ", ".join(page["rows"] for page in pages[:10])
+    added = [page["slide"] for page in pages[1:]]
+    return Result(summary=f"Added a table of {rows - first} rows"
+                  + (f" from {placed.rows.address}" if placed else "") + f" on {len(pages)} "
+                  f"slide(s), the header on each: rows {spread}"
+                  + (f"; new slides {', '.join(added[:10])}" if added else ""),
+                  created=created, data=result)
+
+
+def _next_slide(deck, host, after):
+    """A new slide right after ``after`` for a continued table: on ``host``'s layout, its
+    title ``host``'s title text, its other empty placeholders deleted."""
+    added = deck.add_slide(host.layout, index=after.index + 1)
+    title = host.title
+    if title and added.title is not None:
+        added.title = title
+    added.delete_empty_placeholders()
+    return added
 
 
 def _measure(call, host, box, rows, columns, data, style, size, widths, placed) -> Result:
@@ -233,9 +338,10 @@ class _Placed:
             [_text(self.rows, row, column, self.locale) for column in self.at]
             for row in range(len(self.rows.dataset.rows))]
 
-    def provenance(self, top: int) -> dict[str, Any]:
-        """``data.from`` for the block written with its first row at table row ``top``."""
-        order = list(range(len(self.rows.dataset.rows)))
+    def provenance(self, top: int, order=None) -> dict[str, Any]:
+        """``data.from`` for the block written with its first row at table row ``top``: the
+        source rows ``order`` (from 0; default all), in that order, under the header."""
+        order = list(range(len(self.rows.dataset.rows)) if order is None else order)
         first = top + (1 if self.header else 0)
         return {**self.rows.describe(), "header_row": top if self.header else None,
                 "first_row": first,
