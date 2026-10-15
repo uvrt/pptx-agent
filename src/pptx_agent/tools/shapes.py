@@ -272,8 +272,8 @@ def ppt_set_shape(call, doc, items):
             raise ToolError("invalid_arguments", "give fill or gradient, not both",
                             field=f"{field}.gradient")
         if "fill" in item:
-            if shape.kind == "picture" and item["fill"].strip().lower() not in ("none",
-                                                                                 "inherit"):
+            if shape.kind == "picture" and shape.vector is not None and \
+                    item["fill"].strip().lower() not in ("none", "inherit"):
                 _recolor(shape, item["fill"], f"{field}.fill")
             else:
                 shape.fill = None if item["fill"] == "inherit" else item["fill"]
@@ -294,14 +294,10 @@ def ppt_set_shape(call, doc, items):
 
 
 def _recolor(picture, color: str, field: str) -> None:
-    """``fill`` on a picture: PowerPoint's Graphics Fill, which recolours an SVG picture's
-    shapes (:meth:`Shape.recolor <pptx_agent.Shape.recolor>`); a bitmap's colours are its
-    own."""
-    if picture.vector is None:
-        raise ToolError("invalid_arguments",
-                        f"{picture.id} is a bitmap picture: fill recolours an SVG picture "
-                        "only. Replace its image with an SVG (ppt_add_picture target) first, "
-                        "or leave its colours", field=field)
+    """``fill`` on an SVG picture: PowerPoint's Graphics Fill, which recolours its shapes
+    (:meth:`Shape.recolor <pptx_agent.Shape.recolor>`).  On a bitmap picture ``fill`` stays
+    its background, as PowerPoint's Fill of a picture is: only a graphic has Graphics
+    Fill."""
     try:
         picture.recolor(color)
     except ImportError as error:          # the PNG fallback needs pptx-agent[png]

@@ -260,7 +260,7 @@ def _ok(result):
     return result
 
 
-def test_set_shape_fill_on_an_svg_picture_recolours_it_and_refuses_a_bitmap():
+def test_set_shape_fill_recolours_an_svg_picture_and_fills_behind_a_bitmap():
     with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS, workers=0) as toolbox:
         session, slide = _session(toolbox)
         svg = session.add_blob(QUAD, "quad.svg")
@@ -273,11 +273,12 @@ def test_set_shape_fill_on_an_svg_picture_recolours_it_and_refuses_a_bitmap():
             {"target": icon.data["address"], "fill": "accent2"}]}))
         deck = session.documents["d1"].document
         assert b"MsftOfcThm_Accent2_Fill_v2" in deck.shape(icon.data["address"]).vector
-        refused = toolbox.dispatch(session, "ppt_set_shape", {"doc": "d1", "items": [
-            {"target": photo.data["address"], "fill": "accent2"}]})
-        assert refused.error.code == "invalid_arguments"
-        assert refused.error.field == "items[0].fill"
-        assert "bitmap picture" in refused.error.message
+        photo_png = deck.package.read(deck.shape(photo.data["address"]).image_part)
+        _ok(toolbox.dispatch(session, "ppt_set_shape", {"doc": "d1", "items": [
+            {"target": photo.data["address"], "fill": "accent2"}]}))     # its background
+        photo_shape = deck.shape(photo.data["address"])
+        assert str(photo_shape.fill.color) == "accent2"
+        assert deck.package.read(photo_shape.image_part) == photo_png    # image untouched
         _ok(toolbox.dispatch(session, "ppt_set_shape", {"doc": "d1", "items": [
             {"target": photo.data["address"], "fill": "none"}]}))       # as before
         outline = session.add_blob(STYLED, "styled.svg")

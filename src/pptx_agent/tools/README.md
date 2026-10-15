@@ -111,7 +111,8 @@ An object of your own with `search(query, limit)` and `get(id) -> (bytes, MIME t
 the same: a search service, a database, a DAM.
 
 An inserted SVG icon is recoloured with `ppt_set_shape`'s `fill` (`"accent2"`, `"#1F4E79"`),
-as PowerPoint's Graphics Fill does it (`Shape.recolor`); a bitmap is refused.
+as PowerPoint's Graphics Fill does it (`Shape.recolor`); on a bitmap picture `fill` stays its
+background fill, as in PowerPoint.
 
 ### Tables from data
 

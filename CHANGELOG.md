@@ -19,7 +19,8 @@ snapshot commit; the development history before it is summarised here.
     colours (`svgpicture.RecolorWarning`); a bitmap, an outline-only SVG and a colour with
     alpha are refused. Parts another picture shares are not touched: this one gets its own.
   - Tools: `ppt_set_shape`'s `fill` on an SVG picture recolours it -- PowerPoint's own name
-    for a graphic's recolour -- and on a bitmap picture is refused with what to do;
+    for a graphic's recolour; on a bitmap picture it stays the picture's background fill,
+    as before (PowerPoint's Fill of a raster picture; only a graphic has Graphics Fill).
     `none` and `inherit` work as before. No new parameter: the core is unchanged.
     `ppt_add_picture`'s description says so (+9 estimated tokens for every definition,
     12,465 -> 12,474; the guard rises from 12,470 to 12,480).
