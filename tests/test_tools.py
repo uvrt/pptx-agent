@@ -91,10 +91,14 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: shared with distribute) add 162 to every definition (12,225 -> 12,387), none to the core
 #: (3,526): ppt_arrange is deferred.  The guard rises to 12,390.  The strict set is
 #: unchanged: ppt_arrange is sent non-strict.
+#: Round 5, T10: ppt_read_slides' ``compact`` (a row per shape: id, kind, box, fill, first
+#: words) adds 16 to the core (3,526 -> 3,542, about 5,242 counted by the proxy) and to every
+#: definition (12,387 -> 12,403); the guard rises to 12,405.  The strict set is unchanged:
+#: ppt_read_slides is a reading tool, never strict.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12390
+ALL_GUARD = 12405
 
 
 def estimate_tokens(definitions) -> int:
@@ -234,6 +238,54 @@ def test_read_slides_outline_and_geometry_page(toolbox, session):
     assert len(first.data) + len(rest.data) == 71 and rest.next_cursor is None
     assert first.data[1]["box"] == {"x": 0.0, "y": 300.0, "w": 8.0, "h": 8.0}
     assert first.data[1]["fill"]["color"] == "accent1"
+
+
+def test_read_slides_compact_is_a_row_per_shape(toolbox, session):
+    """Round 5, T10: id, kind, box, fill, first words; groups' members under their group."""
+    emu = 12700
+    deck = session.entry("d1").document
+    slide = deck.slides[0]
+    tile = slide.add_shape("roundRect", 20 * emu, 100 * emu, 145 * emu, 90 * emu)
+    label = slide.add_textbox(int(25.4 * emu), 105 * emu, 135 * emu, 20 * emu, "North ridge")
+    body = slide.add_textbox(25 * emu, 130 * emu, 135 * emu, 55 * emu,
+                             "one two three four five six seven eight nine ten eleven")
+    group = slide.group([tile, label, body])
+    table = slide.add_table(3, 4, 20 * emu, 300 * emu, 400 * emu, 60 * emu)
+    table.table.cell(0, 0).text_frame.text = "Crew and route"
+    chart = slide.add_chart("column", ["Q1", "Q2"], [{"name": "A", "values": [1, 2]},
+                                                    {"name": "B", "values": [2, 1]}],
+                            450 * emu, 300 * emu, 200 * emu, 100 * emu)
+    line = slide.add_connector("straight", (20 * emu, 400 * emu), (200 * emu, 400 * emu))
+    result = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
+                     slides=[1]))
+    assert result.data["columns"] == ["id", "kind", "box", "fill", "text", "group"]
+    order = [row[0] for row in result.data["shapes"]]
+    rows = {row[0]: row for row in result.data["shapes"]}
+    assert order == [shape.id for shape in slide.shapes]     # back to front, as geometry
+    assert result.total == len(order) and result.next_cursor is None
+    assert rows[group.id][1:] == ["group", [20, 100, 145, 90], None, "3 shapes", None]
+    assert rows[tile.id][3] == tile.effective_fill.color.resolve(tile)
+    assert rows[tile.id][4:] == [None, group.id]
+    assert rows[label.id][2] == [25, 105, 135, 20]           # whole points
+    assert rows[label.id][3:] == [None, "North ridge", group.id]
+    assert rows[body.id][4] == "one two three four five six seven eight… (11 words)"
+    assert rows[table.id][1] == "table" and rows[table.id][4] == "3×4: Crew and route"
+    assert rows[chart.id][1] == "chart" and rows[chart.id][4] == "bar, 2 series"
+    assert rows[line.id][1:] == ["connector", [20, 400, 180, 0], None, None, None]
+    assert rows[order[0]][1:] == ["shape", [66, 29, 828, 104], None, "Plan", None]
+
+
+def test_read_slides_compact_pages_past_three_hundred_shapes(toolbox, session):
+    ops = {"slide": "s:256", "items": [{"preset": "rect",
+                                        "box": {"x": i % 900, "y": 300, "w": 8, "h": 8}}
+                                       for i in range(320)]}
+    ok(call(toolbox, session, "ppt_add_shape", doc="d1", **ops))
+    first = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
+                    slides=[1]))
+    assert first.total == 321 and len(first.data["shapes"]) == 300 and first.next_cursor
+    rest = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
+                   slides=[1], cursor=first.next_cursor))
+    assert len(rest.data["shapes"]) == 21 and rest.next_cursor is None
 
 
 # -- building ------------------------------------------------------------------------------------

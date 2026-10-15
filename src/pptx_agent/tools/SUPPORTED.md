@@ -13,7 +13,7 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Save as a deck, a template or a text outline | `save_document` (`pptx`, `potx`, `outline`) | refuses new validation problems; lists overflows, collisions and empty placeholders still there |
 | Close a document | `close_document` | the session holds a few documents at a time |
 | The deck at a glance | `describe` | slides with ids, titles, layouts and content areas; theme colours, fonts, roles and tints; the deck's table styles (its default, its own, how the built-in names go); masters and layouts with their ids (`M0`, `L2`), placeholders (and their ids and custom prompts) and the text on them that is not a placeholder (a legal line); comment counts |
-| Read slides | `ppt_read_slides` (`outline`, `geometry`, `svg`) | outline Markdown with ids; every shape's box, fill, outline and text; a compact SVG view |
+| Read slides | `ppt_read_slides` (`outline`, `geometry`, `compact`, `svg`) | outline Markdown with ids; every shape's box, fill, outline and text; a row per shape (id, kind, box in whole points, fill, first words; a group's members under it); an SVG view |
 | Read a text input (CSV, Markdown, plain text) | `read_blob` | a page at a time |
 | Find and replace text | `find_text`, `replace_text` | slides, notes, tables and SmartArt; `expect: one` or `all`; `stories: layouts`, `masters` or `all` reach the text on layouts and masters (a footer year, a legal line, a prompt), addresses `L2.5`, `M0.7` |
 | Look at slides | `render` | PNG, at most 4 a call; says which text the image leaves out for want of a font (`missing_glyphs`) |

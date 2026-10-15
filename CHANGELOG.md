@@ -6,6 +6,24 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Dense slides read in brief (round 5, T10). Reviewers read slides of up to 118 shapes, and
+  `ppt_read_slides` with `geometry` gave every text in full.
+  - `detail: "compact"`: one row per shape under a header, `columns` = id, kind, box,
+    fill, text, group; back to front, as geometry orders them. The kind is geometry's,
+    with a graphic frame named `table`, `chart` or `smartart`; the box `[x, y, w, h]` in
+    whole points; the fill as drawn (resolved hex, else `gradient`, `image`, `pattern`);
+    the text's first eight words, then `… (23 words)`. A table gives `3×4: ` and its first
+    cell's words, a chart `bar, 2 series`, a group `3 shapes`; a group's members name
+    it in the last column, so tile grids read as tiles. Pages of 300 rows.
+  - Measured on a made-up 111-shape slide (24 three-shape tiles, 8 connectors, a table, a
+    chart, 4 long text boxes): geometry 29,647 characters over two pages, compact 8,480 in
+    one (29%). The header-and-rows encoding is 23% smaller than the same records as
+    objects (8,282 against 10,724 characters), so rows it is.
+  - The definitions: `compact` in the `detail` enum and nine words of description (the
+    svg view's "compact" dropped so the word means one thing) add 16 estimated tokens to
+    the core (3,526 -> 3,542, about 5,242 counted by the proxy) and to every definition
+    (12,387 -> 12,403; the guard 12,390 -> 12,405). The strict set is unchanged.
+
 - Tile and card grids in one call (round 5, T5; the user brought grid back as a
   `ppt_arrange` action, TOOLS-ROADMAP D13 amended). Builders drew grids by hand -- one
   of 41 tiles -- computing every box, the main source of their layout mistakes.

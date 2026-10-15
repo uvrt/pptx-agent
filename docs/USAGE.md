@@ -709,6 +709,45 @@ with the others), each with the exact call that resolves it, such as
 `ppt_set_shape 256.6 y=150` (`pptx_agent.edit.feedback`). Facts, not rules: a difference may
 be intended.
 
+### A dense slide in brief (`ppt_read_slides` `detail: "compact"`)
+
+```python
+from ooxml_edit.tools import Toolbox
+from pptx_agent import Document
+from pptx_agent.tools import FORMAT, GROUPS, TOOLS
+
+deck = Document.new()
+slide = deck.add_slide("Title Only")
+slide.title = "Stations"
+for n in range(3):
+    tile = slide.add_shape("roundRect", (50 + 200 * n) * 12700, 2032000, 2286000, 1143000)
+    note = slide.add_textbox((55 + 200 * n) * 12700, 2095500, 2159000, 1016000,
+                             f"Station {n + 1}: plan the river crossing with the team first")
+    slide.group([tile, note])
+with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS) as toolbox:
+    session = toolbox.session()
+    session.open(deck.to_bytes(), "stations.pptx")
+    brief = toolbox.dispatch(session, "ppt_read_slides", {"doc": "d1", "detail": "compact"})
+    print(brief.data["columns"])     # -> ['id', 'kind', 'box', 'fill', 'text', 'group']
+    rows = brief.data["shapes"]
+    print(rows[1])                   # -> ['256.5', 'group', [50, 160, 180, 90], None, '2 shapes', None]
+    print(rows[2])                   # -> ['256.3', 'shape', [50, 160, 180, 90], '#156082', None, '256.5']
+    print(rows[3][4])                # -> Station 1: plan the river crossing with the… (10 words)
+```
+
+`geometry` gives every shape in full -- its text whole, font sizes, frame, outline, cell
+colours -- which on a slide of a hundred shapes runs to pages. `compact` gives each shape
+one row under a header of `columns`, back to front as geometry orders them: the id; the
+kind (geometry's, with a graphic frame named `table`, `chart` or `smartart`); the box
+`[x, y, w, h]` in whole points; the fill as drawn (the resolved hex, or `gradient`,
+`image`, `pattern`); and the text's first eight words, with the count when there are more.
+A table says its size and first cell (`3×4: Crew and route`), a chart its type and series
+(`bar, 2 series`), a group how many shapes it holds; each group member names its group
+in the last column, so a grid of tiles reads as one. `null` is "none". On a made-up
+slide of 111 shapes (24 three-shape tiles, connectors, a table, a chart, long text boxes)
+compact is 29% of geometry's size, and one page where geometry needs two; rows under a
+header are 23% smaller than the same records as objects. Pages hold 300 rows.
+
 ### Review comments (`ppt_comments`, `Document.add_comment`)
 
 ```python
