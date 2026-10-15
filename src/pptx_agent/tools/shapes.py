@@ -271,19 +271,18 @@ def ppt_set_shape(call, doc, items):
         if "fill" in item and "gradient" in item:
             raise ToolError("invalid_arguments", "give fill or gradient, not both",
                             field=f"{field}.gradient")
-        if "fill" in item:
-            if shape.kind == "picture" and shape.vector is not None and \
-                    item["fill"].strip().lower() not in ("none", "inherit"):
-                _recolor(shape, item["fill"], f"{field}.fill")
-            else:
-                shape.fill = None if item["fill"] == "inherit" else item["fill"]
+        graphic = _graphic(shape, item, field)
+        if "fill" in item and "fill" not in graphic:
+            shape.fill = None if item["fill"] == "inherit" else item["fill"]
         if "gradient" in item:
             gradient = item["gradient"]
             shape.set_gradient_fill([(stop["position"] / 100, stop["color"])
                                      for stop in gradient["stops"]],
                                     angle=gradient.get("angle", 90.0))
-        if item.get("line"):
-            apply_line(shape, item["line"])
+        if graphic:
+            _recolor(shape, graphic, field)
+        if item.get("line") and not {"line", "line_width"} & graphic.keys():
+            apply_line(shape, item["line"])       # an SVG picture's border too, as before
         if "name" in item:
             shape.name = item["name"]
         call.touch(shape._slide.slide_id, shape.id)
@@ -293,17 +292,44 @@ def ppt_set_shape(call, doc, items):
                   data={"boxes": shapes})
 
 
-def _recolor(picture, color: str, field: str) -> None:
-    """``fill`` on an SVG picture: PowerPoint's Graphics Fill, which recolours its shapes
-    (:meth:`Shape.recolor <pptx_agent.Shape.recolor>`).  On a bitmap picture ``fill`` stays
-    its background, as PowerPoint's Fill of a picture is: only a graphic has Graphics
-    Fill."""
+def _graphic(shape, item: dict[str, Any], field: str) -> dict[str, Any]:
+    """What of ``fill`` and ``line`` recolours an SVG picture, as PowerPoint's Graphics
+    Fill and Graphics Outline do (:meth:`Shape.recolor <pptx_agent.Shape.recolor>`): a
+    fill colour, a line colour and width.  ``none`` and ``inherit``, a bitmap picture's
+    fill and line (its background and border, as in PowerPoint: only a graphic has
+    Graphics Fill and Outline), and a line of only a dash or arrowheads are left to the
+    picture's own fill and line, as before."""
+    if shape.kind != "picture" or shape.vector is None:
+        return {}
+    graphic: dict[str, Any] = {}
+    fill = item.get("fill")
+    if fill is not None and fill.strip().lower() not in ("none", "inherit"):
+        graphic["fill"] = fill
+    line = item.get("line") or {}
+    color = line.get("color")
+    if color is not None and color.strip().lower() != "none":
+        graphic["line"] = color
+    if "width" in line:
+        graphic["line_width"] = emu(line["width"])
+    if ("line" in graphic or "line_width" in graphic) and \
+            any(key in line for key in ("dash", "start", "end")):
+        raise ToolError("invalid_arguments", "an SVG picture's outline takes color and "
+                        "width only (its shapes' strokes); give dash or arrowheads in a "
+                        "separate change for the picture's border", field=f"{field}.line")
+    return graphic
+
+
+def _recolor(picture, graphic: dict[str, Any], field: str) -> None:
+    """Recolour an SVG picture; its errors are the call's, at the field they came from."""
     try:
-        picture.recolor(color)
+        picture.recolor(graphic.get("fill"), line=graphic.get("line"),
+                        line_width=graphic.get("line_width"))
     except ImportError as error:          # the PNG fallback needs pptx-agent[png]
         raise ToolError("refused", str(error), field=field) from None
     except ValueError as error:
-        raise ToolError("invalid_arguments", str(error), field=field) from None
+        raise ToolError("invalid_arguments", str(error),
+                        field=f"{field}.fill" if "fill" in graphic else f"{field}.line") \
+            from None
 
 
 #: The tool that finds a catalogue's assets, when the application configured one.
@@ -338,7 +364,7 @@ def picture_tool(catalogue=None):
           + (" or catalogue asset" if catalogue is not None else "")
           + " on a slide, or replace a picture's image (target), keeping its frame, height "
           "or width. An SVG stays vector, with a PNG fallback made for it; ppt_set_shape "
-          "fill recolours it. Returns its address and native size.",
+          "fill and line recolour it. Returns its address and native size.",
           params, kind=KIND, group=OBJECTS, mutates=True, exactly_one=exactly_one,
           refs=("slide", "target"))
     @library_errors

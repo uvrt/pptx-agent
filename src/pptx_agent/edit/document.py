@@ -1653,48 +1653,60 @@ class Shape(ShapeFactory):
             self._after_change()
         return self
 
-    def recolor(self, color: "str | Color", *, fallback_dpi: float = 300) -> "Shape":
-        """Fill an SVG picture's shapes with one colour, as PowerPoint's Graphics Fill does:
-        a theme colour (``"accent2"``, Office's names too) resolved against this slide's
-        theme and colour map, or ``"#RRGGBB"``.
+    def recolor(self, color: "str | Color | None" = None, *,
+                line: "str | Color | None" = None, line_width: int | None = None,
+                fallback_dpi: float = 300) -> "Shape":
+        """Recolour an SVG picture as PowerPoint's Graphics Fill (``color``) and Graphics
+        Outline (``line``, ``line_width`` in EMU) do: a theme colour (``"accent2"``,
+        Office's names too) resolved against this slide's theme and colour map, or
+        ``"#RRGGBB"``; ``color`` may have a transparency (``"accent2 alpha=50%"``).
 
         As PowerPoint does it (measured, PowerPoint for Mac, 2026-10-15): the picture's XML
-        stays as it is and its SVG is rewritten -- every shape filled, ``currentColor`` and
-        shapes with no fill included (:func:`~pptx_agent.edit.svgpicture.recolor` says
-        exactly what is written) -- and the PNG fallback is drawn again in the new colour,
-        at the frame's size and ``fallback_dpi`` as :meth:`Slide.add_picture` draws one
-        (``pip install 'pptx-agent[png]'``).  Accent 2 also gets the class through which
-        PowerPoint keeps the theme link; any other theme colour is written as its value
-        until its class is measured.  Shapes whose fill is ``none`` keep it (a
-        :class:`~pptx_agent.edit.svgpicture.RecolorWarning` says how many).
+        stays as it is and its SVG is rewritten (:func:`~pptx_agent.edit.svgpicture.recolor`
+        says exactly what is written).  A fill fills every shape, ``none`` and
+        ``currentColor`` ones included, at the colour's opacity; an outline colour strokes
+        every shape and leaves fills alone; an outline weight is every shape's stroke width,
+        converted to the SVG's units at the frame's size.  A theme colour keeps its theme
+        link through PowerPoint's class (``MsftOfcThm_Accent2_Fill_v2``); a tint or shade is
+        written as its value.  The PNG fallback is drawn again, at the frame's size and
+        ``fallback_dpi`` as :meth:`Slide.add_picture` draws one (``pip install
+        'pptx-agent[png]'``).
 
-        The SVG and the PNG are rewritten in place when nothing else shows them, else this
-        picture gets its own.  One undo step.  A ``ValueError`` for a bitmap picture (only
-        an SVG can be recoloured: replace its image with an SVG first), for a colour with
-        transparency, and for an SVG of outlines only.
+        The SVG and the PNG are rewritten in place.  When other pictures on this slide show
+        them too, those get copies of the originals, as PowerPoint splits them; when a
+        picture elsewhere does, this one gets parts of its own.  One undo step.  A
+        ``ValueError`` for a bitmap picture (only an SVG can be recoloured: replace its image
+        with an SVG first), for an outline colour with transparency, and for an SVG with
+        nothing to recolour or styles that cannot be carried over.
 
         For example::
 
             icon.recolor("accent2")
-            icon.recolor("#1F4E79")
+            icon.recolor("#1F4E79", line="accent5", line_width=Pt(1))
         """
-        import warnings
-
         if self._blip() is None:
             raise ValueError(f"{self.id}: a {self.kind} has no image to recolour")
         vector = self.vector
         if vector is None:
             raise ValueError(f"{self.id} is a bitmap picture: only an SVG picture can be "
                              "recoloured; replace its image with an SVG to recolour it")
-        parsed = Color.parse(color)
-        if any(name.startswith("alpha") for name, _ in parsed.transforms):
-            raise ValueError("a recoloured picture is opaque: give a colour without alpha")
-        value = parsed.resolve(self)
-        theme_class = (_svgpicture.THEME_CLASSES.get(parsed.value)
-                       if parsed.is_theme and not parsed.transforms else None)
-        svg, _, left = _svgpicture.recolor(vector, value, theme_class)
+        if color is None and line is None and line_width is None:
+            raise ValueError("give a colour, an outline colour or an outline weight")
         if None in (self.width, self.height):
             raise ValueError(f"{self.id}: the picture has no size to draw the SVG at")
+        fill = fill_class = stroke = stroke_class = width = None
+        opacity = 1.0
+        if color is not None:
+            fill, fill_class, opacity = self._graphic_color(color, "Fill")
+        if line is not None:
+            stroke, stroke_class, _ = self._graphic_color(line, "Stroke")
+        if line_width is not None:
+            if line_width < 0:
+                raise ValueError("line_width must be 0 or more")
+            width = line_width * _svgpicture.stroke_units(_svgpicture.parse(vector),
+                                                          self.width, self.height)
+        svg = _svgpicture.recolor(vector, fill, fill_class, opacity, stroke=stroke,
+                                  stroke_class=stroke_class, stroke_width=width)
         png = _svgpicture.rasterise(svg, self.width, self.height, fallback_dpi,
                                     self._slide.document.font_dirs)
         package = self._slide.document.package
@@ -1704,38 +1716,68 @@ class Shape(ShapeFactory):
             assert blip is not None
             found = _svgpicture.svg_blip(blip)
             assert found is not None
-            if not self._rewrite_own(found.get(qn("r:embed")), svg,
-                                     _svgpicture.SVG_CONTENT_TYPE):
+            if not self._rewrite_own(found, svg, _svgpicture.SVG_CONTENT_TYPE,
+                                     "ppt/media/image{n}.svg"):
                 _svgpicture.attach(blip, package.add_relationship(
                     self._slide.part_path, REL_IMAGE, _svgpicture.store(package, svg)))
-            if not self._rewrite_own(blip.get(qn("r:embed")), png, "image/png"):
+            if not self._rewrite_own(blip, png, "image/png", "ppt/media/image{n}.png"):
                 blip.set(qn("r:embed"), package.add_relationship(
                     self._slide.part_path, REL_IMAGE, package.add_image(png, None)))
             self._after_change()
-        if left:
-            warnings.warn(f"{self.id}: {left} shape(s) of the SVG have no fill and keep "
-                          "their colours (outlines are not recoloured)",
-                          _svgpicture.RecolorWarning, stacklevel=2)
         return self
 
-    def _rewrite_own(self, rel_id: str | None, data: bytes, content_type: str) -> bool:
-        """Overwrite the part ``rel_id`` names with ``data`` when this picture alone shows
-        it -- one relationship to it in the package, named once on this slide -- and it is
-        of ``content_type``; whether it did."""
+    def _graphic_color(self, spec: "str | Color", part: str) -> tuple[str, str | None, float]:
+        """A Graphics Fill or Outline colour: ``(#RRGGBB, PowerPoint's class or None,
+        opacity)``.  The class for a theme colour with no modifier but its transparency
+        (PowerPoint for Mac, 2026-10-15, oracle2/results.md §1, §5); the opacity from
+        ``alpha`` (§5: ``fill-opacity``), which an outline does not take (not measured)."""
+        parsed = Color.parse(spec)
+        alpha, others = None, []
+        for name, value in parsed.transforms:
+            if name == "alpha" and part == "Fill" and value is not None:
+                alpha = value
+            elif name.startswith("alpha"):
+                raise ValueError("an SVG picture's outline is opaque: give a colour without "
+                                 "alpha" if part == "Stroke" else
+                                 "give an SVG picture's transparency as alpha=50%")
+            else:
+                others.append(name)
+        theme_class = (_svgpicture.theme_class(parsed.value, part)
+                       if parsed.is_theme and not others else None)
+        opacity = 1.0 if alpha is None else min(1.0, max(0.0, alpha / 100000))
+        return parsed.resolve(self), theme_class, opacity
+
+    def _rewrite_own(self, holder, data: bytes, content_type: str, template: str) -> bool:
+        """Overwrite the part ``holder``'s ``r:embed`` names with ``data`` -- when it is of
+        ``content_type`` and only this slide relates to it -- giving any other element on
+        the slide that shows it a copy of the original (``template`` names it), as
+        PowerPoint splits a shared picture: the recoloured one keeps its relationships, the
+        other gets new ones to a copy (PowerPoint for Mac, 2026-10-15, oracle2/results.md
+        §4).  Whether it did; when another part relates to it, the caller gives this
+        picture a part of its own instead (not measured)."""
         package = self._slide.document.package
         slide_part = self._slide.part_path
+        rel_id = holder.get(qn("r:embed"))
         part = package.related_part(slide_part, rel_id) if rel_id else None
         if part is None or not package.has_part(part) \
                 or package.content_type(part) != content_type:
             return False
         sources = package.relationship_sources(part)
-        if len(sources) != 1 or sources[0][0] != slide_part or sources[0][1].id != rel_id:
+        if any(source != slide_part for source, _ in sources):
             return False
+        ids = {relationship.id for _, relationship in sources}
         root = package.tree(slide_part)
-        uses = sum(1 for node in root.iter() for value in node.attrib.values()
-                   if value == rel_id)
-        if uses != 1:
-            return False
+        others = [(node, key) for node in root.iter() for key, value in node.attrib.items()
+                  if value in ids and not (node is holder and key == qn("r:embed"))]
+        if others:
+            copy = package.add_part(package.unused_part_name(template), package.read(part),
+                                    content_type)
+            copy_id = package.add_relationship(slide_part, REL_IMAGE, copy)
+            for node, key in others:
+                node.set(key, copy_id)
+            for other in ids - {rel_id}:
+                package.remove_relationship(slide_part, other)
+            package.mark_dirty(slide_part)
         package.replace_part(part, data)
         return True
 
