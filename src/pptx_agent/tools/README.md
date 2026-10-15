@@ -150,6 +150,26 @@ at exactly these heights; the deck is not changed (no version, no undo step). A 
 tall for a page under the header gets a page of its own and is listed in `too_tall`. The
 library call is `Slide.measure_table(...)`, a `TableMeasure`.
 
+### A long table on the next slides, and fewer rows
+
+`ppt_add_table` with `continue: true` places every row: it measures the pages as `measure`
+does, places the first on the target slide and each next one on a new slide right after
+it -- on the target slide's layout, its title the target's title text (as it is; retitle
+them with `ppt_set_text` if you like), its other empty placeholders deleted -- in the same
+box, the header row repeated. Each table's rows are set to their measured heights, so a
+page is drawn as measured rather than stretched by the box's height shared evenly among
+rows. One call, one undo step. The result lists the pages, and each table keeps the record
+of its own rows (`first_row` is the table row of the page's first source row):
+
+```json
+{"pages": [{"slide": "s:256", "table": "256.4", "rows": "1-9", "h": 309.6, "from": {...}},
+           {"slide": "s:259", "table": "259.4", "rows": "10-18", "h": 331.2, "from": {...}}]}
+```
+
+To place fewer rows, name them: a row range of the source, `t:items/#1:#9` (rows 1 to 9,
+from 1, the last included) or `d:by_region/#10:` (row 10 to the last); each value keeps
+its sources. `rows` smaller than the source is refused saying so: nothing is cut.
+
 The provider SDKs read their keys from the environment (`ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`). When the loop ends, `session.take_outputs()` holds what `save_document`
 wrote, as bytes.

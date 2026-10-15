@@ -6,6 +6,32 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A long table continued on the next slides, and fewer rows of a source (round 5, T3;
+  ooxml-edit 0.31.0, xlsx-agent's row ranges). A builder wanted rows 1-4 of a 42-row
+  table on one slide: `rows: 5` was refused ("from needs 42") and a row range was not an
+  address.
+  - `from` takes a row range: `t:items/#1:#9` (rows 1 to 9, from 1, the last included;
+    the workbook's grammar) or `d:by_region/#10:` (row 10 to the last; ooxml-edit), each
+    value with its sources.
+  - `rows` fewer than the source is refused saying how to place fewer: "rows is 10, but
+    from has 40 rows and a header: place fewer with d2/t:items/#1:#9, continue: true to
+    go on over the next slides, or leave rows out (nothing is cut)", the row range as
+    `valid_options`.
+  - `ppt_add_table` with `continue: true` places every row: the pages measured as
+    `measure: true` measures them, the first on the target slide, each next one on a new
+    slide right after it, on the target's layout, its title the target's title text as it
+    is (no "(cont.)": the model may retitle), its other empty placeholders deleted; the
+    same box, the header row repeated. Each table's rows are set to their measured
+    heights (a box's height shared evenly among uneven rows would draw a page taller than
+    measured). One undo step. The result lists `pages` -- slide, table, source rows,
+    height and `from` -- and `created` the new slides and tables; each table keeps the
+    record of its own rows. Refused with `rows` (every row is placed), on a layout or
+    master, and with no width.
+  - A table record's `first_row` is the table row of the first source row placed, the
+    n-th placed at `first_row + n - 1`: source row n when every row is placed, as before.
+  - The definitions: `continue` on the deferred, non-strict `ppt_add_table` adds 29
+    estimated tokens to every definition (12,196 -> 12,225; the guard 12,200 -> 12,230),
+    none to the core (3,526). The strict set is unchanged.
 - Measuring a table before placing it (round 5, T13): an agent no longer places a table
   to learn it needs four slides.
   - `ppt_add_table` with `measure: true` adds nothing -- no version, no undo step -- and

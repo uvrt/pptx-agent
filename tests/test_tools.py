@@ -84,10 +84,13 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: adding nothing) with the ``size`` and ``widths`` it measures and places by add 77 to every
 #: definition (12,119 -> 12,196), none to the core (3,526); the guard rises to 12,200.  The
 #: strict set is unchanged: ppt_add_table is sent non-strict.
+#: Round 5, T3: ppt_add_table's ``continue`` (rows past the page on new slides after it)
+#: adds 29 to every definition (12,196 -> 12,225), none to the core (3,526); the guard
+#: rises to 12,230.  The strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12200
+ALL_GUARD = 12230
 
 
 def estimate_tokens(definitions) -> int:

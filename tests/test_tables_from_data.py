@@ -211,7 +211,15 @@ def test_a_bigger_table_than_the_source_keeps_blank_cells(toolbox, session):
     assert (data["rows"], data["columns"]) == (6, 2) and data["cells"][5] == ["", ""]
     error = failed(add(toolbox, session, **{"from": "d:scores", "rows": 3}),
                    "invalid_arguments")
-    assert error.field == "rows" and "needs 4" in error.message
+    assert error.field == "rows" and "from has 3 rows and a header" in error.message
+    # It says how to place fewer: a row range of the source, or continue.
+    assert error.valid_options == ["d:scores/#1:#2"] and "continue: true" in error.message
+    error = failed(add(toolbox, session, **{"from": "d:scores/#2:", "rows": 2}),
+                   "invalid_arguments")
+    assert error.valid_options == ["d:scores/#2"]
+    error = failed(add(toolbox, session, **{"from": "d:scores", "columns": 1}),
+                   "invalid_arguments")
+    assert error.field == "columns" and "needs 5" in error.message
 
 
 def test_numbers_are_written_in_the_sessions_locale(toolbox):
