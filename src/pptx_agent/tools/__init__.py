@@ -24,8 +24,8 @@ What is here (the tool layer's roadmap numbers them):
   ``set_properties`` and ``batch``;
 * the shared ``describe``'s deck handler and ``ppt_read_slides`` (:mod:`.read`);
 * text: ``ppt_set_text`` (speaker notes too) and ``ppt_format_text`` (table cells too);
-* shapes: ``ppt_add_shape``, ``ppt_set_shape`` (``fill`` on an SVG picture recolours it,
-  as PowerPoint's Graphics Fill), ``ppt_add_picture`` (SVG pictures too; an application's
+* shapes: ``ppt_add_shape``, ``ppt_set_shape`` (``fill`` and ``line`` on an SVG picture
+  recolour it, as PowerPoint's Graphics Fill and Outline), ``ppt_add_picture`` (SVG pictures too; an application's
   asset catalogue adds ``asset`` and ``ppt_find_asset``, :func:`deck_format`),
   ``ppt_add_connector``, ``ppt_arrange`` (align and distribute too); ``ppt_add_shape``
   with ``measure: true`` measures text before building; tables: ``ppt_add_table`` (with
@@ -81,7 +81,6 @@ from ..edit.chart import ChartDataError, ChartDataWarning
 from ..edit.deck import TemplateOpenedWarning
 from ..edit.labels import LabelError
 from ..edit.provenance import ProvenanceWarning
-from ..edit.svgpicture import RecolorWarning
 from ..edit.text import MarkdownEscapeWarning
 from ..edit.units import UnitWarning
 from ..fullstate import FullStateError
@@ -196,7 +195,7 @@ def _template_parts(deck) -> list[str]:
 FORMAT = DocumentFormat(
     kind=KIND, open=_open, detect=detect, problems=lambda deck: deck.validate(),
     warnings=(TemplateOpenedWarning, MarkdownEscapeWarning, ChartDataWarning, OutlineWarning,
-              UnitWarning, ProvenanceWarning, RecolorWarning),
+              UnitWarning, ProvenanceWarning),
     prompt=PROMPT,
     errors={LabelError: ("label_not_found", lambda exc: exc.candidates[:50]),
             ChartDataError: "refused", FullStateError: "refused"},

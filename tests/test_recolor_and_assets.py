@@ -1,5 +1,7 @@
 """Round 5, T20: an SVG picture recoloured as PowerPoint's Graphics Fill does it, and an
-application's asset catalogue (a folder and an index) searched and placed by id.
+application's asset catalogue (a folder and an index) searched and placed by id.  What the
+second round of measurements added (every theme slot, outlines, style sheets, sharing,
+transparency, gradients) is tested in ``test_recolor_measured.py``.
 
 What PowerPoint writes was measured in PowerPoint for Mac 16 (2026-10-15) on a picture of
 four paths -- two filled black, one with no fill, one ``currentColor`` -- recoloured accent 2
@@ -34,9 +36,9 @@ QUAD = (b'<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox
         b'<path fill="#000000" d="M13 13h9v9h-9z"/>\n'
         b'<path d="M13 2h9v9h-9z"/>\n'
         b'<path fill="currentColor" d="M2 13h9v9H2z"/>\n</svg>')
-#: An outline icon: nothing to fill.
-OUTLINE = (b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" '
-           b'fill="none" stroke="#000"><path d="M4 12h16"/><circle cx="12" cy="12" r="9"/></svg>')
+#: Nothing to recolour.
+EMPTY = (b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">'
+         b'<g/></svg>')
 #: A disc with an outlined tick on it, styled by a class rule, clipped by a clip path.
 STYLED = (b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">'
           b'<style>.ink{fill:#123456}</style>'
@@ -123,7 +125,7 @@ def test_accent2_is_written_as_powerpoint_writes_it_in_place():
     for path in paths:                                # no-fill and currentColor ones too
         assert path.get("class") == "MsftOfcThm_Accent2_Fill_v2"
         assert path.get("fill") == "#E97132" and path.get("fill-opacity") == "1"
-        assert path.get("stroke") is None            # strokes are left as they were
+        assert path.get("stroke") == "none"          # PowerPoint states the stroke
     assert [p.get("d") for p in paths][2] == "M13 2h9v9h-9z"   # path data not normalised
     png = _fallback(deck, picture)
     for corner in ((0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)):
@@ -141,21 +143,6 @@ def test_rgb_gets_fill_and_opacity_alone():
     assert _pixel(_fallback(deck, picture), 0.25, 0.75)[:3] == (255, 102, 0)
 
 
-def test_another_theme_colour_is_its_value_until_its_class_is_measured():
-    deck, slide, (picture,) = _picture()
-    picture.recolor("accent1")
-    root, paths = _paths(picture.vector)
-    assert root.find(f"{{{SVG}}}style") is None and paths[0].get("class") is None
-    value = paths[0].get("fill")
-    from pptx_agent.edit.color import Color
-
-    assert value == Color.parse("accent1").resolve(picture)
-    picture.recolor("text1")                           # through the slide's colour map
-    assert _paths(picture.vector)[1][0].get("fill") == Color.parse("tx1").resolve(picture)
-    picture.recolor("accent2 lumMod=75%")              # a shade: its value, no class
-    assert _paths(picture.vector)[1][0].get("class") is None
-
-
 def test_recolouring_again_drops_the_earlier_class_and_rule():
     deck, slide, (picture,) = _picture()
     picture.recolor("accent2")
@@ -166,17 +153,6 @@ def test_recolouring_again_drops_the_earlier_class_and_rule():
     picture.recolor("accent2")
     root, paths = _paths(picture.vector)
     assert len(root.findall(f"{{{SVG}}}style")) == 1
-
-
-def test_a_picture_sharing_its_images_gets_its_own_and_the_other_keeps_them():
-    deck, slide, (first, second) = _picture(count=2)
-    assert first.image_part == second.image_part      # stored once
-    first.recolor("accent2")
-    assert second.vector == QUAD
-    assert first.image_part != second.image_part
-    assert deck.validate() == []
-    archive = zipfile.ZipFile(io.BytesIO(deck.to_bytes()))
-    assert sum(name.endswith(".svg") for name in archive.namelist()) == 2
 
 
 def test_undo_takes_a_recolour_back():
@@ -193,12 +169,14 @@ def test_what_cannot_be_recoloured_is_refused():
     bitmap = slide.add_picture(ORANGE, 0, 0)
     with pytest.raises(ValueError, match="bitmap picture"):
         bitmap.recolor("accent2")
-    outline = slide.add_picture(OUTLINE, 0, 0)
-    with pytest.raises(ValueError, match="outlines only"):
-        outline.recolor("accent2")
+    empty = slide.add_picture(EMPTY, 0, 0)
+    with pytest.raises(ValueError, match="no shape to recolour"):
+        empty.recolor("accent2")
     _, _, (icon,) = _picture()
-    with pytest.raises(ValueError, match="without alpha"):
-        icon.recolor("accent2 alpha=50%")
+    with pytest.raises(ValueError, match="alpha=50%"):
+        icon.recolor("accent2 alphaMod=50%")
+    with pytest.raises(ValueError, match="a colour, an outline colour or an outline weight"):
+        icon.recolor()
     with pytest.raises(ValueError, match="neither a hex colour nor a theme colour"):
         icon.recolor("teal-ish")
     box = slide.add_shape("rect", 0, 0, 100, 100)
@@ -206,17 +184,18 @@ def test_what_cannot_be_recoloured_is_refused():
         box.recolor("accent2")
 
 
-def test_outlines_and_clip_paths_keep_their_colours_and_class_rules_are_overridden():
+def test_outlines_are_filled_and_clip_paths_keep_their_colours():
     deck, slide, (picture,) = _picture(STYLED)
-    with pytest.warns(svgpicture.RecolorWarning, match="1 shape"):
-        picture.recolor("#FF6600")
+    picture.recolor("#FF6600")
     root = etree.fromstring(picture.vector)
     circle = root.find(f"{{{SVG}}}circle")
-    # The SVG's own class rule would win over the attribute: the fill goes in its style too.
-    assert circle.get("fill") == "#FF6600" and circle.get("class") == "ink"
-    assert circle.get("style") == "opacity:.9;fill:#FF6600;fill-opacity:1"
-    tick = root.find(f"{{{SVG}}}path")
-    assert tick.get("fill") == "none" and tick.get("stroke") == "#fff"
+    # The style sheet and the style attribute go, what they set carried over (PowerPoint
+    # for Mac, 2026-10-15, oracle2/results.md §3); the class with them.
+    assert root.find(f"{{{SVG}}}style") is None
+    assert circle.get("fill") == "#FF6600" and circle.get("class") is None
+    assert circle.get("style") is None and circle.get("opacity") == ".9"
+    tick = root.find(f"{{{SVG}}}path")              # no fill: filled too (§2)
+    assert tick.get("fill") == "#FF6600" and tick.get("stroke") == "#fff"
     assert root.find(f"{{{SVG}}}clipPath/{{{SVG}}}rect").get("fill") == "#000"
 
 
@@ -284,9 +263,9 @@ def test_set_shape_fill_recolours_an_svg_picture_and_fills_behind_a_bitmap():
         outline = session.add_blob(STYLED, "styled.svg")
         made = _ok(toolbox.dispatch(session, "ppt_add_picture",
                                     {"doc": "d1", "image": outline, "slide": slide}))
-        warned = _ok(toolbox.dispatch(session, "ppt_set_shape", {"doc": "d1", "items": [
+        filled = _ok(toolbox.dispatch(session, "ppt_set_shape", {"doc": "d1", "items": [
             {"target": made.data["address"], "fill": "#FF6600"}]}))
-        assert any("keep their colours" in str(w) for w in warned.warnings)
+        assert not filled.warnings                   # outlines are filled too
 
 
 def test_without_a_catalogue_nothing_is_offered_for_one():

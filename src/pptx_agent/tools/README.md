@@ -110,9 +110,10 @@ its name without the extension ([`ooxml_edit.tools.assets`](https://github.com/u
 An object of your own with `search(query, limit)` and `get(id) -> (bytes, MIME type)` works
 the same: a search service, a database, a DAM.
 
-An inserted SVG icon is recoloured with `ppt_set_shape`'s `fill` (`"accent2"`, `"#1F4E79"`),
-as PowerPoint's Graphics Fill does it (`Shape.recolor`); on a bitmap picture `fill` stays its
-background fill, as in PowerPoint.
+An inserted SVG icon is recoloured with `ppt_set_shape`'s `fill` (`"accent2"`, `"#1F4E79"`,
+`"accent2 alpha=50%"`) and outlined with its `line` colour and width, as PowerPoint's
+Graphics Fill and Outline do it (`Shape.recolor`); on a bitmap picture `fill` and `line` stay
+its background fill and border, as in PowerPoint.
 
 ### Tables from data
 
