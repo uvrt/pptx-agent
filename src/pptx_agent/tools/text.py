@@ -10,6 +10,7 @@ from ooxml_edit.tools import (CORE, Result, ToolError, array, boolean, integer, 
                               string, tool)
 
 from ..edit.text import Paragraph, Run, TextFrame
+from . import textfacts
 from .common import (ALIGN, ANCHOR, AUTOFIT, AUTOFIT_ALIASES, BULLET, KIND, emu, fit_json, insets_param,
                      library_errors, resolve, text_params, touch_address, write_text)
 
@@ -61,7 +62,8 @@ def _fit_of(target) -> dict[str, Any] | None:
                                             "256/notes, or $ref."),
                            **text_params(described=False)}),
                       "Targets and their text.", min_items=1)},
-      kind=KIND, group=CORE, mutates=True, refs=("items[].target",))
+      kind=KIND, group=CORE, mutates=True, refs=("items[].target",),
+      facts=("items[].text", "items[].paragraphs[].runs[].text"))
 @library_errors
 def ppt_set_text(call, doc, items):
     deck = call.document
@@ -72,7 +74,11 @@ def ppt_set_text(call, doc, items):
             raise ToolError("invalid_arguments", "give text or paragraphs",
                             field=f"items[{index}].text", valid_options=["text", "paragraphs"])
         target = resolve(deck, item["target"], field=f"items[{index}].target")
+        where = textfacts.spot(deck, getattr(target, "address", None) or item["target"])
+        before = where.text() if where is not None else None
         write_text(target, item, field=f"items[{index}]")
+        if where is not None:            # values written by reference, kept on the shape
+            where.written(before, textfacts.placed(call, f"items[{index}]", item))
         touch_address(call, item["target"])
         written.append(str(getattr(target, "address", None) or item["target"]))
     from .tables import forget_cells     # (tables imports shapes, which imports this)

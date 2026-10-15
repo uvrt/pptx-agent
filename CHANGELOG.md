@@ -6,6 +6,30 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Figures in text keep their source (round 5, T4; ooxml-edit 0.33.0). Tables and charts
+  kept where their values came from, text did not: a card saying "Average 2.2 across 41
+  items" had no record of the 2.2, and builders expanded their own placeholders first.
+  - `ppt_set_text` (text and runs), `ppt_add_shape`, `ppt_add_table`'s `data`,
+    `ppt_edit_table`'s `set_cells` and `replace_text`'s `replace` take references,
+    `{{d:by_topic/door/mean}}` or `{{t:checks/N-1/rating}}`, `:0.0` after one to round:
+    the value is written in the session's locale (`2,2` in nl-BE) and the result's
+    `data.facts` lists each with its sources. `\{{` writes one literally; `{{name}}`
+    stays as it is; a reference to no single value refuses the call, changing nothing.
+  - The deck keeps each value as a fact -- the record's fields (`source`, `format`,
+    `text`, `document`, `version`, `sources`) and its place, `p` and `at` (a table's
+    `cell` too) -- in a `UVRT_TEXT_FACTS` tag of the shape's tags part
+    (`p:nvSpPr/p:nvPr/p:custDataLst/p:tags`; a table's frame, beside its own record).
+    `Document.provenance()` and `session.provenance(doc)` list them (`facts`) while their
+    characters are their text: an edit keeps the facts it does not touch, moved, and drops
+    the ones it does; a table's row and column inserts and deletes move or drop its cells'
+    facts; and reading skips a fact whose text is no longer where it says, whoever edited
+    it. Undo takes them with the text; copies take their own. Speaker notes and SmartArt
+    take the values but keep no facts.
+  - Not measured: that PowerPoint keeps a tag on a `p:sp` (it was measured on a graphic
+    frame, 2026-10-14). The prompt: one sentence on references in the deck fragment (197
+    characters, about 57 estimated tokens). The definitions are unchanged (core 3,542,
+    every definition 12,465; guards as they were); the strict set is unchanged.
+
 - A chart added with its look in one call (round 5, T2; ooxml-edit 0.32.0). Styling one
   new chart took a builder six turns. `edit_chart`'s `add`, which took the frame (`box`),
   scale, gridlines, legend position and number format already, also takes `data_labels:

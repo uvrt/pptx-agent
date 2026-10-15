@@ -100,6 +100,9 @@ slide built on it (checks.affects). The text tools take all of these.
 runs, bullets and frame. To size a box, measure first: ppt_add_shape with measure true \
 and the spec and preset (or like) the shape will get adds nothing and returns box_height; \
 or set fit_height when adding.
+- A figure from a dataset or table goes into text as {{d:<id>/<key>/<column>}} or \
+{{t:<table>/<key>/<column>}}, :0.0 after it to round: the tool writes the value in the \
+locale and keeps its source.
 - checks name shapes: overflows, collisions, off_slide. within_allowance is not an \
 overflow. A line behind an opaque shape is not a collision: send a marker line behind \
 bars rather than splitting it. checks.layout: shapes you touched that almost line up, \
