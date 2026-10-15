@@ -33,6 +33,8 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Align and distribute | `ppt_arrange` (`align`, `distribute`) | align an edge or centre to the targets' bounds, the slide or the content area; distribute with equal gaps between the outermost targets or across the content area, or with a fixed gap; one undo step, the boxes returned |
 | Pictures: insert, replace | `ppt_add_picture` | from an image blob; replacing keeps the frame, height or width |
 | SVG pictures | `ppt_add_picture` with an `image/svg+xml` blob | stored as PowerPoint 2016 and later store an inserted SVG: the vector, which PowerPoint can recolour, and a PNG fallback made for it; insert and replace |
+| Recolouring an SVG picture | `ppt_set_shape` `fill` on the picture | as PowerPoint's Graphics Fill (measured): every shape of the SVG filled with the colour, the PNG fallback drawn again; a theme colour resolved against the slide's theme, accent 2 also keeping its theme link (the only theme class measured); shapes with no fill (outlines) keep their colours; a bitmap picture is refused |
+| Brand assets (icons, logos) | `ppt_find_asset`, `ppt_add_picture` `asset` -- only when the application configured a catalogue (`deck_format(assets=...)`) | search by words: ids, names, keywords; insert or replace by id |
 | Tables: new; cells, rows, columns, merges, widths, heights, fill, borders; style and Table Design flags | `ppt_add_table`, `ppt_edit_table` (`set_style`, `set_flags`) | cells by row and column or by their labels; a style by name or id, the deck's own (a template's) or any of PowerPoint's 74 built-in styles; header row, total row, first and last column, banded rows and columns |
 | Tables from data: a dataset (`d:<id>`) or another open document's table (`t:<name>`) | `ppt_add_table`, `ppt_edit_table` (`set_cells`) with `from`, `from_columns`, `header` | every source row, the columns picked by name; a header row of the column names unless `header` gives its texts (`[]`: none); numbers as a chart's category labels write them, in the session's locale; dates as the source gives them; a source too big for the table is refused, never cut; the result's `data.from` gives each placed column's table column, source rows and their sources (the deck keeps it too, as a tag on the frame: `session.provenance(doc)`, `Document.provenance()`; edits without a source drop the columns or rows they make untrue) |
 | Figures in text from a dataset or another open document's table | `ppt_set_text`, `ppt_add_shape`, `ppt_add_table` (`data`), `ppt_edit_table` (`set_cells`), `replace_text` (`replace`): `{{d:<id>/<key>/<column>}}`, `{{t:<table>/<key>/<column>}}`, `#3` for a row by position, `:0`/`:0.0`/`:#,##0`/`:0.0%` to format | the value in the session's locale (a table cell's text, a percent column as a percent); the result's `data.facts`; the deck keeps each as a fact on its shape (`Document.provenance()`, `facts`) while its text is where it says; `\{{` writes a reference literally; speaker notes and SmartArt keep no facts |
@@ -56,7 +58,8 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 - **SmartArt creation:** build the graphic with shapes and connectors (`ppt_add_shape`,
   `ppt_add_connector`); existing SmartArt can be edited.
 - **Icons** (PowerPoint's icon library): no icon library is provided. An icon the
-  application brings as SVG can be inserted (SVG pictures, above).
+  application brings as SVG can be inserted (SVG pictures, above), or searched and
+  inserted from the application's own catalogue (brand assets, above).
 - **Video and audio.**
 - **Sections** (grouping slides into named sections).
 - **Hyperlinks:** no links between slides, and no listing or editing of links. (A web address

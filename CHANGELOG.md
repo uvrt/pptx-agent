@@ -6,6 +6,30 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Brand assets and recolouring (round 5, T20; ooxml-edit 0.34.0). Production shipped two
+  tools of its own over a brand icon set (about 2,800 SVGs with a keyword index), and
+  `Picture.replace_image(svg=)` had no tool, so a highlighted icon was inserted again.
+  - `Shape.recolor(color)`: an SVG picture's shapes filled with one colour as PowerPoint's
+    Graphics Fill does it, measured on PowerPoint for Mac (2026-10-15): the SVG rewritten
+    in place (`fill` and `fill-opacity="1"` on every shape, no-fill and `currentColor` ones
+    too; for accent 2 also PowerPoint's class and rule, `MsftOfcThm_Accent2_Fill_v2`, which
+    keeps the theme link), the PNG fallback drawn again, the `p:pic` kept. A theme colour
+    is resolved against the slide's theme and colour map; other slots' classes are not
+    measured, so their value alone is written. Outline shapes (fill `none`) keep their
+    colours (`svgpicture.RecolorWarning`); a bitmap, an outline-only SVG and a colour with
+    alpha are refused. Parts another picture shares are not touched: this one gets its own.
+  - Tools: `ppt_set_shape`'s `fill` on an SVG picture recolours it -- PowerPoint's own name
+    for a graphic's recolour -- and on a bitmap picture is refused with what to do;
+    `none` and `inherit` work as before. No new parameter: the core is unchanged.
+    `ppt_add_picture`'s description says so (+9 estimated tokens for every definition,
+    12,465 -> 12,474; the guard rises from 12,470 to 12,480).
+  - `deck_format(assets=catalogue)`: an application's asset catalogue (`FolderCatalogue`
+    over a folder and a JSON or CSV index, or any object with `search` and `get`). With
+    one the toolbox offers `ppt_find_asset` (deferred, `ppt_objects`; ids, names and
+    keywords for words) and `ppt_add_picture` takes `asset` in place of `image`, to insert
+    or replace; without one neither is sent (with one: +141 estimated tokens, all
+    deferred; the core unchanged).
+
 - Ids are never handed out twice while a deck is open (round 5, T9). Deleting shape
   `256.3` and adding one gave the new shape `256.3`; deleting slide 257 and adding one gave
   the new slide 257 -- so a reviewer's finding or an agent's note about the old one silently

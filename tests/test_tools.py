@@ -100,10 +100,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: descriptions, "Batch several changes." -- adds 62 to every definition (12,403 -> 12,465),
 #: none to the core (3,542); the guard rises to 12,470.  The strict set is unchanged:
 #: edit_chart is sent non-strict.
+#: Round 5, T20: ppt_add_picture's description says ppt_set_shape's fill recolours an SVG
+#: picture (PowerPoint's Graphics Fill, no new parameter): +9 to every definition (12,465 ->
+#: 12,474), none to the core (3,542); the guard rises to 12,480.  The strict set is
+#: unchanged.  An asset catalogue, when the application configures one
+#: (``deck_format(assets=...)``), adds the deferred ppt_find_asset and ppt_add_picture's
+#: ``asset`` (+141, 12,615); without one nothing is sent for it.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12470
+ALL_GUARD = 12480
 
 
 def estimate_tokens(definitions) -> int:

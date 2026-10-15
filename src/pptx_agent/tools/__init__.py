@@ -24,7 +24,9 @@ What is here (the tool layer's roadmap numbers them):
   ``set_properties`` and ``batch``;
 * the shared ``describe``'s deck handler and ``ppt_read_slides`` (:mod:`.read`);
 * text: ``ppt_set_text`` (speaker notes too) and ``ppt_format_text`` (table cells too);
-* shapes: ``ppt_add_shape``, ``ppt_set_shape``, ``ppt_add_picture`` (SVG pictures too),
+* shapes: ``ppt_add_shape``, ``ppt_set_shape`` (``fill`` on an SVG picture recolours it,
+  as PowerPoint's Graphics Fill), ``ppt_add_picture`` (SVG pictures too; an application's
+  asset catalogue adds ``asset`` and ``ppt_find_asset``, :func:`deck_format`),
   ``ppt_add_connector``, ``ppt_arrange`` (align and distribute too); ``ppt_add_shape``
   with ``measure: true`` measures text before building; tables: ``ppt_add_table`` (with
   ``measure: true``, row heights and pages before placing), ``ppt_edit_table`` (fill and
@@ -79,6 +81,7 @@ from ..edit.chart import ChartDataError, ChartDataWarning
 from ..edit.deck import TemplateOpenedWarning
 from ..edit.labels import LabelError
 from ..edit.provenance import ProvenanceWarning
+from ..edit.svgpicture import RecolorWarning
 from ..edit.text import MarkdownEscapeWarning
 from ..edit.units import UnitWarning
 from ..fullstate import FullStateError
@@ -193,7 +196,7 @@ def _template_parts(deck) -> list[str]:
 FORMAT = DocumentFormat(
     kind=KIND, open=_open, detect=detect, problems=lambda deck: deck.validate(),
     warnings=(TemplateOpenedWarning, MarkdownEscapeWarning, ChartDataWarning, OutlineWarning,
-              UnitWarning, ProvenanceWarning),
+              UnitWarning, ProvenanceWarning, RecolorWarning),
     prompt=PROMPT,
     errors={LabelError: ("label_not_found", lambda exc: exc.candidates[:50]),
             ChartDataError: "refused", FullStateError: "refused"},
@@ -203,9 +206,9 @@ FORMAT = DocumentFormat(
     configure=_configure,
     store_provenance=tables.store_provenance, read_provenance=tables.read_provenance)
 
-def deck_format(*, min_text_size: float | None = None) -> DocumentFormat:
+def deck_format(*, min_text_size: float | None = None, assets=None) -> DocumentFormat:
     """:data:`FORMAT` with the application's own settings -- never tool arguments, so the
-    definitions the model is sent stay the same:
+    definitions the model is sent stay the same unless a setting adds a tool:
 
     ``min_text_size`` (points): ``check``, the checks after every change and
     ``save_document`` report ``small_text``, each shape or table cell whose text is drawn
@@ -214,15 +217,35 @@ def deck_format(*, min_text_size: float | None = None) -> DocumentFormat:
     body placeholder"`` (:meth:`Slide.text_below <pptx_agent.Slide.text_below>`)::
 
         toolbox = Toolbox(TOOLS, formats=[deck_format(min_text_size=12)], groups=GROUPS)
+
+    ``assets``: the application's asset catalogue -- brand icons, logos -- any object with
+    ``search(query, limit)`` and ``get(id) -> (bytes, MIME type)``
+    (:class:`ooxml_edit.tools.AssetCatalogue`), such as
+    :class:`ooxml_edit.tools.FolderCatalogue` over a folder and a JSON or CSV index.  With
+    one the toolbox offers ``ppt_find_asset`` (deferred, in ``ppt_objects``: ids, names and
+    keywords for words) and ``ppt_add_picture`` takes ``asset``, an id, in place of
+    ``image`` -- on ``target`` too, to replace a picture's image.  Without one neither is
+    sent, so a toolbox without a catalogue pays nothing for it::
+
+        from ooxml_edit.tools import FolderCatalogue
+
+        icons = FolderCatalogue("brand-icons")               # brand-icons/index.json
+        toolbox = Toolbox(TOOLS, formats=[deck_format(assets=icons)], groups=GROUPS)
     """
     if min_text_size is not None and not 1 <= float(min_text_size) <= 400:
         raise ValueError("min_text_size is points between 1 and 400, or None for no minimum")
+    if assets is not None and not (callable(getattr(assets, "search", None))
+                                   and callable(getattr(assets, "get", None))):
+        raise ValueError("assets is a catalogue: an object with search(query, limit) and "
+                         "get(id), such as ooxml_edit.tools.FolderCatalogue")
+    tools = (() if assets is None
+             else (shapes.picture_tool(assets), shapes.find_asset_tool(assets)))
 
     def configure(deck, session) -> None:
         _configure(deck, session)
         deck.min_text_size = None if min_text_size is None else float(min_text_size)
 
-    return dataclasses.replace(FORMAT, configure=configure)
+    return dataclasses.replace(FORMAT, configure=configure, tools=tools)
 
 
 GROUPS = [*shared.GROUPS,

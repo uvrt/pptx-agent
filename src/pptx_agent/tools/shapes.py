@@ -272,7 +272,11 @@ def ppt_set_shape(call, doc, items):
             raise ToolError("invalid_arguments", "give fill or gradient, not both",
                             field=f"{field}.gradient")
         if "fill" in item:
-            shape.fill = None if item["fill"] == "inherit" else item["fill"]
+            if shape.kind == "picture" and item["fill"].strip().lower() not in ("none",
+                                                                                 "inherit"):
+                _recolor(shape, item["fill"], f"{field}.fill")
+            else:
+                shape.fill = None if item["fill"] == "inherit" else item["fill"]
         if "gradient" in item:
             gradient = item["gradient"]
             shape.set_gradient_fill([(stop["position"] / 100, stop["color"])
@@ -289,69 +293,140 @@ def ppt_set_shape(call, doc, items):
                   data={"boxes": shapes})
 
 
-@tool("ppt_add_picture",
-      "Insert a picture from an image blob on a slide, or replace a picture's image "
-      "(target), keeping its frame, height or width. An SVG stays vector, with a PNG "
-      "fallback made for it. Returns its address and native size.",
-      {"doc": string("Document id."),
-       "image": string("Image blob handle, e.g. b2."),
-       "slide": string("Slide to insert on, s:256 or $ref.", optional=True),
-       "target": string("Or the picture to replace.", optional=True),
-       "box": _box("Default: native size at the content area's top left.", optional=True),
-       "keep": string("Replacing: what of the frame stays. Default frame.",
-                      enum=["frame", "height", "width", "none"], optional=True),
-       "anchor": string("Replacing: the point that stays put. Default top_left.",
-                        enum=["top_left", "top", "top_right", "left", "center", "right",
-                              "bottom_left", "bottom", "bottom_right"], optional=True),
-       "ref": _REF, "key": _KEY},
-      kind=KIND, group=OBJECTS, mutates=True, exactly_one=[("slide", "target")],
-      refs=("slide", "target"))
-@library_errors
-def ppt_add_picture(call, doc, image, slide=None, target=None, box=None, keep=None,
-                    anchor=None, ref=None, key=None):
-    deck = call.document
-    blob = call.blob(image)
-    if not blob.mime.startswith("image/"):
-        raise ToolError("invalid_arguments", f"{image} is {blob.mime}, not an image",
-                        field="image")
+def _recolor(picture, color: str, field: str) -> None:
+    """``fill`` on a picture: PowerPoint's Graphics Fill, which recolours an SVG picture's
+    shapes (:meth:`Shape.recolor <pptx_agent.Shape.recolor>`); a bitmap's colours are its
+    own."""
+    if picture.vector is None:
+        raise ToolError("invalid_arguments",
+                        f"{picture.id} is a bitmap picture: fill recolours an SVG picture "
+                        "only. Replace its image with an SVG (ppt_add_picture target) first, "
+                        "or leave its colours", field=field)
     try:
-        if target is not None:
-            picture = shape_at(deck, target)
-            if picture.kind != "picture":
-                raise ToolError("invalid_arguments",
-                                f"{target} is a {picture.kind}, not a picture", field="target")
-            picture.replace_image(blob.data, keep=keep or "frame",
-                                  anchor=anchor or "top_left")
-            address, verb = picture.id, "Replaced the image of"
-        else:
-            host = slide_at(deck, slide)
-            if box is not None:
-                x, y, w, h = box_emu(box)
-                picture = host.add_picture(blob.data, x, y, width=w, height=h)
-            else:
-                left, top, _, _ = host.content_area
-                picture = host.add_picture(blob.data, left, top)
-            address, verb = picture.id, "Inserted"
-    except ImportError as error:          # an SVG's PNG fallback needs pptx-agent[png]
-        raise ToolError("refused", str(error), field="image") from None
-    if ref:
-        call.define_ref(ref, address)
-    call.touch(picture._slide.slide_id, picture.id)
-    vector = picture.vector
-    if vector is not None:
-        from ..edit import svgpicture
+        picture.recolor(color)
+    except ImportError as error:          # the PNG fallback needs pptx-agent[png]
+        raise ToolError("refused", str(error), field=field) from None
+    except ValueError as error:
+        raise ToolError("invalid_arguments", str(error), field=field) from None
 
-        native = svgpicture.native_size(svgpicture.parse(vector))
-        size = [round(native[0]), round(native[1])] if native else None
-    else:
-        image = picture.image_size
-        size = [image.width, image.height] if image else None
-    data = {"address": address, "box": box_pt(picture.bounds), "native_px": size}
-    if vector is not None:
-        data["svg"] = True
-    return Result(summary=f"{verb} picture {address}",
-                  created=[address] if target is None else [],
-                  changed=[address] if target is not None else [], data=data)
+
+#: The tool that finds a catalogue's assets, when the application configured one.
+FIND_ASSET = "ppt_find_asset"
+
+
+def picture_tool(catalogue=None):
+    """``ppt_add_picture``; with an application's asset catalogue
+    (:func:`pptx_agent.tools.deck_format`'s ``assets``), the same tool taking ``asset``, an
+    id :data:`FIND_ASSET` found, in place of ``image``."""
+    params = {"doc": string("Document id."),
+              "image": string("Image blob handle, e.g. b2.",
+                              optional=catalogue is not None)}
+    if catalogue is not None:
+        params["asset"] = string(f"Or an asset id from {FIND_ASSET}.", optional=True)
+    params.update({
+        "slide": string("Slide to insert on, s:256 or $ref.", optional=True),
+        "target": string("Or the picture to replace.", optional=True),
+        "box": _box("Default: native size at the content area's top left.", optional=True),
+        "keep": string("Replacing: what of the frame stays. Default frame.",
+                       enum=["frame", "height", "width", "none"], optional=True),
+        "anchor": string("Replacing: the point that stays put. Default top_left.",
+                         enum=["top_left", "top", "top_right", "left", "center", "right",
+                               "bottom_left", "bottom", "bottom_right"], optional=True),
+        "ref": _REF, "key": _KEY})
+    exactly_one = [("slide", "target")]
+    if catalogue is not None:
+        exactly_one.append(("image", "asset"))
+
+    @tool("ppt_add_picture",
+          "Insert a picture from an image blob"
+          + (" or catalogue asset" if catalogue is not None else "")
+          + " on a slide, or replace a picture's image (target), keeping its frame, height "
+          "or width. An SVG stays vector, with a PNG fallback made for it; ppt_set_shape "
+          "fill recolours it. Returns its address and native size.",
+          params, kind=KIND, group=OBJECTS, mutates=True, exactly_one=exactly_one,
+          refs=("slide", "target"))
+    @library_errors
+    def ppt_add_picture(call, doc, image=None, slide=None, target=None, box=None, keep=None,
+                        anchor=None, ref=None, key=None, asset=None):
+        deck = call.document
+        if asset is not None:
+            from ooxml_edit.tools import assets
+
+            data, _ = assets.fetch(catalogue, asset, call.session.limits,
+                                   search_tool=FIND_ASSET)
+        else:
+            blob = call.blob(image)
+            if not blob.mime.startswith("image/"):
+                raise ToolError("invalid_arguments", f"{image} is {blob.mime}, not an image",
+                                field="image")
+            data = blob.data
+        try:
+            if target is not None:
+                picture = shape_at(deck, target)
+                if picture.kind != "picture":
+                    raise ToolError("invalid_arguments",
+                                    f"{target} is a {picture.kind}, not a picture",
+                                    field="target")
+                picture.replace_image(data, keep=keep or "frame",
+                                      anchor=anchor or "top_left")
+                address, verb = picture.id, "Replaced the image of"
+            else:
+                host = slide_at(deck, slide)
+                if box is not None:
+                    x, y, w, h = box_emu(box)
+                    picture = host.add_picture(data, x, y, width=w, height=h)
+                else:
+                    left, top, _, _ = host.content_area
+                    picture = host.add_picture(data, left, top)
+                address, verb = picture.id, "Inserted"
+        except ImportError as error:      # an SVG's PNG fallback needs pptx-agent[png]
+            raise ToolError("refused", str(error),
+                            field="asset" if asset is not None else "image") from None
+        if ref:
+            call.define_ref(ref, address)
+        call.touch(picture._slide.slide_id, picture.id)
+        vector = picture.vector
+        if vector is not None:
+            from ..edit import svgpicture
+
+            native = svgpicture.native_size(svgpicture.parse(vector))
+            size = [round(native[0]), round(native[1])] if native else None
+        else:
+            stored = picture.image_size
+            size = [stored.width, stored.height] if stored else None
+        data = {"address": address, "box": box_pt(picture.bounds), "native_px": size}
+        if vector is not None:
+            data["svg"] = True
+        return Result(summary=f"{verb} picture {address}",
+                      created=[address] if target is None else [],
+                      changed=[address] if target is not None else [], data=data)
+
+    return ppt_add_picture
+
+
+ppt_add_picture = picture_tool()
+
+
+def find_asset_tool(catalogue):
+    """``ppt_find_asset``: the application's asset catalogue searched by words; offered
+    only with one (:func:`pptx_agent.tools.deck_format`'s ``assets``)."""
+    from ooxml_edit.tools import assets
+
+    @tool(FIND_ASSET,
+          "Search the brand asset catalogue (icons, logos) by words. Returns ids, names "
+          "and keywords; place one with ppt_add_picture asset.",
+          {"query": string("Words, e.g. arrow up."),
+           "limit": integer("Default 10.", minimum=1, maximum=assets.MAX_RESULTS,
+                            optional=True)},
+          group=OBJECTS, documents=())
+    def ppt_find_asset(call, query, limit=None):
+        found = assets.find(catalogue, query, limit or 10)
+        names = ", ".join(item["id"] for item in found[:10])
+        return Result(summary=f"{len(found)} asset(s)" + (f": {names}" if names else
+                                                          "; try other words"),
+                      data={"assets": found})
+
+    return ppt_find_asset
 
 
 _SIDES = ["auto", "top", "right", "bottom", "left"]
