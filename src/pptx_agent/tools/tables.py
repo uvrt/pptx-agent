@@ -54,7 +54,8 @@ from ooxml_edit.tools import sources
 from ..edit import provenance as _provenance
 from ..edit.tablestyles import FLAGS
 
-from .common import (KIND, box_emu, emu, library_errors, shape as shape_at,
+from ..edit.fit import build_table
+from .common import (KIND, box_emu, emu, library_errors, pt, shape as shape_at,
                      host as slide_at)
 from .shapes import OBJECTS, _box
 
@@ -122,13 +123,19 @@ def table_json(frame, table) -> dict[str, Any]:
        "from_columns": _FROM_COLUMNS,
        "header": _HEADER,
        "style": _STYLE,
+       "size": number("Text size, points.", minimum=1, maximum=400, optional=True),
+       "widths": array(number(minimum=0, maximum=10000), "Column widths, points.",
+                       optional=True),
        "ref": string("Ref name for the table.", optional=True),
+       "measure": boolean("Add nothing: row heights, pages of h (0: content area), "
+                          "header repeated.", optional=True),
        "key": _KEY},
       kind=KIND, group=OBJECTS, mutates=True, refs=("slide",), sources=("from",),
-      aliases=_COLUMN_NAMES)
+      aliases=_COLUMN_NAMES, reads=lambda arguments: bool(arguments.get("measure")))
 @library_errors
 def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, style=None,
-                  ref=None, key=None, header=None, from_columns=None, **given):
+                  ref=None, key=None, header=None, from_columns=None, size=None, widths=None,
+                  measure=False, **given):
     source = given.get("from")
     placed = None
     if source is None:
@@ -155,14 +162,18 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
                         f"at most {MAX_CELLS:,}" + (": filter the source or split it across "
                                                     "tables" if placed else ""),
                         field="from" if placed else "rows")
+    if widths is not None and len(widths) != columns:
+        raise ToolError("invalid_arguments", f"{len(widths)} widths for {columns} columns",
+                        field="widths")
     host = slide_at(call.document, slide)
     x, y, w, h = box_emu(box)
-    frame = host.add_table(rows, columns, x, y, w, h, style=_style_id(call.document, style))
-    table = frame.table
-    for row, values in enumerate((data or [])[:rows]):
-        for column, text in enumerate(values[:columns]):
-            if text:
-                table.cell(row, column).text = text
+    style_id = _style_id(call.document, style)
+    column_widths = None if widths is None else [emu(value) for value in widths]
+    if measure:
+        return _measure(call, host, box, rows, columns, data, style_id, size, column_widths,
+                        placed)
+    frame = build_table(host, rows, columns, x, y, w, h, data, style=style_id, size=size,
+                        widths=column_widths)
     if ref:
         call.define_ref(ref, frame.id)
     call.touch(host.slide_id)
@@ -173,6 +184,39 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
     return Result(summary=f"Added a {rows}x{columns} table {frame.id}"
                   + (f" from {placed.rows.address}" if placed else ""), created=[frame.id],
                   data=result)
+
+
+def _measure(call, host, box, rows, columns, data, style, size, widths, placed) -> Result:
+    """``ppt_add_table`` with ``measure``: the table built as the add builds it, on a copy
+    of the deck, and measured (:meth:`Slide.measure_table <pptx_agent.Slide.measure_table>`);
+    the deck is not changed.  Pages number the rows below the header from 1 -- with
+    ``from``, its source rows."""
+    if widths is None and box["w"] <= 0:
+        raise ToolError("invalid_arguments", "measuring needs a width over 0, or widths",
+                        field="box.w")
+    if box["h"] <= 0 and getattr(host, "kind", None) in ("layout", "master"):
+        raise ToolError("invalid_arguments", f"a {host.kind} has no content area: give the "
+                        "page height as h", field="box.h")
+    header = placed.header != [] if placed is not None else True
+    measured = host.measure_table(data, rows=rows, columns=columns,
+                                  width=None if widths else emu(box["w"]),
+                                  height=emu(box["h"]) if box["h"] > 0 else None,
+                                  style=style, size=size, widths=widths, header=header)
+    first = measured.header_rows
+    pages = [{"rows": f"{page.start - first + 1}-{page.stop - first}", "h": pt(height)}
+             for page, height in zip(measured.pages, measured.page_heights)]
+    data = {"heights": [pt(height) for height in measured.heights], "height":
+            pt(measured.height), "page_height": pt(measured.page_height),
+            "fits": measured.fits, "header": pt(measured.heights[0]) if first else None,
+            "pages": pages}
+    if measured.too_tall:
+        data["too_tall"] = [row - first + 1 for row in measured.too_tall]
+    spread = ", ".join(page["rows"] for page in pages[:10])
+    summary = (f"Measured a {rows}x{columns} table, nothing added: {data['height']} pt tall; "
+               + ("it fits" if measured.fits else f"{len(pages)} page(s) of "
+                  f"{data['page_height']} pt" + (" with the header repeated" if first else "")
+                  + f": rows {spread}"))
+    return Result(summary=summary, data=data)
 
 
 class _Placed:
