@@ -87,10 +87,14 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: Round 5, T3: ppt_add_table's ``continue`` (rows past the page on new slides after it)
 #: adds 29 to every definition (12,196 -> 12,225), none to the core (3,526); the guard
 #: rises to 12,230.  The strict set is unchanged.
+#: Round 5, T5: ppt_arrange's grid and flow (``gap_y``, ``columns``, ``rows``, ``box``; gap
+#: shared with distribute) add 162 to every definition (12,225 -> 12,387), none to the core
+#: (3,526): ppt_arrange is deferred.  The guard rises to 12,390.  The strict set is
+#: unchanged: ppt_arrange is sent non-strict.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12230
+ALL_GUARD = 12390
 
 
 def estimate_tokens(definitions) -> int:
@@ -432,6 +436,123 @@ def test_arrange_aligns_and_distributes_in_one_undo_step_each(toolbox, session):
     two = call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles[:2],
                action="distribute", axis="vertical")
     assert not two.ok and "three shapes" in two.error.message
+
+
+def test_arrange_grid_lays_41_tiles_out_in_the_content_area_in_one_batch(toolbox, session):
+    """Round 5, T5: a tile grid in one batch -- add the tiles, then grid them by $ref."""
+    entry = session.entry("d1")
+    before = entry.version
+    tiles = [{"preset": "rect", "box": {"x": 0, "y": 0, "w": 10, "h": 10},
+              "text": f"{i + 1}", "ref": f"t{i}"} for i in range(41)]
+    result = ok(call(toolbox, session, "batch", ops=[
+        {"tool": "ppt_add_shape", "arguments": {"doc": "d1", "slide": "s:257", "items": tiles}},
+        {"tool": "ppt_arrange", "arguments": {"doc": "d1", "action": "grid", "columns": 7,
+                                              "gap": 6, "gap_y": 4,
+                                              "targets": [f"$t{i}" for i in range(41)]}}]))
+    assert entry.version == before + 1
+    deck = entry.document
+    left, top, width, height = (v / 12700 for v in deck.slides[1].content_area)
+    ids = [result.refs[f"t{i}"] for i in range(41)]
+    boxes = [box_of(deck.shape(address)) for address in ids]
+    cell_w, cell_h = (width - 6 * 6) / 7, (height - 5 * 4) / 6
+    for index, (x, y, w, h) in enumerate(boxes):
+        row, col = divmod(index, 7)
+        assert x == pytest.approx(left + col * (cell_w + 6), abs=0.02)
+        assert y == pytest.approx(top + row * (cell_h + 4), abs=0.02)
+        assert (w, h) == (pytest.approx(cell_w, abs=0.02), pytest.approx(cell_h, abs=0.02))
+    assert boxes[-1][1] + boxes[-1][3] == pytest.approx(top + height, abs=0.05)
+    ok(call(toolbox, session, "undo", doc="d1"))
+    assert len(entry.document.slides[1].shapes) == 2           # the title and body only
+
+
+def box_of(shape):
+    return tuple(v / 12700 for v in shape.drawn_bounds)
+
+
+def test_arrange_grid_in_a_box_keeps_pictures_aspect_and_reports_boxes(toolbox, session):
+    from images import png
+
+    made = ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 30, "h": 30}, "ref": f"c{i}"}
+        for i in range(3)]))
+    photo = session.add_blob(png(40, 20, lambda x, y: (200, 40, 40)), "photo.png")
+    picture = ok(call(toolbox, session, "ppt_add_picture", doc="d1", slide="s:256",
+                      image=photo, box={"x": 0, "y": 0, "w": 40, "h": 20}, ref="p"))
+    entry = session.entry("d1")
+    before = entry.version
+    targets = ["$c0", "$p", "$c1", "$c2"]
+    grid = ok(call(toolbox, session, "ppt_arrange", doc="d1", targets=targets,
+                   action="grid", columns=2, gap=20,
+                   box={"x": 100, "y": 100, "w": 420, "h": 220}))
+    assert entry.version == before + 1
+    boxes = grid.data["boxes"]
+    assert list(boxes) == [made.created[0], picture.created[0], *made.created[1:]]
+    assert boxes[made.created[0]] == {"x": 100.0, "y": 100.0, "w": 200.0, "h": 100.0}
+    assert boxes[made.created[2]] == {"x": 320.0, "y": 220.0, "w": 200.0, "h": 100.0}
+    # the picture keeps 2:1 and is centred in its 200 x 100 cell -- exactly fits here
+    assert boxes[picture.created[0]] == {"x": 320.0, "y": 100.0, "w": 200.0, "h": 100.0}
+    tall = ok(call(toolbox, session, "ppt_arrange", doc="d1", targets=targets,
+                   action="grid", columns=4, box={"x": 0, "y": 0, "w": 400, "h": 300}))
+    assert tall.data["boxes"][picture.created[0]] == {"x": 100.0, "y": 125.0, "w": 100.0,
+                                                      "h": 50.0}
+    assert tall.data["boxes"][made.created[0]]["h"] == 300.0
+    rows = ok(call(toolbox, session, "ppt_arrange", doc="d1", targets=targets,
+                   action="grid", rows=1, box={"x": 0, "y": 0, "w": 400, "h": 100}))
+    assert [b["x"] for b in rows.data["boxes"].values()] == [0.0, 100.0, 200.0, 300.0]
+
+
+def test_arrange_flow_wraps_shapes_at_their_size(toolbox, session):
+    ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 80, "h": 40}, "ref": f"f{i}"}
+        for i in range(5)]))
+    flowed = ok(call(toolbox, session, "ppt_arrange", doc="d1", action="flow", gap=10,
+                     targets=[f"$f{i}" for i in range(5)],
+                     box={"x": 50, "y": 100, "w": 270, "h": 200}))
+    assert [(b["x"], b["y"], b["w"]) for b in flowed.data["boxes"].values()] == [
+        (50.0, 100.0, 80.0), (140.0, 100.0, 80.0), (230.0, 100.0, 80.0),
+        (50.0, 150.0, 80.0), (140.0, 150.0, 80.0)]
+    capped = ok(call(toolbox, session, "ppt_arrange", doc="d1", action="flow", columns=2,
+                     targets=[f"$f{i}" for i in range(5)],
+                     box={"x": 0, "y": 0, "w": 900, "h": 200}))
+    assert [b["y"] for b in capped.data["boxes"].values()] == [0.0, 0.0, 40.0, 40.0, 80.0]
+    short = call(toolbox, session, "ppt_arrange", doc="d1", action="flow", gap=10,
+                 targets=[f"$f{i}" for i in range(5)],
+                 box={"x": 0, "y": 0, "w": 270, "h": 60})
+    assert short.error.code == "refused" and "taller" in short.error.message
+
+
+def test_arrange_grid_refusals(toolbox, session):
+    made = ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 30, "h": 30}, "ref": f"r{i}"}
+        for i in range(4)]))
+    other = ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:257", items=[
+        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 30, "h": 30}}]))
+    tiles = [f"$r{i}" for i in range(4)]
+    box = {"x": 0, "y": 0, "w": 100, "h": 100}
+    entry = session.entry("d1")
+    before = entry.version
+    for arguments, code, field, words in (
+            ({"columns": 0}, "invalid_arguments", "columns", None),
+            ({"columns": 4, "gap": 40, "box": box}, "refused", "box", "smaller gap"),
+            ({"columns": 2, "gap": 10, "gap_y": 120, "box": box}, "refused", "box",
+             "taller box"),
+            ({"columns": 1, "rows": 2}, "invalid_arguments", None, "4 shapes do not fit"),
+            ({"columns": 2, "edge": "left"}, "invalid_arguments", "edge", None)):
+        refused = call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles,
+                       action="grid", **arguments)
+        assert not refused.ok and refused.error.code in (code, "refused")
+        if field:
+            assert refused.error.field == field
+        if words:
+            assert words in refused.error.message
+    for name, value in (("columns", 2), ("box", box), ("gap_y", 3)):
+        refused = call(toolbox, session, "ppt_arrange", doc="d1", targets=tiles,
+                       action="align", edge="left", **{name: value})
+        assert not refused.ok and refused.error.field == name
+    apart = call(toolbox, session, "ppt_arrange", doc="d1", action="grid", columns=2,
+                 targets=[made.created[0], other.created[0]])
+    assert not apart.ok and "one slide" in apart.error.message
+    assert entry.version == before
 
 
 def test_connector_sides_face_each_other(toolbox, session):
