@@ -822,6 +822,14 @@ class TableCell:
     def _body_chain(self) -> list:
         return [self._tc().find(f"{qn('a:txBody')}/{qn('a:bodyPr')}")]
 
+    def _text_defaults(self) -> list:
+        """The table style's text styles over this cell, nearest first
+        (:func:`.tablestyles.cell_text_styles`)."""
+        from . import tablestyles
+
+        return tablestyles.cell_text_styles(self._table._shape()._slide.document,
+                                            self._table._table(), self.row, self.column)
+
     def _theme_source(self):
         return self._table._shape()
 

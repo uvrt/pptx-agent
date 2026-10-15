@@ -1464,6 +1464,47 @@ class Run:
                                   self._element())
 
     @property
+    def effective_color(self) -> Color | None:
+        """The colour the run is drawn in, resolved to RGB: its own, or what it inherits
+        through the same chain as :attr:`effective_size` -- plus, for text outside a
+        placeholder, its shape style's ``fontRef`` colour or its table style's text colour
+        (when the deck's ``tableStyles.xml`` defines the style) -- with a theme colour
+        taken through the slide's colour map and theme and its modifiers applied.  A
+        hyperlink without a colour of its own is the theme's ``hlink``; text nothing gives
+        a colour is black.  ``None`` when the text is not one solid colour (a gradient).
+
+        For example::
+
+            run.color, run.effective_color               # (None, Color('#1F3864'))
+            run.effective_source("color")                # "the master's titleStyle"
+        """
+        from . import effective
+
+        return effective.color(self._paragraph._frame._host(), self._paragraph._element(),
+                               self._element())
+
+    def effective_source(self, attribute: str = "size") -> str:
+        """Where the run's effective ``"size"`` or ``"color"`` comes from, in words:
+        ``"the run"``, ``"the paragraph"``, ``"the shape's list style"``, ``"layout 'Title
+        and Content' body placeholder"``, ``"the master's bodyStyle"``, ``"the
+        presentation's default text style"``, ``"table style 'Brand' firstRow"``...  A size
+        shrunk by the stored autofit scale says so (``"... at 90% autofit"``).
+
+        For example::
+
+            run.effective_size, run.effective_source()   # (9.0, "layout 'Title and Content' body placeholder")
+        """
+        from . import effective
+
+        host, paragraph, element = (self._paragraph._frame._host(),
+                                    self._paragraph._element(), self._element())
+        if attribute == "size":
+            return effective.size_source(host, paragraph, element)
+        if attribute == "color":
+            return effective.color_source(host, paragraph, element)[1]
+        raise ValueError(f"effective_source takes 'size' or 'color', not {attribute!r}")
+
+    @property
     def color(self) -> Color | None:
         """The run's solid text colour, or ``None`` when inherited (or not a solid fill).
 

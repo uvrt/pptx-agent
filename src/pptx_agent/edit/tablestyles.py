@@ -208,6 +208,97 @@ FLAGS = {"first_row": "firstRow", "last_row": "lastRow", "first_column": "firstC
          "last_column": "lastCol", "banded_rows": "bandRow", "banded_columns": "bandCol"}
 
 
+def _band(index: int, first: bool, last: bool, count: int) -> int | None:
+    """0 for a first band, 1 for a second, ``None`` outside the banding: a header or total
+    row (column) does not band and does not advance it, as pptx2svg measured."""
+    start = 1 if first else 0
+    end = count - (1 if last else 0)
+    if not start <= index < end:
+        return None
+    return (index - start) % 2
+
+
+def _builtin_text_style(style_id: str) -> Element | None:
+    """A built-in style's text colours as an ``a:tblStyle`` holding only ``a:tcTxStyle``s,
+    or ``None`` for a GUID that is not built in."""
+    from .color import Color
+    from .table_text_colors import BUILTIN_TEXT_COLORS
+
+    key = style_id.upper()
+    regions = BUILTIN_TEXT_COLORS.get(key)
+    if regions is None:
+        return None
+    style = make("a:tblStyle")
+    style.set("styleId", style_id)
+    style.set("styleName", BUILTIN_TABLE_STYLES.get(key, style_id))
+    for region, spec in regions.items():
+        text = make("a:tcTxStyle")
+        text.append(Color.parse(spec).to_element())
+        holder = make(f"a:{region}")
+        holder.append(text)
+        style.append(holder)
+    return style
+
+
+def cell_text_styles(document: "Document", table: Element, row: int,
+                     column: int) -> list[tuple[Element, str]]:
+    """The ``a:tcTxStyle`` of each region of the table's style that covers a cell, highest
+    precedence first, with a label (``"table style 'Brand' firstRow"``): the corner
+    cells, then the header and total rows, the first and last columns, the row and column
+    bands, the whole table -- ECMA-376 Part 1, 20.1.4.2, in the order pptx2svg draws them.
+    The style is the deck's own definition in ``tableStyles.xml`` when it has one, else
+    PowerPoint's built-in style of that GUID, whose text colours pptx2svg measured
+    (:mod:`.table_text_colors`: PowerPoint does not write a built-in definition into the
+    deck); a GUID neither knows gives none, and PowerPoint draws such a table unstyled."""
+    properties = table.find(qn("a:tblPr"))
+    style_id = style_id_of(properties) or deck_default(document)
+    if not style_id:
+        return []
+    root = _styles_root(document)
+    style = next((node for node in findall(root, "a:tblStyle")
+                  if node.get("styleId") == style_id), None) if root is not None else None
+    if style is None:
+        style = _builtin_text_style(style_id)
+        if style is None:
+            return []
+    flags = read_flags(properties)
+    rows = findall(table, "a:tr")
+    columns = len(findall(table, "a:tblGrid/a:gridCol"))
+    cell = None
+    if 0 <= row < len(rows):
+        cells = findall(rows[row], "a:tc")
+        cell = cells[column] if 0 <= column < len(cells) else None
+    row_span = max(1, int(cell.get("rowSpan", "1"))) if cell is not None else 1
+    grid_span = max(1, int(cell.get("gridSpan", "1"))) if cell is not None else 1
+    first_row = flags["first_row"] and row == 0
+    last_row = flags["last_row"] and row + row_span >= len(rows)
+    first_col = flags["first_column"] and column == 0
+    last_col = flags["last_column"] and column + grid_span >= columns
+    regions = ["wholeTbl"]
+    if flags["banded_columns"]:
+        band = _band(column, flags["first_column"], flags["last_column"], columns)
+        if band is not None:
+            regions.append("band1V" if band == 0 else "band2V")
+    if flags["banded_rows"]:
+        band = _band(row, flags["first_row"], flags["last_row"], len(rows))
+        if band is not None:
+            regions.append("band1H" if band == 0 else "band2H")
+    regions += [name for name, on in (("lastCol", last_col), ("firstCol", first_col),
+                                      ("lastRow", last_row), ("firstRow", first_row)) if on]
+    corner = ("nwCell" if first_row and first_col else "neCell" if first_row and last_col
+              else "swCell" if last_row and first_col else "seCell" if last_row and last_col
+              else None)
+    if corner:
+        regions.append(corner)
+    name = style.get("styleName") or style_id
+    out = []
+    for region in reversed(regions):
+        node = find(style, f"a:{region}/a:tcTxStyle")
+        if node is not None:
+            out.append((node, f"table style {name!r} {region}"))
+    return out
+
+
 def read_flags(properties: Element | None) -> dict[str, bool]:
     """The Table Design flags ``a:tblPr`` sets (each off when absent)."""
     return {flag: properties is not None and properties.get(attribute) in ("1", "true")
