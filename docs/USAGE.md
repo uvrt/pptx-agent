@@ -23,7 +23,7 @@ see [Units](#units-emu-everywhere-pt-for-points) below.
 | Tables | **fully editable**: cell text and formatting, fills, borders, rows and columns, sizes, merges; cells by row and column label |
 | Charts | **fully editable**: values, categories, series, titles, axis titles, legend; series by name and points by category label; the cached data and the embedded workbook (what Edit Data opens) always change together |
 | SmartArt | node text, adding and removing nodes |
-| Shapes | position, size, rotation, flips, preset geometry and adjustments, fills and outlines in theme colours, z-order, duplicate, delete, groups; new autoshapes, text boxes, tables, pictures (SVG too, with a PNG fallback) and connectors that stay attached; a picture's native size, its image replaced; align and distribute |
+| Shapes | position, size, rotation, flips, preset geometry and adjustments, fills and outlines in theme colours, z-order, duplicate, delete, groups; new autoshapes, text boxes, tables, pictures (SVG too, with a PNG fallback) and connectors that stay attached; a picture's native size, its image replaced; align and distribute; grid and flow |
 | Slides | add from a layout, duplicate, reorder, delete; titles, and a slide by its title; a layout's placeholders; draft whole slides from Markdown |
 | Decks | new from nothing or from a template; title, author, language, slide size; the theme's colours and fonts, read and set; which colours do which job, and their tints |
 | Checks | `validate()` (what PowerPoint would repair or refuse), `overflows()` and `text_fit()` (what will not fit, as PowerPoint draws it), `collisions()` (text over text, lines through text), `measure_text()` (before building) |
@@ -753,7 +753,16 @@ center, right, top, middle, bottom) and `to` (`shapes`, the default, `slide` or
 `content_area`), `distribute` with `axis` and `within` (`shapes`, between the outermost
 targets, or `content_area`) and an optional fixed `gap`. The content area is
 `Slide.content_area`: the layout's body placeholders, else the band under the title. Each
-is one undo step and returns the boxes. `ppt_design_facts` reports the palette, colour-coded sets and legends,
+is one undo step and returns the boxes. Grid and flow came back the same way (round 5,
+T5), as builders drew tile and card grids by hand, a box at a time: `grid` lays the targets
+out in the order given, row by row, in `columns` (and optionally `rows`) equal cells of the
+`box` or the content area, `gap` apart (`gap_y` between rows, if different); each shape is
+sized to its cell and a picture keeps its aspect, centred in it (`edit.layout.grid` with
+`fit="fill"`). `flow` keeps each target's size and wraps them, left to right, in cells as
+large as the largest, at most `columns` across (`edit.layout.flow`). Forty tiles made with
+`ppt_add_shape` and gridded by their `$ref`s in one `batch` are one undo step; a grid that
+does not fit -- gaps that leave no room, more targets than `rows` x `columns`, flowed rows
+past the foot -- is refused, saying what would fit. `ppt_design_facts` reports the palette, colour-coded sets and legends,
 empty regions, alignment, shape vocabulary, text sizes and lines over text -- facts, no
 verdicts (`Slide.design_facts`).
 

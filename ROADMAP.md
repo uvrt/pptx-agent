@@ -87,6 +87,7 @@ inputs, plus 63 opt-in PowerPoint oracle tests.
 | Outlines: width, colour, dash, cap, arrowheads | Complete (E1) |
 | Tables: cell text/fill/borders, sizing, merge/split, merge-aware row/column insert/delete | Complete (E1) |
 | Tables measured before placing: each row's drawn height and the pages its rows split into, the header repeated (`Slide.measure_table`, `ppt_add_table` with `measure`); continuing a long table on the next slides builds on it (round 5, T3) | Complete (round 5, T13) |
+| Tile and card grids in one call: `ppt_arrange` `grid` (targets in order, row by row, in `columns` x `rows` equal cells of a box or the content area, `gap`/`gap_y`; shapes sized to cells, pictures keeping their aspect) and `flow` (their own size, wrapping); `edit.layout.grid(fit="fill")`, `edit.layout.flow` | Complete (round 5, T5) |
 | A long table continued on the next slides (`ppt_add_table` `continue`: the target's layout, title text and box, the header repeated, rows at their measured heights, a record per table) and fewer rows of a source by a row range (`t:items/#1:#9`) | Complete (round 5, T3) |
 | Groups: addressable children, child-space moves, grouping, PowerPoint-style refit | Complete (E1) |
 | Ungrouping, with transforms composed into the parent | Complete (E2) |

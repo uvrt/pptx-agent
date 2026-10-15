@@ -6,6 +6,26 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Tile and card grids in one call (round 5, T5; the user brought grid back as a
+  `ppt_arrange` action, TOOLS-ROADMAP D13 amended). Builders drew grids by hand -- one
+  of 41 tiles -- computing every box, the main source of their layout mistakes.
+  - `ppt_arrange` `action: "grid"`: the targets, in the order given, row by row in
+    `columns` cells across (rows follow, or `rows`), `gap` points apart (`gap_y` between
+    rows, if different), filling `box` or, without one, the slide's content area
+    (`Slide.content_area`, as `align` and `distribute` take it). Each shape is sized to
+    its cell; a picture keeps its aspect, as large as fits, centred in its cell. The
+    result lists each target's new box and the area.
+  - `action: "flow"`: the targets keep their size and wrap left to right in cells as large
+    as the largest, at most `columns` across.
+  - With `$ref`s from `ppt_add_shape` in the same `batch`, a 40-tile grid is one call and
+    one undo step. Refused: `columns` under 1; gaps that leave no room for the cells,
+    more targets than `rows` x `columns`, or flowed rows past the area's foot, each saying
+    what to change; targets on different slides; grid parameters on other actions.
+  - Library: `edit.layout.grid` takes `fit="fill"` (shapes to the cell, pictures by
+    aspect) and `edit.layout.flow` is new; refusals say what to change.
+  - The definitions: `gap_y`, `columns`, `rows` and `box` on the deferred, non-strict
+    `ppt_arrange` add 162 estimated tokens to every definition (12,225 -> 12,387; the
+    guard 12,230 -> 12,390), none to the core (3,526). The strict set is unchanged.
 - A long table continued on the next slides, and fewer rows of a source (round 5, T3;
   ooxml-edit 0.31.0, xlsx-agent's row ranges). A builder wanted rows 1-4 of a 42-row
   table on one slide: `rows: 5` was refused ("from needs 42") and a row range was not an
