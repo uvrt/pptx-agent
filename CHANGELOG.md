@@ -6,6 +6,18 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A chart added with its look in one call (round 5, T2; ooxml-edit 0.32.0). Styling one
+  new chart took a builder six turns. `edit_chart`'s `add`, which took the frame (`box`),
+  scale, gridlines, legend position and number format already, also takes `data_labels:
+  true`, `colors` (each series' colour in order, a pie's slices'; filled, lined or as
+  markers as each kind is drawn) and `style` with `part` (the text: font, size, bold,
+  colour). The chart is byte for byte the one `add` and the separate `show_data_labels`,
+  `format_series` (`format_point` for a pie) and `set_text_style` calls write, tested
+  for column with a line series, line, scatter, pie and filled radar; one undo step, and a
+  refused look adds no chart. The definitions: 62 estimated tokens in every definition
+  (12,403 -> 12,465; the guard 12,405 -> 12,470), none in the core (3,542). The strict set
+  is unchanged.
+
 - Dense slides read in brief (round 5, T10). Reviewers read slides of up to 118 shapes, and
   `ppt_read_slides` with `geometry` gave every text in full.
   - `detail: "compact"`: one row per shape under a header, `columns` = id, kind, box,

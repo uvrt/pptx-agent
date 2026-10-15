@@ -5,7 +5,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ooxml_edit.charts.actions import STYLE_ACTIONS, apply_style_action, chart_style_json
+from ooxml_edit.charts.actions import (STYLE_ACTIONS, add_style_actions, apply_add_style,
+                                       apply_style_action, chart_style_json)
 from ooxml_edit.tools import Result, ToolError, shared
 
 from .common import KIND, box_emu, library_errors, shape as shape_at, slide as slide_at
@@ -75,8 +76,10 @@ def chart_json(frame, chart) -> dict[str, Any]:
 
 
 def _add(call, target, chart_type, categories, data, box, width, values, number_format, text,
-         position, ref, axis=None, scale=None, gridlines=None) -> Result:
-    """``action: "add"``: a new chart on the slide ``target``, in ``box``."""
+         position, ref, axis=None, scale=None, gridlines=None, data_labels=None, colors=None,
+         style=None, part=None) -> Result:
+    """``action: "add"``: a new chart on the slide ``target``, in ``box``, with the look
+    its arguments give (``add_style_actions``: the same chart as the separate calls)."""
     if width is not None:
         raise ToolError("invalid_arguments", "width is for documents; on a slide give box",
                         field="width")
@@ -104,10 +107,12 @@ def _add(call, target, chart_type, categories, data, box, width, values, number_
                         "right, left, top, bottom or none", field="position")
     if scale is not None and axis is None:
         raise ToolError("invalid_arguments", "add with scale needs axis", field="axis")
+    look = add_style_actions(chart_type, data, data_labels=data_labels, colors=colors,
+                             style=style, part=part)
     legend = None if position == "none" else (position or "default")
     reverse = (scale or {}).get("reverse") and axis == "category"
     rest = {k: v for k, v in (scale or {}).items() if not (reverse and k == "reverse")}
-    with call.document.batch():  # the chart and its scale: one undo step
+    with call.document.batch():  # the chart and its look: one undo step
         frame = host.add_chart(chart_type, labels, [dict(entry) for entry in data], x, y, w, h,
                                title=text, legend=legend, number_format=number_format,
                                category_order="reversed" if reverse else "normal",
@@ -118,6 +123,7 @@ def _add(call, target, chart_type, categories, data, box, width, values, number_
         if gridlines not in (None, "major", "none"):
             apply_style_action(chart, "set_gridlines", axis="value" if chart_type not in
                                ("scatter", "bubble") else "y", gridlines=gridlines)
+        apply_add_style(chart, look)
     if ref:
         call.define_ref(ref, frame.id)
     call.touch(host.slide_id)
@@ -140,10 +146,12 @@ def _read(frame, chart) -> Result:
 def edit_chart(call, doc, target, action, chart_type=None, categories=None, data=None, box=None,
                width=None, number_format=None, series=None, category=None, values=None,
                value=None, text=None, axis=None, position=None, ref=None, scale=None,
-               gridlines=None, style=None, part=None, labels=None, cells=None, secondary=None):
+               gridlines=None, style=None, part=None, labels=None, cells=None, secondary=None,
+               data_labels=None, colors=None):
     if action == "add":
         return _add(call, target, chart_type, categories, data, box, width, values,
-                    number_format, text, position, ref, axis, scale, gridlines)
+                    number_format, text, position, ref, axis, scale, gridlines, data_labels,
+                    colors, style, part)
     frame, chart = _chart(call.document, target)
     if action == "read":
         return _read(frame, chart)

@@ -68,7 +68,9 @@ classifiers = [
 # deck's colours read Office's theme colour names by.  ooxml-edit 0.30.0: describe lists
 # the session's datasets, the deck's describe too (tested here).  ooxml-edit 0.31.0: a run
 # of a dataset's rows as a source (d:by_region/#10:), which a continued table's tests use.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.31.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.32.0: edit_chart's add with its look (data_labels, colors, style, part) and
+# charts.actions.add_style_actions/apply_add_style, which the add handler runs.
+dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.32.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]
