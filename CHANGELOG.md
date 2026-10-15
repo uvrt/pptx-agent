@@ -6,6 +6,38 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Text colour as drawn and inherited text sizes against a minimum (round 5, T12), none of
+  it in the definitions: the tool definitions, their estimated tokens and the strict set
+  are unchanged.
+  - `Run.effective_color`: the run's colour resolved to RGB through the chain
+    `effective_size` reads -- run, paragraph, the shape's list style, the layout and
+    master placeholders, the master's `titleStyle`/`bodyStyle`/`otherStyle`, the
+    presentation's default -- and, for text outside a placeholder, a shape style's
+    `fontRef` colour and a table cell's table-style text colour (by region: header and
+    total rows, first and last columns, bands, corners), each where pptx2svg measured it
+    to sit (ECMA-376 Part 1, 21.1.2.3, 20.1.4.1.17, 20.1.4.2). A theme colour goes
+    through the slide's colour map (`clrMap`, `clrMapOvr`) and theme with its modifiers
+    applied, as `Color.resolve` does; a hyperlink with no colour of its own is the
+    theme's `hlink`; `None` for text in no solid colour. `Paragraph.effective.color` is
+    the first run's.
+  - PowerPoint's 74 built-in table styles' text colours are in
+    `pptx_agent.edit.table_text_colors`, compiled from pptx2svg's measured catalogue by
+    `tools/derive_table_text_colors.py` (PowerPoint does not write a built-in style into
+    `tableStyles.xml`): a default table's header reads white, its body `dk1`. A deck's
+    own style in `tableStyles.xml` comes first.
+  - `Run.effective_source("size" | "color")` says where the value comes from: `"the
+    run"`, `"layout 'Title and Content' content placeholder"`, `"the master's
+    bodyStyle"`, `"table style 'Medium Style 2 - Accent 1' firstRow"`, `"... at 90%
+    autofit"`. `Slide.text_below(points)` lists the shapes and table cells whose text is
+    drawn smaller, with size and source.
+  - The application's minimum text size, `deck_format(min_text_size=12)` in place of
+    `FORMAT` (`Toolbox(TOOLS, formats=[deck_format(min_text_size=12)], ...)`): `check`,
+    the checks after every change and `save_document` report `small_text` --
+    `{"shape": "256.3", "size": 9.0, "from": "layout 'Title and Content' content
+    placeholder"}` -- so a placeholder that inherits 9 pt from its layout is reported, not
+    only text that states its size. App configuration, never a tool argument; without
+    it, nothing is reported.
+
 - `describe` lists the session's datasets (round 5, T11; ooxml-edit 0.30.0), none of it in
   the definitions: a deck's `describe` result gets `datasets` -- each one's id, columns,
   `types`, `rows` (a count) and `from` (`d1/t:Sales`, `d:by_rep`, or `application` for one
