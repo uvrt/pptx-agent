@@ -9,6 +9,7 @@ from typing import Any
 from ooxml_edit.tools import (CORE, Result, ToolError, array, integer, page_list, page_text,
                               shared, string, tool)
 
+from ..edit.units import EMU_PER_POINT
 from .common import (KIND, box_pt, color_json, color_text, library_errors, numbers, pt)
 
 
@@ -201,14 +202,64 @@ def _shape_json(shape, z: int) -> dict[str, Any]:
     return data
 
 
+#: The columns of ``detail: "compact"``, one row per shape.
+COMPACT_COLUMNS = ["id", "kind", "box", "fill", "text", "group"]
+#: Words of a text the compact view shows before it cuts.
+COMPACT_WORDS = 8
+
+
+def _words(text: str) -> str:
+    """The first words of a text, and how many it has when they are not all."""
+    words = text.split()
+    if len(words) <= COMPACT_WORDS:
+        return " ".join(words)
+    return f"{' '.join(words[:COMPACT_WORDS])}… ({len(words)} words)"
+
+
+def _compact_row(shape) -> list[Any]:
+    """One shape in brief, the columns of :data:`COMPACT_COLUMNS`: the kind as geometry
+    has it (a graphic frame as ``table``, ``chart`` or ``smartart``), the box in whole
+    points, the fill drawn (hex where it resolves; a gradient or picture fill by its
+    kind) and the text's first words -- a table's size and first cell, a chart's type
+    and series, a group's member count."""
+    kind, fill, text = shape.kind, None, None
+    if kind == "shape":
+        drawn = shape.effective_fill
+        if drawn is not None and drawn.kind == "solid" and drawn.color is not None:
+            fill = color_json(drawn.color, shape)
+            fill = fill.get("hex") or fill["color"]
+        elif drawn is not None and drawn.kind != "none":
+            fill = drawn.kind
+        frame = shape.text_frame
+        text = _words(frame.text) if frame is not None else None
+    elif kind == "group":
+        text = f"{len(shape.children)} shapes"
+    elif kind == "graphic_frame":
+        if shape.has_table:
+            kind, table = "table", shape.table
+            text = f"{table.rows}×{table.columns}: {_words(table.cell(0, 0).text_frame.text)}"
+        elif shape.has_chart:
+            kind, chart = "chart", shape.chart
+            text = f"{chart.chart_type or 'chart'}, {len(chart.series_names)} series"
+        elif shape.has_diagram:
+            kind = "smartart"
+    bounds = shape.bounds
+    box = (None if bounds is None
+           else [round(float(v) / EMU_PER_POINT) for v in bounds])
+    parent = shape.parent_group
+    return [shape.id, kind, box, fill, text or None,
+            parent.id if parent is not None else None]
+
+
 @tool("ppt_read_slides",
       "Read slides with shape ids. outline: Markdown, each block under its shape id "
       "(escaped; never paste it back as text). geometry: each shape's kind, box, z-order, "
-      "fill, line, text and font sizes. svg: a compact SVG per slide, data-id per shape.",
+      "fill, line, text and font sizes. compact: id, kind, box, fill, first words per "
+      "shape. svg: an SVG per slide, data-id per shape.",
       {"doc": string("Document id."),
        "slides": array(integer(minimum=1), "Slide numbers from 1. Default all.",
                        optional=True),
-       "detail": string("What to show.", enum=["outline", "geometry", "svg"]),
+       "detail": string("What to show.", enum=["outline", "geometry", "compact", "svg"]),
        "cursor": string("next_cursor of the previous page.", optional=True)},
       kind=KIND, group=CORE)
 @library_errors
@@ -222,6 +273,15 @@ def ppt_read_slides(call, doc, detail, slides=None, cursor=None):
                       next_cursor=next_cursor)
     if detail == "svg":
         return _svg(call, deck, chosen, cursor)
+    if detail == "compact":
+        rows = [_compact_row(shape) for number in chosen
+                for shape in deck.slides[number - 1].shapes]
+        page, total, next_cursor = page_list(rows, cursor=cursor, limit=300)
+        if len(json.dumps(page, ensure_ascii=False)) > call.limits.max_result_chars - 2000:
+            page, total, next_cursor = page_list(rows, cursor=cursor, limit=120)
+        return Result(summary=f"Shapes of slide(s) {_span(chosen)} in brief: {total}",
+                      data={"columns": COMPACT_COLUMNS, "shapes": page},
+                      total=total, next_cursor=next_cursor)
     shapes = []
     for number in chosen:
         target = deck.slides[number - 1]
@@ -250,7 +310,7 @@ def _svg(call, deck, chosen: list[int], cursor: str | None) -> Result:
             svg = entry.cached(entry.render_cache, key, lambda: target.render_svg(agent=True))
         except RuntimeError as exc:
             raise ToolError("refused", f"the SVG view is not available: {exc}",
-                            valid_options=["outline", "geometry"]) from None
+                            valid_options=["outline", "geometry", "compact"]) from None
         if pages and used + len(svg) > budget:
             break
         pages.append({"slide": f"s:{target.slide_id}", "n": number, "chars": len(svg),
