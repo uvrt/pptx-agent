@@ -232,6 +232,137 @@ def attach(blip, rel_id: str) -> None:
     element.set(qn("r:embed"), rel_id)
 
 
+# -- recolouring (PowerPoint's Graphics Fill) ---------------------------------------------------
+
+#: The class PowerPoint names a theme colour by in a recoloured SVG, which is how the theme
+#: link survives a save and a reopen.  Measured for accent 2 only (PowerPoint for Mac,
+#: 2026-10-15); the other slots' names are not written until they are measured -- a
+#: colour from any other slot is written as its value alone.
+THEME_CLASSES = {"accent2": "MsftOfcThm_Accent2_Fill_v2"}
+
+#: The elements a Graphics Fill fills: SVG's basic shapes, paths and text.
+_FILLED = frozenset({"path", "rect", "circle", "ellipse", "polygon", "polyline", "line",
+                     "text", "tspan", "textPath"})
+#: Containers whose shapes are not drawn as themselves: a clip path's outline, a mask's
+#: luminance.  Their shapes keep their colours.
+_NOT_DRAWN = frozenset({"clipPath", "mask"})
+_THEME_CLASS = re.compile(r"^MsftOfcThm_\w+_Fill_v2$")
+_THEME_RULES = re.compile(r"^\s*(?:\.MsftOfcThm_\w+_Fill_v2\s*\{[^}]*\}\s*)+$")
+_FILL_DECLARATION = re.compile(r"^\s*(fill|fill-opacity)\s*:", re.IGNORECASE)
+
+
+class RecolorWarning(UserWarning):
+    """A recoloured SVG kept some of its shapes' colours (shapes with no fill)."""
+
+
+def _declared_fill(element) -> str | None:
+    """The fill an element states itself, in its ``style`` or its ``fill`` attribute."""
+    for declaration in (element.get("style") or "").split(";"):
+        name, _, value = declaration.partition(":")
+        if name.strip().lower() == "fill":
+            return value.strip().removesuffix("!important").strip()
+    value = element.get("fill")
+    return value.strip() if value is not None else None
+
+
+def _fill_is_none(element) -> bool:
+    """Whether the element's fill, its own or inherited, is ``none`` (CSS rules aside)."""
+    node = element
+    while node is not None and isinstance(node.tag, str):
+        declared = _declared_fill(node)
+        if declared is not None and declared.lower() != "inherit":
+            return declared.lower() == "none"
+        node = node.getparent()
+    return False
+
+
+def recolor(data: bytes, color: str, theme_class: str | None = None) -> tuple[bytes, int, int]:
+    """An SVG with its shapes filled with ``color`` (``"#RRGGBB"``), as PowerPoint's Graphics
+    Fill rewrites one; ``(svg, shapes filled, shapes left)``.
+
+    Measured in PowerPoint for Mac 16 (2026-10-15), on a picture of four paths -- two
+    filled black, one with no ``fill``, one ``currentColor``: every path gets
+    ``fill="#RRGGBB" fill-opacity="1"``; a theme colour also gets a ``<style>`` rule for its
+    class (``.MsftOfcThm_Accent2_Fill_v2 { fill:#E97132; }``) and that ``class`` on every
+    path.  What is written here, and what is not:
+
+    * every path, basic shape and text element gets ``fill`` and ``fill-opacity="1"`` --
+      ``currentColor``, a gradient and no fill at all included -- and, with
+      ``theme_class``, the class (added to a class it has) and the rule, first in the root;
+    * a shape whose fill is ``none`` (its own or inherited from a group) keeps it, and
+      its stroke stays as it is: how PowerPoint fills an outline-only shape is not
+      measured.  Shapes in a clip path or a mask keep their colours too;
+    * a ``fill`` in a shape's ``style`` attribute goes (it would win over the attribute);
+      an SVG with ``<style>`` rules of its own gets the fill in the shapes' ``style`` as
+      well, since a class rule wins over an attribute;
+    * a class and rule of an earlier recolour (``MsftOfcThm_..._Fill_v2``) go first;
+    * strokes are not touched -- PowerPoint writes ``stroke="none"`` and its defaults on
+      paths that had none, which draws the same -- and PowerPoint's path normalisation,
+      ``overflow`` and ``xmlns:xlink`` are not repeated: they change nothing drawn.
+
+    ``ValueError`` when nothing can be filled (an SVG of outlines only)."""
+    from lxml import etree
+
+    root = parse(data)
+    svg = f"{{{SVG_NS}}}"
+    for style in list(root.iter(f"{svg}style")):
+        if style.text and _THEME_RULES.match(style.text):
+            _drop(style)
+    own_rules = any(True for _ in root.iter(f"{svg}style"))
+    filled = left = 0
+    for element in root.iter():
+        if not isinstance(element.tag, str) or not element.tag.startswith(svg):
+            continue
+        if element.tag[len(svg):] not in _FILLED:
+            continue
+        if any(isinstance(a.tag, str) and a.tag[len(svg):] in _NOT_DRAWN
+               for a in element.iterancestors()):
+            continue
+        if _fill_is_none(element):
+            left += 1
+            continue
+        classes = [c for c in (element.get("class") or "").split()
+                   if not _THEME_CLASS.match(c)]
+        if theme_class:
+            classes.append(theme_class)
+        if classes:
+            element.set("class", " ".join(classes))
+        else:
+            element.attrib.pop("class", None)
+        declarations = [d for d in (element.get("style") or "").split(";")
+                        if d.strip() and not _FILL_DECLARATION.match(d)]
+        if own_rules:
+            declarations += [f"fill:{color}", "fill-opacity:1"]
+        if declarations:
+            element.set("style", ";".join(d.strip() for d in declarations))
+        else:
+            element.attrib.pop("style", None)
+        element.set("fill", color)
+        element.set("fill-opacity", "1")
+        filled += 1
+    if not filled:
+        raise ValueError("the SVG has no shape to fill: its shapes are outlines only (fill "
+                         "none), and how PowerPoint recolours those is not measured yet")
+    if theme_class:
+        style = etree.SubElement(root, f"{svg}style")    # in the root's namespaces
+        root.insert(0, style)
+        style.tail = "\n"
+        style.text = f"\n.{theme_class} {{\n fill:{color}; \n}}\n"
+        root.insert(0, style)
+    return etree.tostring(root, encoding="utf-8"), filled, left
+
+
+def _drop(element) -> None:
+    parent = element.getparent()
+    if element.tail and element.tail.strip():
+        previous = element.getprevious()
+        if previous is not None:
+            previous.tail = (previous.tail or "") + element.tail
+        else:
+            parent.text = (parent.text or "") + element.tail
+    parent.remove(element)
+
+
 __all__ = ["ASVG_NS", "SVG_BLIP_EXT_URI", "SVG_CONTENT_TYPE", "SVG_LIMIT", "attach", "drop",
-           "looks_like_svg", "native_size", "parse", "rasterise", "size_emu", "store",
-           "svg_blip"]
+           "looks_like_svg", "native_size", "parse", "rasterise", "recolor", "RecolorWarning",
+           "size_emu", "store", "svg_blip", "THEME_CLASSES"]

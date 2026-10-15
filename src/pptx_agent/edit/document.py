@@ -1653,6 +1653,92 @@ class Shape(ShapeFactory):
             self._after_change()
         return self
 
+    def recolor(self, color: "str | Color", *, fallback_dpi: float = 300) -> "Shape":
+        """Fill an SVG picture's shapes with one colour, as PowerPoint's Graphics Fill does:
+        a theme colour (``"accent2"``, Office's names too) resolved against this slide's
+        theme and colour map, or ``"#RRGGBB"``.
+
+        As PowerPoint does it (measured, PowerPoint for Mac, 2026-10-15): the picture's XML
+        stays as it is and its SVG is rewritten -- every shape filled, ``currentColor`` and
+        shapes with no fill included (:func:`~pptx_agent.edit.svgpicture.recolor` says
+        exactly what is written) -- and the PNG fallback is drawn again in the new colour,
+        at the frame's size and ``fallback_dpi`` as :meth:`Slide.add_picture` draws one
+        (``pip install 'pptx-agent[png]'``).  Accent 2 also gets the class through which
+        PowerPoint keeps the theme link; any other theme colour is written as its value
+        until its class is measured.  Shapes whose fill is ``none`` keep it (a
+        :class:`~pptx_agent.edit.svgpicture.RecolorWarning` says how many).
+
+        The SVG and the PNG are rewritten in place when nothing else shows them, else this
+        picture gets its own.  One undo step.  A ``ValueError`` for a bitmap picture (only
+        an SVG can be recoloured: replace its image with an SVG first), for a colour with
+        transparency, and for an SVG of outlines only.
+
+        For example::
+
+            icon.recolor("accent2")
+            icon.recolor("#1F4E79")
+        """
+        import warnings
+
+        if self._blip() is None:
+            raise ValueError(f"{self.id}: a {self.kind} has no image to recolour")
+        vector = self.vector
+        if vector is None:
+            raise ValueError(f"{self.id} is a bitmap picture: only an SVG picture can be "
+                             "recoloured; replace its image with an SVG to recolour it")
+        parsed = Color.parse(color)
+        if any(name.startswith("alpha") for name, _ in parsed.transforms):
+            raise ValueError("a recoloured picture is opaque: give a colour without alpha")
+        value = parsed.resolve(self)
+        theme_class = (_svgpicture.THEME_CLASSES.get(parsed.value)
+                       if parsed.is_theme and not parsed.transforms else None)
+        svg, _, left = _svgpicture.recolor(vector, value, theme_class)
+        if None in (self.width, self.height):
+            raise ValueError(f"{self.id}: the picture has no size to draw the SVG at")
+        png = _svgpicture.rasterise(svg, self.width, self.height, fallback_dpi,
+                                    self._slide.document.font_dirs)
+        package = self._slide.document.package
+        with self._slide.document.batch():
+            self._before_change()
+            blip = self._blip()
+            assert blip is not None
+            found = _svgpicture.svg_blip(blip)
+            assert found is not None
+            if not self._rewrite_own(found.get(qn("r:embed")), svg,
+                                     _svgpicture.SVG_CONTENT_TYPE):
+                _svgpicture.attach(blip, package.add_relationship(
+                    self._slide.part_path, REL_IMAGE, _svgpicture.store(package, svg)))
+            if not self._rewrite_own(blip.get(qn("r:embed")), png, "image/png"):
+                blip.set(qn("r:embed"), package.add_relationship(
+                    self._slide.part_path, REL_IMAGE, package.add_image(png, None)))
+            self._after_change()
+        if left:
+            warnings.warn(f"{self.id}: {left} shape(s) of the SVG have no fill and keep "
+                          "their colours (outlines are not recoloured)",
+                          _svgpicture.RecolorWarning, stacklevel=2)
+        return self
+
+    def _rewrite_own(self, rel_id: str | None, data: bytes, content_type: str) -> bool:
+        """Overwrite the part ``rel_id`` names with ``data`` when this picture alone shows
+        it -- one relationship to it in the package, named once on this slide -- and it is
+        of ``content_type``; whether it did."""
+        package = self._slide.document.package
+        slide_part = self._slide.part_path
+        part = package.related_part(slide_part, rel_id) if rel_id else None
+        if part is None or not package.has_part(part) \
+                or package.content_type(part) != content_type:
+            return False
+        sources = package.relationship_sources(part)
+        if len(sources) != 1 or sources[0][0] != slide_part or sources[0][1].id != rel_id:
+            return False
+        root = package.tree(slide_part)
+        uses = sum(1 for node in root.iter() for value in node.attrib.values()
+                   if value == rel_id)
+        if uses != 1:
+            return False
+        package.replace_part(part, data)
+        return True
+
     def _blip(self) -> Element | None:
         if local_name(self._element) != "pic":
             return None
