@@ -814,7 +814,12 @@ A colour stays a theme reference in the file; `resolve` says what it looks like 
 through the slide's colour map, with every modifier applied as PowerPoint composes them.
 `effective_size` and `effective_font` follow the inheritance -- run, paragraph, list styles,
 layout and master placeholders, the master's text styles, the presentation -- resolve
-`+mn-lt` to the theme's font, and apply a stored autofit scale. `autofit` is `"none"`,
+`+mn-lt` to the theme's font, and apply a stored autofit scale. `effective_color` follows
+the same chain -- plus a plain shape's style colour (`fontRef`) and a table cell's table
+style, PowerPoint's built-in ones included -- and resolves it through the slide's colour
+map and theme to RGB. `run.effective_source("size")` (or `"color"`) says where the value
+comes from, such as `"layout 'Title and Content' content placeholder"`, and
+`slide.text_below(12)` lists the text drawn smaller than 12 pt with its source. `autofit` is `"none"`,
 `"normal"` (shrink text on overflow) or `"shape"` (resize shape to fit text), and settable.
 
 ### Theme: change its colours and fonts; which colours do which job

@@ -1369,6 +1369,15 @@ class Shape(ShapeFactory):
         chain.append(body(inherit.master_placeholder(package, master, inherit.master_kind(kind))))
         return chain
 
+    def _text_defaults(self) -> list:
+        """A shape that is not a placeholder: its style's ``a:fontRef``, whose colour sits
+        over the master's ``otherStyle`` and under the shape's own list style (pptx2svg
+        measured it).  Where a placeholder's would sit is not measured: none."""
+        if self.placeholder is not None:
+            return []
+        reference = find(self._element, "p:style/a:fontRef")
+        return [] if reference is None else [(reference, "the shape's style (fontRef)")]
+
     def _theme_source(self):
         return self
 
@@ -2293,6 +2302,31 @@ class Slide(ShapeFactory):
             if (name is None or shape.name == name) and (kind is None or shape.kind == kind)
         ]
 
+    def text_below(self, points: float) -> list:
+        """The text on this slide drawn smaller than ``points``, by its effective size --
+        inherited from a layout or master and scaled by a stored autofit, as
+        :attr:`Run.effective_size <pptx_agent.Run.effective_size>` gives it -- one
+        :class:`~pptx_agent.edit.effective.SmallText` per shape (or table cell), size and
+        source, with where the size comes from.  Groups are looked into; positions a merge
+        covers are not.
+
+        For example::
+
+            [(t.address, t.size, t.source) for t in slide.text_below(12)]
+            # [('256.3', 9.0, "layout 'Title and Content' body placeholder")]
+        """
+        from . import effective
+        from .fit import _flatten
+
+        frames = []
+        for shape in _flatten(self.shapes):
+            if shape.kind == "shape" and shape.text_frame is not None:
+                frames.append((shape.id, shape.text_frame))
+            elif shape.kind == "graphic_frame" and shape.has_table:
+                frames += [(cell.address, cell.text_frame) for cell in shape.table.iter_cells()
+                           if not cell.is_spanned]
+        return effective.text_below(frames, float(points))
+
     def empty_placeholders(self) -> list[Shape]:
         """The placeholders on this slide that hold nothing, measured in PowerPoint 16:
 
@@ -2986,6 +3020,12 @@ class Document(CommentOps):
     #: (:data:`ooxml_common.locales.EN_US`), never the operating system's.  The agent tool
     #: layer sets it from its session (``Toolbox(locale=...)``).
     locale: "Locale | None" = None
+
+    #: The application's minimum text size, points: the agent tool layer's ``check`` (and
+    #: the checks after every change) report text drawn smaller, by its effective size and
+    #: where it comes from (:meth:`Slide.text_below`).  ``None`` (the default): no
+    #: minimum.  The tool layer sets it from its format (``deck_format(min_text_size=12)``).
+    min_text_size: "float | None" = None
 
     def __init__(self, package: OoxmlPackage) -> None:
         self.package = package
@@ -4197,6 +4237,7 @@ def copy_of(document: "Document") -> "Document":
     copy = Document.open(document.to_bytes())
     copy.font_dirs = document.font_dirs
     copy.locale = document.locale
+    copy.min_text_size = document.min_text_size
     return copy
 
 

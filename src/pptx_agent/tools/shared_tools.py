@@ -73,9 +73,9 @@ def save_document(call, doc, name, format):
     return Result(summary=summary, data=described)
 
 
-#: The fit, collision and empty-placeholder facts ``save_document`` reports when any are
-#: left.
-UNRESOLVED = ("overflows", "collisions", "off_slide", "empty_placeholders")
+#: The fit, collision, empty-placeholder and small-text facts ``save_document`` reports
+#: when any are left.
+UNRESOLVED = ("overflows", "collisions", "off_slide", "empty_placeholders", "small_text")
 #: At most this many of each kind are listed.
 UNRESOLVED_LISTED = 20
 
@@ -298,7 +298,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
     entry = call.entry
     version = entry.version
     key = ("check", tuple(ids), tuple(sorted(set(wanted))), bool(boxes), font_dirs_of(deck),
-           locale_of(deck))
+           locale_of(deck), deck.min_text_size)
     data = entry.check_cache.get((version, key))
     if data is None:
         target = deck
@@ -313,6 +313,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
                     target = type(deck).open(data_bytes)
                 target.font_dirs = font_dirs
                 target.locale = locale
+                target.min_text_size = deck.min_text_size
             data = {"slides": [f"s:{sid}" for sid in ids]}
             data.update(facts(target, ids, boxes=boxes, include=wanted))
             if "facts" in wanted or "design" in wanted:
@@ -324,7 +325,8 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
         entry.check_cache.put((version, key), data)
     if notes:
         data = {**data, "notes": notes}
-    count = sum(len(data.get(k) or []) for k in ("overflows", "collisions", "off_slide"))
+    count = sum(len(data.get(k) or []) for k in ("overflows", "collisions", "off_slide",
+                                                  "small_text"))
     new = len((data.get("validate") or {}).get("new") or [])
     return Result(summary=f"{count} fit/collision fact(s), {new} new validation problem(s)",
                   data=data)

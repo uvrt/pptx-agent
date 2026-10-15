@@ -3,7 +3,12 @@
 A run that says nothing about its size takes it from its paragraph, its shape's list style,
 the layout and master placeholders' list styles, the master's text style and the
 presentation's default, in that order (:mod:`.inherit`); a typeface may then be the
-theme's (``+mn-lt``).  A text body's autofit comes the same way, from its own ``a:bodyPr``
+theme's (``+mn-lt``).  Its colour comes the same way (the ``a:solidFill`` of ``a:rPr`` and
+each ``a:defRPr``, ECMA-376 Part 1, 21.1.2.3), with two more layers between a shape's own
+list style and the master's ``otherStyle`` for text that is not in a placeholder: a
+shape's ``p:style/a:fontRef`` colour (20.1.4.1.17) and a table cell's ``a:tcTxStyle``
+(20.1.4.2.30) from its table style's regions -- where pptx2svg measured them to sit.  A
+hyperlink's text with no colour of its own is the theme's ``hlink``.  A text body's autofit comes the same way, from its own ``a:bodyPr``
 outwards, and only ``normAutofit`` carries a ``fontScale``.
 
 **PowerPoint draws exactly the stored scale.**  ``normAutofit`` without a ``fontScale``
@@ -17,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..oxml.xml import Element, get_int, local_name, qn
+from ..oxml.xml import FILL_TAGS, Element, find, get_int, local_name, qn
 from . import inherit
 
 AUTOFIT_TAGS = {"noAutofit": "none", "normAutofit": "normal", "spAutoFit": "shape"}
@@ -143,6 +148,178 @@ def typeface(host, paragraph: Element, run: Element | None, script: str = "latin
     return resolve_font(named, theme)
 
 
+_FILLS = frozenset(qn(tag) for tag in FILL_TAGS)
+_RUN_PROPERTIES = ("rPr", "endParaRPr", "defRPr")
+#: What a run is drawn in when nothing on the way states a colour: black, as pptx2svg draws
+#: a run with none (a master's text styles normally state ``tx1``, so this is rare).
+DEFAULT_COLOR = "000000"
+#: Unstated: the label :func:`color_source` gives :data:`DEFAULT_COLOR`.
+UNSTATED = "nothing on the way (drawn black)"
+
+
+def _color_layers(host, paragraph: Element, run: Element | None) -> list[tuple[Element, str | None]]:
+    """Every element that may state the run's colour, nearest first, with a label for
+    those :func:`describe` cannot name from where they sit: the run's ``a:rPr``, the
+    paragraph's and each list-style level's ``a:defRPr``, and -- after the shape's own list
+    style, before the master's -- the host's text defaults (``fontRef``, ``tcTxStyle``)."""
+    layers: list[tuple[Element, str | None]] = []
+    if run is not None:
+        own = run.find(qn("a:rPr")) if local_name(run) != "endParaRPr" else run
+        if own is not None:
+            layers.append((own, None))
+    properties = paragraph.find(qn("a:pPr"))
+    node = properties.find(qn("a:defRPr")) if properties is not None else None
+    if node is not None:
+        layers.append((node, None))
+    defaults = getattr(host, "_text_defaults", None)
+    extras = list(defaults()) if defaults is not None else []
+    level = _level(paragraph)
+    for index, style in enumerate(list_styles(host)):
+        if index == 1:
+            layers += extras
+            extras = []
+        node = style.find(qn(f"a:lvl{level + 1}pPr")) if style is not None else None
+        node = node.find(qn("a:defRPr")) if node is not None else None
+        if node is not None:
+            layers.append((node, None))
+    return layers + extras
+
+
+def color_source(host, paragraph: Element, run: Element | None):
+    """``(colour as stated, where it comes from)``: the nearest stated colour, unresolved
+    (``Color("tx1")``), and a label such as ``"the master's bodyStyle"``.  The colour is
+    ``None`` with a label when the nearest fill is not solid (``"... (gradFill)"``), and
+    with :data:`UNSTATED` when nothing states one."""
+    from .color import Color
+
+    for holder, label in _color_layers(host, paragraph, run):
+        if local_name(holder) in _RUN_PROPERTIES:
+            fill = next((child for child in holder if child.tag in _FILLS), None)
+            if fill is None:
+                if holder.find(qn("a:hlinkClick")) is not None \
+                        and local_name(holder) == "rPr":
+                    return Color("scheme", "hlink"), "the hyperlink (theme hlink)"
+                continue
+            where = label or describe(holder)
+            if local_name(fill) != "solidFill":
+                return None, f"{where} ({local_name(fill)})"
+            return Color.from_element(fill), where
+        stated = Color.from_element(holder)
+        if stated is not None:
+            return stated, label or describe(holder)
+    return None, UNSTATED
+
+
+def color(host, paragraph: Element, run: Element | None):
+    """A run's colour as drawn, resolved (a :class:`~pptx_agent.Color` of kind ``"rgb"``):
+    the nearest stated colour (:func:`color_source`), a theme colour through the colour
+    map and theme its slide uses, modifiers applied as :meth:`Color.resolve
+    <pptx_agent.Color.resolve>` applies them; black when nothing states one; ``None`` when
+    the text is not drawn in one solid colour (a gradient, no fill)."""
+    from .color import Color
+
+    stated, label = color_source(host, paragraph, run)
+    if stated is None:
+        return Color.rgb(DEFAULT_COLOR) if label == UNSTATED else None
+    if stated.kind == "rgb" and not stated.transforms:
+        return Color.rgb(stated.value)
+    source = host._theme_source() if hasattr(host, "_theme_source") else None
+    if source is None:
+        return None
+    from .theme import theme_for
+
+    try:
+        return Color.rgb(theme_for(source).resolve(stated))
+    except ValueError:
+        return None
+
+
+def size_source(host, paragraph: Element, run: Element | None) -> str:
+    """Where a run's :func:`size` comes from: ``"the run"``, ``"the paragraph"``,
+    ``"layout 'Title and Content' body placeholder"``, ``"the master's bodyStyle"``...,
+    with the stored autofit scale when it shrinks the text (``"... at 90% autofit"``)."""
+    where = next((describe(properties) for properties in _run_properties(host, paragraph, run)
+                  if properties.get("sz")), f"PowerPoint's default {inherit.DEFAULT_SIZE:g} pt")
+    scale = autofit(host).font_scale
+    return where if scale == 1.0 else f"{where} at {round(scale * 100):g}% autofit"
+
+
+@dataclass(frozen=True)
+class SmallText:
+    """Text drawn below a minimum size (:meth:`Slide.text_below
+    <pptx_agent.Slide.text_below>`): the shape or table cell's ``address``, the effective
+    ``size`` in points and ``source``, where that size comes from (:func:`size_source`)."""
+
+    address: str
+    size: float
+    source: str
+
+    def to_json(self) -> dict:
+        return {"shape": self.address, "size": self.size, "from": self.source}
+
+
+def text_below(frames, minimum: float) -> list[SmallText]:
+    """Each ``(address, text frame)``'s text drawn below ``minimum`` points, once per
+    address, size and source, smallest first within an address."""
+    out: list[SmallText] = []
+    for address, frame in frames:
+        host = frame._host()
+        found: dict[tuple[float, str], SmallText] = {}
+        for paragraph in frame.paragraphs:
+            element = paragraph._element()
+            for run in paragraph.runs:
+                if not run.text.strip():
+                    continue
+                points = size(host, element, run._element())
+                if points >= minimum:
+                    continue
+                source = size_source(host, element, run._element())
+                found.setdefault((points, source), SmallText(address, points, source))
+        out += sorted(found.values(), key=lambda item: item.size)
+    return out
+
+
+_STYLES = ("titleStyle", "bodyStyle", "otherStyle", "notesStyle")
+_SHEETS = {"sld": "slide", "sldLayout": "layout", "sldMaster": "master",
+           "notes": "notes page", "notesMaster": "notes master"}
+
+
+def describe(properties: Element) -> str:
+    """Where a run-properties element (``a:rPr``, ``a:defRPr``) sits, in words: ``"the
+    run"``, ``"the paragraph"``, ``"the shape's list style"``, ``"the cell's list
+    style"``, ``"layout 'Title and Content' body placeholder"``, ``"the master's
+    bodyStyle"``, ``"the presentation's default text style"`` -- with ``", level 2"`` for a
+    level below the first."""
+    if local_name(properties) in ("rPr", "endParaRPr"):
+        return "the run"
+    holder = properties.getparent()
+    holder_name = local_name(holder) if holder is not None else ""
+    if holder_name == "pPr":
+        return "the paragraph"
+    level = holder_name[3:-3] if holder_name.startswith("lvl") else ""
+    suffix = f", level {level}" if level not in ("", "1") else ""
+    root = properties.getroottree().getroot()
+    part = local_name(root)
+    if part == "presentation":
+        return "the presentation's default text style" + suffix
+    ancestors = [local_name(node) for node in properties.iterancestors()]
+    sheet = _SHEETS.get(part, part)
+    data = find(root, "p:cSld")
+    name = data.get("name") if data is not None else None
+    named = f"{sheet} {name!r}" if name else f"the {sheet}'s"
+    style = next((node for node in ancestors if node in _STYLES), None)
+    if style is not None:
+        return f"{named} {style}{suffix}"
+    if "tc" in ancestors:
+        return "the cell's list style" + suffix
+    shape = next((node for node in properties.iterancestors()
+                  if local_name(node) in ("sp", "graphicFrame")), None)
+    placeholder = inherit.placeholder_of(shape) if shape is not None else None
+    if part == "sld" or placeholder is None:
+        return "the shape's list style" + suffix
+    return f"{named} {placeholder.get('type') or 'content'} placeholder{suffix}"
+
+
 @dataclass(frozen=True)
 class EffectiveParagraph:
     """A paragraph's formatting as it is drawn, inherited values resolved.
@@ -175,6 +352,9 @@ class EffectiveParagraph:
     space_before_lines: float | None
     space_after: int | None
     space_after_lines: float | None
+    #: The first run's colour as drawn, resolved (:attr:`Run.effective_color
+    #: <pptx_agent.Run.effective_color>`).
+    color: object = None
 
 
 def paragraph(host, element: Element) -> EffectiveParagraph:
@@ -242,6 +422,7 @@ def paragraph(host, element: Element) -> EffectiveParagraph:
         space_before_lines=before_lines,
         space_after=after_points,
         space_after_lines=after_lines,
+        color=color(host, element, first),
     )
 
 
@@ -276,5 +457,6 @@ def write_autofit(body: Element, mode: str | None, font_scale: float | None = No
     replace_choice(properties, tags, node)
 
 
-__all__ = ["Autofit", "EffectiveParagraph", "autofit", "list_styles", "paragraph",
-           "paragraph_sources", "size", "typeface", "write_autofit"]
+__all__ = ["DEFAULT_COLOR", "UNSTATED", "Autofit", "EffectiveParagraph", "SmallText", "autofit", "color",
+           "color_source", "describe", "list_styles", "paragraph", "paragraph_sources", "size",
+           "size_source", "text_below", "typeface", "write_autofit"]
