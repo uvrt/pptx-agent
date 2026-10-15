@@ -2752,6 +2752,8 @@ class Slide(ShapeFactory):
     def _ensure_index(self) -> SlideShapeIndex:
         if self._index is None:
             self._index = SlideShapeIndex(self.slide_id, self._sp_tree())
+            # Whatever is here now stays taken, should it be deleted before the next new id.
+            self.document._shape_ids_used(self).update(_numeric_ids(self._index))
         return self._index
 
     def _invalidate(self) -> None:
@@ -2770,27 +2772,31 @@ class Slide(ShapeFactory):
         return Shape(self, element, shape_id)
 
     def _next_shape_id(self) -> int:
-        """A ``cNvPr@id`` not used anywhere in this slide part -- nor as another shape's
-        local id (a stamp can outlive the ``cNvPr@id`` it froze), so a new shape's id is
-        its ``cNvPr@id`` without a disambiguating path."""
+        """A ``cNvPr@id`` this slide part has not had since the deck was opened -- nor as
+        another shape's local id (a stamp can outlive the ``cNvPr@id`` it froze), so a new
+        shape's id is its ``cNvPr@id`` without a disambiguating path, and never the id of a
+        shape deleted earlier: what tracked that one does not silently point at this one."""
         return self._next_shape_ids(1)[0]
 
     def _next_shape_ids(self, count: int) -> list[int]:
         """``count`` fresh ids at once, as :meth:`_next_shape_id` picks one: for a copy whose
-        shapes all need one before any of them is in the tree."""
-        used = set()
-        tree = self._sp_tree()
-        for node in tree.iter(qn("p:cNvPr")):
-            raw = node.get("id")
-            if raw and raw.isdigit():
-                used.add(int(raw))
-        taken = {shape_id.local for shape_id, _ in SlideShapeIndex(self.slide_id, tree)}
+        shapes all need one before any of them is in the tree.
+
+        PowerPoint's rule, measured with PowerPoint for Mac on 2026-10-15
+        (agent-work/feedback-round5/oracle/results.md, A1): the lowest id from 2 not taken,
+        where taken is every id on the slide when it was opened and every id handed out or
+        deleted since -- a freed id is not reused while the deck is open; after a save and
+        reopen only the ids in the file count.  Nothing is stored in the file.  Here "since"
+        is this Document's lifetime, undo and rolled-back batches included."""
+        used = self.document._shape_ids_used(self)
+        used.update(_numeric_ids(SlideShapeIndex(self.slide_id, self._sp_tree())))
         fresh: list[int] = []
         candidate = 2  # 1 is conventionally the shape tree itself
         while len(fresh) < count:
-            if candidate not in used and str(candidate) not in taken:
+            if candidate not in used:
                 fresh.append(candidate)
             candidate += 1
+        used.update(fresh)
         return fresh
 
     def _factory(self):
@@ -3066,6 +3072,16 @@ class Document(CommentOps):
         self.history = History(package)
         self._slides: list[Slide] | None = None
         self._sheets: dict[str, _TemplateSheet] = {}
+        # The ids this Document has seen, so none is handed out twice while it is open
+        # (:meth:`Slide._next_shape_ids`, :meth:`_new_slide_entry`).  Kept here, outside the
+        # package, because undo, redo and a batch's rollback restore the package only: an
+        # id handed out and then undone stays taken.
+        #: The package as it was opened (``package.opened()``), read for the ids there were.
+        self._origin: OoxmlPackage | None = None
+        #: Per slide (by ``sldId``) or layout/master (by part): every shape id seen.
+        self._shape_ids_seen: dict[int | str, set[int]] = {}
+        #: The largest ``sldId`` seen; ``None`` until a slide is added.
+        self._slide_id_high: int | None = None
 
     # -- lifecycle -------------------------------------------------------------------------
 
@@ -3706,7 +3722,7 @@ class Document(CommentOps):
                                                                  language_of(self)),
                              CT_SLIDE, override=True)
             package.add_relationship(part, REL_SLIDE_LAYOUT, layout.part_path)
-            slide_id = _slides.insert_entry(package, part, index)
+            slide_id = self._new_slide_entry(part, index)
             self._reset_caches()
             from .templates import footers_for_new_slide
 
@@ -3758,7 +3774,7 @@ class Document(CommentOps):
             self.history.checkpoint()
             part = package.copy_part(slide.part_path,
                                      share=lambda rel: rel.type in SHARED_ON_DUPLICATE)
-            slide_id = _slides.insert_entry(package, part, position)
+            slide_id = self._new_slide_entry(part, position)
             _slides.renew_creation_id(package, part, slide_id)
             drop_comments(package, part)           # the review is of the original
             self._reset_caches()
@@ -3899,6 +3915,42 @@ class Document(CommentOps):
         # restore() reparsed the trees, so every cached Element reference is stale.
         self._slides = None
         self._sheets = {}
+
+    # -- ids never handed out twice ---------------------------------------------------------
+
+    def _opened_package(self) -> OoxmlPackage:
+        if self._origin is None:
+            self._origin = self.package.opened()
+        return self._origin
+
+    def _shape_ids_used(self, host: "Slide") -> set[int]:
+        """Every shape id ``host`` has had since this Document was opened: those in its part
+        then, and every one seen or handed out since (the set grows; nothing frees an id)."""
+        key: int | str = host.part_path if isinstance(host, _TemplateSheet) else host.slide_id
+        used = self._shape_ids_seen.get(key)
+        if used is None:
+            origin = self._opened_package()
+            part = host.part_path if isinstance(host, _TemplateSheet) \
+                else dict(origin.slide_parts()).get(host.slide_id)
+            root = origin.tree(part) if part is not None else None
+            tree = find(root, "p:cSld/p:spTree") if root is not None else None
+            used = set() if tree is None else _numeric_ids(SlideShapeIndex(key, tree))
+            self._shape_ids_seen[key] = used
+        return used
+
+    def _new_slide_entry(self, part: str, index: int | None) -> int:
+        """List a new slide part; its ``sldId`` is above every one seen since this Document
+        was opened -- deleted slides' included, so an id once a slide's is never another's
+        while the deck is open (:func:`~pptx_agent.edit.slides.new_slide_id`).  After a
+        save and reopen only the ids in the file count, as for PowerPoint."""
+        if self._slide_id_high is None:
+            origin = self._opened_package()
+            root = origin.tree(origin.presentation_part())
+            self._slide_id_high = max(_slides.slide_ids_in(root), default=0) \
+                if root is not None else 0
+        slide_id = _slides.insert_entry(self.package, part, index, self._slide_id_high)
+        self._slide_id_high = max(self._slide_id_high, slide_id)
+        return slide_id
 
     # -- the full-state SVG ----------------------------------------------------------------
 
@@ -4270,12 +4322,30 @@ def language_of(document: "Document | None") -> str:
 
 
 def copy_of(document: "Document") -> "Document":
-    """A fresh copy of ``document`` (from its bytes) that renders and measures as it does."""
+    """A fresh copy of ``document`` (from its bytes) that renders and measures as it does --
+    and hands out the ids it would: it carries on ``document``'s session, ids already used
+    included, rather than starting one of its own."""
     copy = Document.open(document.to_bytes())
     copy.font_dirs = document.font_dirs
     copy.locale = document.locale
     copy.min_text_size = document.min_text_size
+    copy._origin = document._opened_package()
+    copy._shape_ids_seen = {key: set(ids) for key, ids in document._shape_ids_seen.items()}
+    copy._slide_id_high = document._slide_id_high
     return copy
+
+
+def _numeric_ids(index: SlideShapeIndex) -> set[int]:
+    """The ids in a shape index a new shape's ``cNvPr@id`` must avoid: every numeric
+    ``cNvPr@id``, and every numeric local id (a stamp)."""
+    numbers: set[int] = set()
+    for shape_id, element in index:
+        properties = cnv_pr(element)
+        raw = properties.get("id") if properties is not None else None
+        for value in (raw, shape_id.local):
+            if value and value.isdigit():
+                numbers.add(int(value))
+    return numbers
 
 
 def _require_renderer():
