@@ -22,6 +22,13 @@ PowerPoint's object model upper-cases tag names.  Other tags on the frame stay, 
 are; a tags part another frame shares is copied before it is written, so a record never
 lands on two frames.  :data:`TAG_NAME` is the one tag this module writes.
 
+**Text facts.**  A value a text tool wrote by reference (``{{d:x/key/col}}``) is kept in
+the same way on the shape it is in -- any shape with text, through its own ``p:nvPr`` -- or,
+for a table cell, on the table's frame: a :data:`FACTS_TAG` tag beside the
+:data:`TAG_NAME` one (see "text facts" below).  That PowerPoint keeps such a tag on a
+``p:sp`` as it does on a graphic frame is not measured: the element is the same
+(``CT_ApplicationNonVisualDrawingProps``' ``custDataLst`` in ECMA-376's ``pml.xsd``).
+
 **Copies and deletes.**  The tags part is per-shape state: a duplicated slide, a duplicated
 shape and shapes copied to another slide or deck get their own copy of it
 (:data:`~pptx_agent.oxml.package.SHARED_ON_DUPLICATE` does not share tags); deleting the
@@ -50,6 +57,8 @@ if TYPE_CHECKING:
 
 #: The tag that holds the record.  Upper case: PowerPoint upper-cases tag names.
 TAG_NAME = "UVRT_PROVENANCE"
+#: The tag that holds a shape's or a table's text facts: ``{"v":1,"facts":[...]}``.
+FACTS_TAG = "UVRT_TEXT_FACTS"
 #: The relationship from a slide to a tags part, and the part's content type.
 REL_TAGS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tags"
 CT_TAGS = "application/vnd.openxmlformats-officedocument.presentationml.tags+xml"
@@ -70,8 +79,14 @@ def _frame(shape: "Shape") -> None:
                          "table's or a chart's graphic frame")
 
 
+def _nv_pr(shape: "Shape"):
+    """The shape's ``p:nvPr`` (in ``p:nvSpPr``, ``p:nvGraphicFramePr``, ...)."""
+    return shape._element.find("./*/p:nvPr", NAMESPACES)
+
+
 def _tags_element(shape: "Shape"):
-    return find(shape._element, "p:nvGraphicFramePr/p:nvPr/p:custDataLst/p:tags")
+    nv_pr = _nv_pr(shape)
+    return None if nv_pr is None else find(nv_pr, "p:custDataLst/p:tags")
 
 
 def _tags_part(shape: "Shape") -> str | None:
@@ -84,48 +99,53 @@ def _tags_part(shape: "Shape") -> str | None:
     return part if part is not None and package.has_part(part) else None
 
 
-def read(shape: "Shape") -> dict[str, Any] | None:
-    """The record kept on ``shape``'s frame, or ``None``.  An unreadable one is ``None``,
-    with a :class:`ProvenanceWarning`."""
-    part = _tags_part(shape) if shape._element.tag == qn("p:graphicFrame") else None
+def read(shape: "Shape", name: str = TAG_NAME) -> dict[str, Any] | None:
+    """The record kept on ``shape``'s frame (``name``: :data:`FACTS_TAG`, its text facts,
+    on any shape), or ``None``.  An unreadable one is ``None``, with a
+    :class:`ProvenanceWarning`."""
+    if name == TAG_NAME and shape._element.tag != qn("p:graphicFrame"):
+        return None
+    part = _tags_part(shape)
     if part is None:
         return None
-    tag = _our_tag(shape._slide.document.package.tree(part))
+    tag = _our_tag(shape._slide.document.package.tree(part), name)
     if tag is None:
         return None
     try:
         return _records.loads(tag.get("val") or "")
     except _records.RecordError as error:
-        warnings.warn(f"{shape.id}: the {TAG_NAME} tag holds no source record ({error}); "
+        warnings.warn(f"{shape.id}: the {name} tag holds no source record ({error}); "
                       "it is skipped", ProvenanceWarning, stacklevel=2)
         return None
 
 
-def _our_tag(root):
+def _our_tag(root, name: str = TAG_NAME):
     if root is None:
         return None
     for tag in root.iter(qn("p:tag")):
-        if (tag.get("name") or "").upper() == TAG_NAME:
+        if (tag.get("name") or "").upper() == name:
             return tag
     return None
 
 
-def store(shape: "Shape", found: Mapping[str, Any] | None) -> bool:
+def store(shape: "Shape", found: Mapping[str, Any] | None, name: str = TAG_NAME) -> bool:
     """Keep ``found`` on ``shape``'s graphic frame, replacing the record it had; ``None``
     drops it -- and the tags part and its relationship, once no tag is left.  Other tags
-    stay.  Part of the document's current undo step.  Whether anything changed."""
-    _frame(shape)
+    stay.  Part of the document's current undo step.  Whether anything changed.
+    ``name``: :data:`FACTS_TAG` keeps text facts, on any shape."""
+    if name == TAG_NAME:
+        _frame(shape)
     slide = shape._slide
     package = slide.document.package
     if found is None:
         part = _tags_part(shape)
-        tag = _our_tag(package.tree(part)) if part is not None else None
+        tag = _our_tag(package.tree(part), name) if part is not None else None
         if tag is None:
             return False
         shape._before_change()
         part = _own_part(shape)                  # a shared part: this frame's copy only
         root = package.tree(part)
-        remove(_our_tag(root))
+        remove(_our_tag(root, name))
         package.mark_dirty(part)
         if root.find(qn("p:tag")) is None:
             _unlink(shape)
@@ -134,18 +154,18 @@ def store(shape: "Shape", found: Mapping[str, Any] | None) -> bool:
     text = _records.dumps(found)
     part = _own_part(shape)
     if part is not None:
-        tag = _our_tag(package.tree(part))
+        tag = _our_tag(package.tree(part), name)
         if tag is not None and tag.get("val") == text:
             return False
     shape._before_change()
     if part is None:
         part = _new_part(shape)
     root = package.tree(part)
-    tag = _our_tag(root)
+    tag = _our_tag(root, name)
     if tag is None:
         tag = make("p:tag")
         root.append(tag)
-    tag.set("name", TAG_NAME)
+    tag.set("name", name)
     tag.set("val", text)
     package.mark_dirty(part)
     shape._after_change()
@@ -182,9 +202,9 @@ def _new_part(shape: "Shape") -> str:
     rel_id = package.add_relationship(slide.part_path, REL_TAGS, part)
     holder = _tags_element(shape)
     if holder is None:
-        nv_pr = find(shape._element, "p:nvGraphicFramePr/p:nvPr")
+        nv_pr = _nv_pr(shape)
         if nv_pr is None:
-            raise ValueError(f"{shape.id}: the frame has no p:nvPr")
+            raise ValueError(f"{shape.id}: the shape has no p:nvPr")
         custom = find(nv_pr, "p:custDataLst")
         if custom is None:
             custom = append_in_order(nv_pr, make("p:custDataLst"))
@@ -214,22 +234,142 @@ def _unlink(shape: "Shape") -> None:
         remove(custom)
 
 
+# -- text facts ---------------------------------------------------------------------------------
+#
+# A value written into a shape's or a table cell's text by reference (``{{d:x/key/col}}``,
+# :mod:`ooxml_edit.tools.textfacts`) is a *fact*: an :mod:`ooxml_edit.provenance` fact --
+# ``source``, ``text``, ``document``, ``version``, ``sources`` and its place, ``p`` the
+# paragraph and ``at`` the character in it, in the text ``text_frame.text`` reads (a line
+# break is one character, ``\v``) -- and, in a table, ``cell`` ``[row, col]``.  A shape's
+# facts are one record, ``{"v":1,"facts":[...]}``, in the :data:`FACTS_TAG` tag of its tags
+# part, beside a table's or a chart's own record when it has one.  A fact is kept while its
+# characters are its text: an edit keeps the ones it does not touch, moved with the text
+# (:func:`ooxml_edit.provenance.facts_after_edit`), and reading lists only the ones still
+# where they say (:func:`ooxml_edit.provenance.facts_found`), whoever edited the text.
+
+
+def text_of(shape: "Shape", cell: tuple[int, int] | None = None) -> str | None:
+    """The text a fact's place counts in: the shape's, or a table cell's; ``None`` when
+    there is none."""
+    if cell is not None:
+        table = shape.table
+        if table is None or not (cell[0] < table.rows and cell[1] < table.columns):
+            return None
+        return table.cell(*cell).text_frame.text
+    frame = shape.text_frame
+    return None if frame is None else frame.text
+
+
+def facts(shape: "Shape") -> list[dict[str, Any]]:
+    """Every fact the shape keeps, as kept (not checked against its text)."""
+    found = read(shape, FACTS_TAG)
+    listed = found.get("facts") if found else None
+    return [dict(fact) for fact in listed if isinstance(fact, Mapping)] \
+        if isinstance(listed, list) else []
+
+
+def _cell_key(fact: Mapping[str, Any]) -> tuple[int, int] | None:
+    cell = fact.get("cell")
+    if isinstance(cell, list) and len(cell) == 2 and all(isinstance(n, int) for n in cell):
+        return cell[0], cell[1]
+    return None
+
+
+def store_facts(shape: "Shape", found: Iterable[Mapping[str, Any]]) -> bool:
+    """Keep ``found`` as the shape's facts, replacing what it had; none drops the tag."""
+    found = [dict(fact) for fact in found]
+    return store(shape, {"v": _records.VERSION, "facts": found} if found else None,
+                 FACTS_TAG)
+
+
+def facts_written(shape: "Shape", cell: tuple[int, int] | None, before: str, after: str,
+                  new: Iterable[Mapping[str, Any]] = ()) -> bool:
+    """The text of ``shape`` (or its ``cell``) went from ``before`` to ``after``: its facts
+    the edit did not touch stay, moved; ``new`` (facts with their ``p`` and ``at`` in
+    ``after``) are added where their text is.  Whether anything changed."""
+    kept = facts(shape)
+    others = [fact for fact in kept if _cell_key(fact) != cell]
+    mine = [{k: v for k, v in fact.items() if k != "cell"} for fact in kept
+            if _cell_key(fact) == cell]
+    if not mine and not new:
+        return False
+    survivors = _records.facts_after_edit(mine, before, after)
+    added = _records.facts_found(list(new), after)
+    places = {(fact["p"], fact["at"]) for fact in added}
+    merged = sorted([fact for fact in survivors if (fact["p"], fact["at"]) not in places]
+                    + added, key=lambda fact: (fact["p"], fact["at"]))
+    if cell is not None:
+        merged = [{**fact, "cell": [cell[0], cell[1]]} for fact in merged]
+    return store_facts(shape, others + merged)
+
+
+def cell_facts_after(shape: "Shape", rule: str, index: int | None = None,
+                     cells: Iterable[tuple[int, int]] = ()) -> bool:
+    """A table's facts after a row or column was inserted (``insert_row``,
+    ``insert_column``: the cells at or after ``index`` move one on) or deleted
+    (``delete_row``, ``delete_column``: its cells' facts go, the ones after move back), or
+    after ``cells`` were rewritten some other way (``cells``: their facts go)."""
+    kept = facts(shape)
+    if not kept:
+        return False
+    gone = set(cells)
+    out = []
+    for fact in kept:
+        key = _cell_key(fact)
+        if key is None:
+            out.append(fact)
+            continue
+        row, col = key
+        if key in gone:
+            continue
+        if rule in ("insert_row", "delete_row"):
+            if rule == "delete_row" and row == index:
+                continue
+            if index is not None and row >= index + (rule == "delete_row"):
+                row += 1 if rule == "insert_row" else -1
+        elif rule in ("insert_column", "delete_column"):
+            if rule == "delete_column" and col == index:
+                continue
+            if index is not None and col >= index + (rule == "delete_column"):
+                col += 1 if rule == "insert_column" else -1
+        out.append({**fact, "cell": [row, col]})
+    return store_facts(shape, out) if out != kept else False
+
+
+def facts_found(shape: "Shape") -> list[dict[str, Any]]:
+    """The shape's facts whose text is still where they say."""
+    out = []
+    by_text: dict[Any, list[dict[str, Any]]] = {}
+    for fact in facts(shape):
+        by_text.setdefault(_cell_key(fact), []).append(fact)
+    for cell, listed in by_text.items():
+        text = text_of(shape, cell)
+        if text is not None:
+            out += _records.facts_found(listed, text)
+    return out
+
+
 # -- the deck's records -------------------------------------------------------------------------
 
 
 def records(document: "Document") -> dict[str, dict[str, Any]]:
-    """``{frame address: record}`` for every graphic frame on the deck's slides that keeps
+    """``{shape address: record}`` for every graphic frame on the deck's slides that keeps
     one -- in its tags part, or, for a chart frame without the tag, in its chart part
-    (:func:`ooxml_edit.charts.provenance`).  Unreadable records are skipped with a
-    :class:`ProvenanceWarning`."""
+    (:func:`ooxml_edit.charts.provenance`) -- and every shape or table with text facts
+    still true (``facts``, beside a table's own record).  Unreadable records are skipped
+    with a :class:`ProvenanceWarning`."""
     out: dict[str, dict[str, Any]] = {}
     for slide in document.slides:
         for shape in slide.shapes:
-            if shape._element.tag != qn("p:graphicFrame"):
-                continue
-            found = read(shape)
-            if found is None:
-                found = _chart_record(shape)
+            found = None
+            if shape._element.tag == qn("p:graphicFrame"):
+                found = read(shape)
+                if found is None:
+                    found = _chart_record(shape)
+            if _tags_part(shape) is not None:
+                listed = facts_found(shape)
+                if listed:
+                    found = {**(found or {"v": _records.VERSION}), "facts": listed}
             if found is not None:
                 out[shape.id] = found
     return out
@@ -375,6 +515,7 @@ def cell_of(address: str) -> tuple[str, int, int] | None:
     return match.group(1), int(match.group(2)), int(match.group(3))
 
 
-__all__ = ["CT_TAGS", "REL_TAGS", "TAG_NAME", "ProvenanceWarning", "after_cells",
+__all__ = ["CT_TAGS", "FACTS_TAG", "REL_TAGS", "TAG_NAME", "ProvenanceWarning", "after_cells",
            "after_column_delete", "after_column_insert", "after_row_delete",
-           "after_row_insert", "cell_of", "read", "records", "store"]
+           "after_row_insert", "cell_facts_after", "cell_of", "facts", "facts_found",
+           "facts_written", "read", "records", "store", "store_facts", "text_of"]

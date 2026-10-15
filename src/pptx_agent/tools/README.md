@@ -128,6 +128,16 @@ moves the columns' entries (and drops the deleted one's). Copies of the frame, i
 or its shapes have their own copy of the tags part; deleting the frame or the slide
 deletes it.
 
+A figure in text keeps its source the same way. The text tools (`ppt_set_text`,
+`ppt_add_shape`, `ppt_add_table`'s `data`, `set_cells`, `replace_text`'s `replace`) take a
+reference to one value, `{{d:by_topic/door/mean}}` or `{{t:checks/N-1/rating}}` (`#3` names
+a row by position; `:0.0`, `:#,##0`, `:0%` after it format a number), and write the value in
+the session's locale; the result lists each (`data.facts`: `from`, `text`, `sources`). The
+deck keeps them in a `UVRT_TEXT_FACTS` tag of the shape's tags part (a table's frame for its
+cells), each with its place -- `p`, `at`, a table's `cell` -- and `Document.provenance()`
+lists them under the shape's address (`facts`) while their text is where they say: an edit
+drops the facts it touches and moves the rest. `\{{` writes a reference literally.
+
 ### Measuring a table before placing it
 
 `ppt_add_table` with `measure: true` builds nothing: it takes the same arguments as an add

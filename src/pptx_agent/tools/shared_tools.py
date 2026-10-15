@@ -16,6 +16,7 @@ from .common import (KIND, facts, library_errors, numbers, slide_id_of, template
                      validate_delta)
 from ..edit.document import font_dirs_of, locale_of
 from .render import png_size, render_slides_reporting
+from . import textfacts
 from .tables import forget_cells
 
 #: Slides a render may hold, and the default width (1280 px: 1,196 Claude tokens at 16:9).
@@ -194,10 +195,17 @@ def replace_text(call, doc, find, replace, expect, regex=False, slides=None, ran
                         valid_options=[f"{block.address}: {_context(block.text, *_span(pattern, block.text))}"
                                        for block, _ in hits][:50], field="find")
     changed = []
+    written = call.facts_at("replace")
     for block, _ in hits:
         target = deck.resolve(block.address)
+        where = textfacts.spot(deck, block.address)
+        before = where.text() if where is not None else None
         new = pattern.sub(replace, block.text) if regex else block.text.replace(find, replace)
         target.text = new
+        if where is not None:            # the values replace wrote by reference, and the rest
+            where.written(before, [(start + fact.start, fact) for start in
+                                   _replaced_at(pattern, block.text, replace, regex)
+                                   for fact in written] if written else ())
         changed.append(block.address)
         sid = slide_id_of(block.address)
         if sid is not None:
@@ -215,6 +223,20 @@ def replace_text(call, doc, find, replace, expect, regex=False, slides=None, ran
             result.warnings.append(f"{find!r} is on a layout or master too "
                                    f"({', '.join(elsewhere[:5])}): stories=all reaches it")
     return result
+
+
+def _replaced_at(pattern, text: str, replace: str, regex: bool) -> list[int]:
+    """Where each replacement starts in the new text; none for a regex replacement with
+    groups (``\\1``), whose length is not the replacement's."""
+    if regex and "\\" in replace:
+        return []
+    starts, delta = [], 0
+    for match in pattern.finditer(text):
+        if not regex and match.end() == match.start():
+            continue
+        starts.append(match.start() + delta)
+        delta += len(replace) - (match.end() - match.start())
+    return starts
 
 
 def _span(pattern, text):

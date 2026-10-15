@@ -20,6 +20,7 @@ DASHES = ["solid", "dash", "dot", "dashDot", "lgDash", "sysDash", "sysDot"]
 from .common import (ANCHOR, AUTOFIT, KIND, box_emu, box_pt, emu, frame_of, insets_param,
                      library_errors, place, pt, resolve, shape as shape_at, host as slide_at,
                      spec_of, text_params, write_text)
+from . import textfacts
 from .text import COMMON_PRESETS, preset_of
 
 from ..edit.arrange import EDGES
@@ -126,7 +127,7 @@ def _measuring(arguments) -> bool:
                           optional=True),
        "key": _KEY},
       kind=KIND, group=GRAPHICS, mutates=True, refs=("slide", "items[].like"),
-      reads=_measuring)
+      facts=("items[].text", "items[].paragraphs[].runs[].text"), reads=_measuring)
 @library_errors
 def ppt_add_shape(call, doc, slide, items, measure=False, key=None):
     from ..edit.fit import _converged_height
@@ -150,6 +151,7 @@ def ppt_add_shape(call, doc, slide, items, measure=False, key=None):
                                      adjustments=_adjustments(item) or None)
         if "text" in item or "paragraphs" in item or item.get("frame"):
             write_text(shape, item, field=field)
+            textfacts.Spot(shape).written("", textfacts.placed(call, field, item))
         if "fill" in item:
             shape.fill = item["fill"]
         if item.get("line"):

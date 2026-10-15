@@ -3210,8 +3210,11 @@ class Document(CommentOps):
         ``{frame address: record}`` for every table or chart frame on the slides that has
         a record (:mod:`pptx_agent.edit.provenance`) -- each an
         :mod:`ooxml_edit.provenance` record, as ``ppt_add_table``, ``ppt_edit_table`` and
-        ``edit_chart`` with ``from`` wrote it.  A record that does not read is skipped,
-        with a :class:`~pptx_agent.edit.provenance.ProvenanceWarning`.
+        ``edit_chart`` with ``from`` wrote it -- and for every shape or table whose text
+        holds values written by reference (``{{d:x/key/col}}``), ``facts``: each value's
+        source, text and place (``p``, ``at``, a table's ``cell``), only while its text is
+        still there.  A record that does not read is skipped, with a
+        :class:`~pptx_agent.edit.provenance.ProvenanceWarning`.
 
         For example::
 

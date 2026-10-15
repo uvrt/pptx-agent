@@ -60,6 +60,7 @@ naming a cell its value did not come to:
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from ooxml_edit.tools import (Result, ToolError, array, boolean, integer, names_as, number, obj,
@@ -70,6 +71,7 @@ from ..edit import provenance as _provenance
 from ..edit.tablestyles import FLAGS
 
 from ..edit.fit import build_table
+from . import textfacts
 from .common import (KIND, box_emu, emu, library_errors, pt, shape as shape_at,
                      host as slide_at)
 from .shapes import OBJECTS, _box
@@ -148,7 +150,8 @@ def table_json(frame, table) -> dict[str, Any]:
                            optional=True),
        "key": _KEY},
       kind=KIND, group=OBJECTS, mutates=True, refs=("slide",), sources=("from",),
-      aliases=_COLUMN_NAMES, reads=lambda arguments: bool(arguments.get("measure")))
+      facts=("data[]",), aliases=_COLUMN_NAMES,
+      reads=lambda arguments: bool(arguments.get("measure")))
 @library_errors
 def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, style=None,
                   ref=None, key=None, header=None, from_columns=None, size=None, widths=None,
@@ -201,6 +204,7 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
                         widths=column_widths)
     if ref:
         call.define_ref(ref, frame.id)
+    _keep_data_facts(call, frame, lambda row: row)
     call.touch(host.slide_id)
     result = table_json(frame, call.document.shape(frame.id).table)
     if placed is not None:
@@ -256,6 +260,8 @@ def _continued(call, host, box, rows, columns, data, style, size, widths, placed
         table = frame.table
         for row, height in enumerate(page_heights):
             table.set_row_height(row, height)
+        _keep_data_facts(call, frame, lambda row, page=page: row if row < first else (
+            row - page.start + first if page.start <= row < page.stop else None))
         call.touch(slide.slide_id)
         created.append(frame.id)
         entry = {"slide": f"s:{slide.slide_id}", "table": frame.id,
@@ -278,6 +284,22 @@ def _continued(call, host, box, rows, columns, data, style, size, widths, placed
                   f"slide(s), the header on each: rows {spread}"
                   + (f"; new slides {', '.join(added[:10])}" if added else ""),
                   created=created, data=result)
+
+
+_DATA_CELL = re.compile(r"^data\[(\d+)\]\[(\d+)\]$")
+
+
+def _keep_data_facts(call, frame, table_row) -> None:
+    """Keep the values ``data`` wrote by reference on the new table ``frame``: each in the
+    cell of the table row ``table_row(data row)`` gives (``None``: not on this frame)."""
+    by_cell: dict[tuple[int, int], list] = {}
+    for fact in call.facts:
+        match = _DATA_CELL.match(fact.field)
+        row = table_row(int(match.group(1))) if match else None
+        if row is not None:
+            by_cell.setdefault((row, int(match.group(2))), []).append((fact.start, fact))
+    for cell, placed in by_cell.items():
+        textfacts.Spot(frame, cell).written("", placed)
 
 
 def _next_slide(deck, host, after):
@@ -461,7 +483,7 @@ _SIDES = ["top", "bottom", "left", "right", "all"]
        "flags": obj({flag: boolean(optional=True) for flag in FLAGS},
                     "set_flags: on or off; others stay.", optional=True)},
       kind=KIND, group=OBJECTS, mutates=True, refs=("target",), sources=("from",),
-      aliases=_COLUMN_NAMES)
+      facts=("cells[].text",), aliases=_COLUMN_NAMES)
 @library_errors
 def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None, span=None,
                    sizes=None, rows=None, columns=None, fill=None, borders=None, style=None,
@@ -503,7 +525,11 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
                     raise ToolError("not_found", f"no cell {row},{col}; the table is "
                                     f"{table.rows}x{table.columns}", field=f"cells[{i}]")
                 found = table.cell(row, col)
+            where = textfacts.spot(call.document, found.address)
+            before = where.text() if where is not None else None
             found.text = cell["text"]
+            if where is not None:
+                where.written(before, textfacts.cell_facts(call, f"cells[{i}].text"))
             changed.append(found.address)
             written.append(_provenance.cell_of(found.address)[1:])
         after = _provenance.after_cells(record, written)
@@ -511,23 +537,28 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
         at = table.rows if index is None else index
         table.insert_row(index, like=like)
         after = _provenance.after_row_insert(record, at)
+        _provenance.cell_facts_after(frame, action, at)
     elif action == "delete_row":
         table.delete_row(need("index", index))
         after = _provenance.after_row_delete(record, index)
+        _provenance.cell_facts_after(frame, action, index)
     elif action == "insert_column":
         at = table.columns if index is None else index
         table.insert_column(index, like=like)
         after = _provenance.after_column_insert(record, at)
+        _provenance.cell_facts_after(frame, action, at)
     elif action == "delete_column":
         table.delete_column(need("index", index))
         after = _provenance.after_column_delete(record, index)
+        _provenance.cell_facts_after(frame, action, index)
     elif action == "merge":
         area = need("span", span)
         to_row, to_col = area.get("to_row", area["row"]), area.get("to_col", area["col"])
         table.merge(area["row"], area["col"], to_row, to_col)
-        after = _provenance.after_cells(record, [
-            (row, col) for row in range(area["row"], to_row + 1)
-            for col in range(area["col"], to_col + 1)])
+        merged = [(row, col) for row in range(area["row"], to_row + 1)
+                  for col in range(area["col"], to_col + 1)]
+        after = _provenance.after_cells(record, merged)
+        _provenance.cell_facts_after(frame, "cells", cells=merged)
     elif action == "split":
         area = need("span", span)
         table.split(area["row"], area["col"])
@@ -574,11 +605,14 @@ def _set_from(call, frame, table, source, from_columns, header, top: int) -> Res
     _fits(placed, table.rows - top, table.columns,
           room=f"the table has {table.rows - top} from row {top}")
     changed = [frame.id]
+    written = []
     for row, values in enumerate(placed.texts(), start=top):
         for column, text in enumerate(values):
             cell = table.cell(row, column)
             cell.text = text
             changed.append(cell.address)
+            written.append((row, column))
+    _provenance.cell_facts_after(frame, "cells", cells=written)
     need_rows, need_columns = placed.size
     warnings = []
     if top + need_rows < table.rows or need_columns < table.columns:
