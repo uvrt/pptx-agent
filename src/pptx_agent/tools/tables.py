@@ -60,7 +60,6 @@ naming a cell its value did not come to:
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from ooxml_edit.tools import (Result, ToolError, array, boolean, integer, names_as, number, obj,
@@ -217,29 +216,12 @@ def _too_few_rows(source: str, placed: "_Placed", rows: int) -> None:
     of the source (offered when the source can take one), or ``continue``."""
     body = len(placed.rows.dataset.rows)
     header = 1 if placed.header else 0
-    fewer = _row_range(source, max(rows - header, 1))
+    fewer = sources.first_rows(source, max(rows - header, 1))
     example = fewer or "a row range, t:<table>/#1:#9"
     raise ToolError("invalid_arguments", f"rows is {rows}, but from has {body} rows"
                     + (" and a header" if header else "") + f": place fewer with {example}, "
                     "continue: true to go on over the next slides, or leave rows out "
                     "(nothing is cut)", field="rows", valid_options=[fewer] if fewer else None)
-
-
-#: A source that can take a row range: a whole table or dataset (``d2/t:items``,
-#: ``d:by_region``), or a row range already (``t:items/#9:``, ``t:items/#9:#40``).
-_WHOLE = re.compile(r"^((?:d[0-9]+/)?[a-z]:[^/\[\]]+)"
-                    r"(?:/#([1-9][0-9]*):(?:#?[1-9][0-9]*)?)?$")
-
-
-def _row_range(source: str, count: int) -> str | None:
-    """The source's first ``count`` rows as a row range (``t:items/#1:#9``), or ``None``
-    when the source is not a whole table or dataset or a row range."""
-    match = _WHOLE.match(source.strip())
-    if match is None:
-        return None
-    first = int(match.group(2) or 1)
-    last = first + count - 1
-    return f"{match.group(1)}/#{first}" + ("" if last == first else f":#{last}")
 
 
 def _continued(call, host, box, rows, columns, data, style, size, widths, placed,
