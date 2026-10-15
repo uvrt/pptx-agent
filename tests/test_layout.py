@@ -8,7 +8,7 @@ import pytest
 
 from pptx_agent import Document
 from pptx_agent.edit.arrange import align, distribute, drawn_box, place
-from pptx_agent.edit.layout import LayoutError, column, grid, place_labels, stack
+from pptx_agent.edit.layout import LayoutError, column, flow, grid, place_labels, stack
 from pptx_agent.edit.scales import (BandScale, DateScale, LinearScale, ScaleError,
                                     nice_step, scale_from)
 
@@ -198,6 +198,27 @@ def test_grid_places_in_cells_rows_or_columns_first(slide):
     assert pts(shapes[1].drawn_bounds) == (100, 160, 100, 60)
     with pytest.raises(LayoutError):
         grid(shapes, box=box, rows=2, columns=2)
+
+
+def test_grid_fill_sizes_shapes_to_cells_and_keeps_pictures_aspect(slide):
+    from images import png
+
+    shapes = boxes(slide, [(0, 0, 40, 20)] * 3)
+    picture = slide.add_picture(png(30, 10, lambda x, y: (0, 90, 160)), 0, 0, 30 * PT, 10 * PT)
+    grid([shapes[0], picture, *shapes[1:]], box=(0, 0, 200 * PT, 200 * PT), columns=2,
+         fit="fill")
+    assert pts(shapes[0].drawn_bounds) == (0, 0, 100, 100)
+    assert pts(picture.drawn_bounds) == (100, round(50 - 100 / 6, 2), 100, round(100 / 3, 2))
+    with pytest.raises(LayoutError, match="smaller gap"):
+        grid(shapes, box=(0, 0, 100 * PT, 100 * PT), columns=3, gutter=(60 * PT, 0))
+
+
+def test_flow_wraps_at_the_largest_size(slide):
+    shapes = boxes(slide, [(0, 0, 40, 20), (0, 0, 60, 30), (0, 0, 40, 20)])
+    flow(shapes, box=(10 * PT, 10 * PT, 130 * PT, 100 * PT), gutter=(10 * PT, 5 * PT))
+    assert [pts(s.drawn_bounds)[:2] for s in shapes] == [(20, 15), (80, 10), (20, 50)]
+    with pytest.raises(LayoutError, match="wider box"):
+        flow(shapes, box=(0, 0, 50 * PT, 100 * PT))
 
 
 def test_place_moves_and_resizes_by_the_drawn_box(slide):
