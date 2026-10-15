@@ -67,6 +67,7 @@ example (documentation only; nothing like it ships)::
 
 from __future__ import annotations
 
+import dataclasses
 import io
 import zipfile
 
@@ -198,6 +199,28 @@ FORMAT = DocumentFormat(
     configure=_configure,
     store_provenance=tables.store_provenance, read_provenance=tables.read_provenance)
 
+def deck_format(*, min_text_size: float | None = None) -> DocumentFormat:
+    """:data:`FORMAT` with the application's own settings -- never tool arguments, so the
+    definitions the model is sent stay the same:
+
+    ``min_text_size`` (points): ``check``, the checks after every change and
+    ``save_document`` report ``small_text``, each shape or table cell whose text is drawn
+    smaller, with its effective size and where the size comes from -- a placeholder that
+    inherits 9 pt from its layout is reported as ``"from": "layout 'Title and Content'
+    body placeholder"`` (:meth:`Slide.text_below <pptx_agent.Slide.text_below>`)::
+
+        toolbox = Toolbox(TOOLS, formats=[deck_format(min_text_size=12)], groups=GROUPS)
+    """
+    if min_text_size is not None and not 1 <= float(min_text_size) <= 400:
+        raise ValueError("min_text_size is points between 1 and 400, or None for no minimum")
+
+    def configure(deck, session) -> None:
+        _configure(deck, session)
+        deck.min_text_size = None if min_text_size is None else float(min_text_size)
+
+    return dataclasses.replace(FORMAT, configure=configure)
+
+
 GROUPS = [*shared.GROUPS,
           ToolGroup(text.TEXT_GROUP, "Formatting text: runs, paragraphs, frames, table cells."),
           ToolGroup(shapes.GRAPHICS, "Shapes (and measuring text for them), connectors, z-order, "
@@ -223,4 +246,5 @@ TOOLS = [
     *review.TOOLS,
 ]
 
-__all__ = ["FORMAT", "GROUPS", "KIND", "PROMPT", "STRICT_FIRST", "TOOLS", "detect"]
+__all__ = ["FORMAT", "GROUPS", "KIND", "PROMPT", "STRICT_FIRST", "TOOLS", "deck_format",
+           "detect"]

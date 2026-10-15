@@ -378,6 +378,10 @@ ALLOWANCE_NOTE = ("fits while needed > available: up to 'allowance' pt is the em
 NEAR_WRAP_NOTE = ("near_wrap: a line has under 0.16 pt to spare; PowerPoint may break it "
                   "where this measurement does not: give it a few points")
 
+#: Said with ``small_text`` (the application's ``min_text_size``).
+SMALL_TEXT_NOTE = ("small_text: drawn below the application's minimum of {minimum} pt; "
+                   "from says where the size comes from. Set a size of at least {minimum} "
+                   "on the shape (ppt_format_text), or on the layout or master it inherits from")
 EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows 'Click to add ...' in an "
                            "empty one while editing (a whitespace-only one shows a stray "
                            "bullet, in the export too); fill them or delete them "
@@ -401,6 +405,8 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
     near_wrap: list[dict] = []
     allowance: list[dict] = []
     empty: list[dict] = []
+    small: list[dict] = []
+    minimum = getattr(deck, "min_text_size", None)
     for sid in slide_ids:
         try:
             target = deck.slide(f"s:{sid}")
@@ -409,6 +415,8 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
         if "fit" in wanted:
             empty += [{"shape": shape.id, "type": shape.placeholder.type or "content",
                        "idx": shape.placeholder.idx} for shape in target.empty_placeholders()]
+        if "fit" in wanted and minimum:
+            small += [item.to_json() for item in target.text_below(minimum)]
         problems, fits = slide_report(target, boxes=boxes)
         for problem in problems:
             if problem.kind == "text" and "fit" in wanted:
@@ -447,6 +455,9 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
         if empty:
             out["empty_placeholders"] = empty
             out["empty_placeholders_note"] = EMPTY_PLACEHOLDERS_NOTE
+        if small:
+            out["small_text"] = small
+            out["small_text_note"] = SMALL_TEXT_NOTE.format(minimum=f"{minimum:g}")
     if "collisions" in wanted:
         out["collisions"] = collisions
     return out
