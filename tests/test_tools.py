@@ -95,10 +95,15 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: words) adds 16 to the core (3,526 -> 3,542, about 5,242 counted by the proxy) and to every
 #: definition (12,387 -> 12,403); the guard rises to 12,405.  The strict set is unchanged:
 #: ppt_read_slides is a reading tool, never strict.
+#: ooxml-edit 0.32.0 (round 5, T2): a chart added with its look in one call -- ``data_labels``
+#: and ``colors`` on the deferred edit_chart, ``add`` in ``style``'s and ``part``'s
+#: descriptions, "Batch several changes." -- adds 62 to every definition (12,403 -> 12,465),
+#: none to the core (3,542); the guard rises to 12,470.  The strict set is unchanged:
+#: edit_chart is sent non-strict.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12405
+ALL_GUARD = 12470
 
 
 def estimate_tokens(definitions) -> int:

@@ -143,3 +143,98 @@ def test_a_gap_width_on_a_line_chart_is_refused(session):
     result = box.dispatch(current, "edit_chart", {"doc": "d1", "target": "$c",
                                                    "action": "set_gap_width", "value": 50})
     assert not result.ok and "bar and column" in result.error.message
+
+
+# -- add with its look (round 5, T2) -------------------------------------------------------------
+
+
+LOOK = {"data_labels": True, "colors": ["accent2", "1F4E79"], "style": {"size": 9},
+        "number_format": "0.0", "axis": "value", "scale": {"min": 0, "max": 20},
+        "gridlines": "none"}
+
+
+def _chart_xml(current, address):
+    from lxml import etree
+
+    return etree.tostring(current.entry("d1").document.shape(address).chart._root())
+
+
+def _two_sessions():
+    deck, _ = deck_with_slide()
+    data = deck.to_bytes()
+    box = Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS)
+    sessions = []
+    for _ in range(2):
+        current = box.session()
+        current.open(data, "deck.pptx")
+        sessions.append(current)
+    return box, sessions
+
+
+def test_add_with_its_look_writes_the_chart_the_separate_calls_write():
+    box, (one, separate) = _two_sessions()
+    with box:
+        added = box.dispatch(one, "edit_chart", {**ADD, **LOOK})
+        assert added.ok, added.to_json()
+        plain = {**ADD, **{k: LOOK[k] for k in ("number_format", "axis", "scale", "gridlines")}}
+        assert box.dispatch(separate, "edit_chart", plain).ok
+        for call in ({"action": "show_data_labels"},
+                     {"action": "format_series", "series": "North", "style": {"fill": "accent2"}},
+                     {"action": "format_series", "series": "South", "style": {"fill": "1F4E79"}},
+                     {"action": "set_text_style", "style": {"size": 9}}):
+            done = box.dispatch(separate, "edit_chart", {"doc": "d1", "target": "$c", **call})
+            assert done.ok, done.to_json()
+        written = _chart_xml(one, "256.3")
+        assert written == _chart_xml(separate, "256.3")
+        for part in (b"c:dLbls", b'val="accent2"', b'val="1F4E79"', b'sz="900"'):
+            assert part in written
+
+
+@pytest.mark.parametrize("kind, data, extra", [
+    ("line", REGIONS, {}),
+    ("scatter", REGIONS, {"values": [1, 2, 3, 4]}),
+    ("pie", REGIONS[:1], {}),
+    ("radar_filled", REGIONS, {}),
+    ("column", [REGIONS[0], {**REGIONS[1], "type": "line"}], {}),
+])
+def test_add_colours_each_kind_as_its_separate_calls_do(kind, data, extra):
+    from ooxml_edit.charts.actions import add_style_actions
+
+    look = {"data_labels": True, "colors": ["accent2", "accent6"], "style": {"size": 11},
+            "part": "legend"}
+    arguments = {**ADD, "chart_type": kind, "data": data, **extra}
+    if extra:
+        arguments.pop("categories")
+    box, (one, separate) = _two_sessions()
+    with box:
+        assert box.dispatch(one, "edit_chart", {**arguments, **look}).ok
+        assert box.dispatch(separate, "edit_chart", arguments).ok
+        for action, given in add_style_actions(kind, data, **look):
+            done = box.dispatch(separate, "edit_chart", {"doc": "d1", "target": "$c",
+                                                         "action": action, **given})
+            assert done.ok, done.to_json()
+        written = _chart_xml(one, "256.3")
+        assert written == _chart_xml(separate, "256.3")
+        assert b'val="accent6"' in written and b'sz="1100"' in written
+
+
+@pytest.mark.parametrize("look, words", [
+    ({"colors": ["accent1", "accent2", "accent3"]}, "3 colours for 2 series"),
+    ({"colors": ["no such colour"]}, "colour"),
+    ({"style": {"fill": "accent1"}}, "colour series with colors"),
+    ({"part": "legend"}, "give style too"),
+])
+def test_add_refuses_a_look_it_cannot_give_and_adds_nothing(session, look, words):
+    box, current = session
+    result = box.dispatch(current, "edit_chart", {**ADD, **look})
+    assert not result.ok and result.error.code == "invalid_arguments", result.to_json()
+    assert words in result.error.message
+    slide = current.entry("d1").document.slides[0]
+    assert all(shape.kind != "graphic_frame" for shape in slide.shapes)
+
+
+def test_add_reads_colours_as_colors(session):
+    box, current = session
+    added = box.dispatch(current, "edit_chart", {**ADD, "colours": ["accent2"]})
+    assert added.ok, added.to_json()
+    assert b'val="accent2"' in _chart_xml(current, "256.3")
