@@ -91,6 +91,7 @@ inputs, plus 63 opt-in PowerPoint oracle tests.
 | Dense slides read in brief: `ppt_read_slides` `detail: "compact"`, a row per shape under a header (id, kind, box in whole points, fill drawn, first eight words and the count; a table's size and first cell, a chart's type and series, a group's member count, each member's group), back to front; 29% of geometry's size on a 111-shape slide | Complete (round 5, T10) |
 | Tile and card grids in one call: `ppt_arrange` `grid` (targets in order, row by row, in `columns` x `rows` equal cells of a box or the content area, `gap`/`gap_y`; shapes sized to cells, pictures keeping their aspect) and `flow` (their own size, wrapping); `edit.layout.grid(fit="fill")`, `edit.layout.flow` | Complete (round 5, T5) |
 | A long table continued on the next slides (`ppt_add_table` `continue`: the target's layout, title text and box, the header repeated, rows at their measured heights, a record per table) and fewer rows of a source by a row range (`t:items/#1:#9`) | Complete (round 5, T3) |
+| Brand assets and recolouring: an application's asset catalogue (`deck_format(assets=...)`, a folder with a JSON or CSV index or its own object) searched with `ppt_find_asset` and placed by id with `ppt_add_picture` `asset`, sent only with a catalogue (ooxml-edit 0.34.0); an SVG picture recoloured as PowerPoint's Graphics Fill (`Shape.recolor`, `ppt_set_shape` `fill`) | Complete (round 5, T20); the theme classes of slots other than accent 2, and outline-only shapes, not measured |
 | Figures in text keep their source: references (`{{d:by_topic/door/mean:0.0}}`, `{{t:...}}`) in the text tools, written in the session's locale, listed in the result and kept as facts in the shape's tags part (`UVRT_TEXT_FACTS`), read by `Document.provenance()` while their text is where they say (ooxml-edit 0.33.0) | Complete (round 5, T4); PowerPoint keeping a tag on a `p:sp` not measured |
 | Groups: addressable children, child-space moves, grouping, PowerPoint-style refit | Complete (E1) |
 | Ungrouping, with transforms composed into the parent | Complete (E2) |
@@ -854,6 +855,31 @@ saving each deck and reading the XML. The two id rows were measured on 2026-10-1
 | `sldId` (2026-10-15) | the highest live `sldId` + 1, gaps not filled: delete 258 of 256..258 and add, 258 again; delete 257, 259. Nothing stored | one above the highest seen since the deck was opened (259 in both), so a deleted slide's id is never another's while it is open; after a reopen, PowerPoint's rule |
 | Bring forward / send backward | one step past the next (previous) shape, overlapping or not | same |
 | On re-save | an attached connector's frame, `stCxn` and `endCxn` kept as written | -- |
+
+### What PowerPoint writes for a recoloured SVG (measured)
+
+Measured on PowerPoint for Mac 16 on 2026-10-15 (round 5, T20; results kept outside the
+repository with the other oracle runs): an SVG picture of four squares -- two
+`fill="#000000"`, one with no `fill`, one `fill="currentColor"` -- given a Graphics Fill
+(the graphic's `fill format`) of accent 2 and of FF6600, and saved.
+
+| What | PowerPoint writes | Written here (`Shape.recolor`) |
+| --- | --- | --- |
+| `p:pic` | byte for byte as before | the same, but for this library's id stamp on `cNvPr` (every change writes it) |
+| The SVG part | rewritten in place (renamed `image2.svg` on every save, recoloured or not) | rewritten in place when only this picture shows it, else a part of its own |
+| Theme colour (accent 2) | a `<style>` first, `.MsftOfcThm_Accent2_Fill_v2 { fill:#E97132; }`; on every path `class="MsftOfcThm_Accent2_Fill_v2"`, `fill="#E97132" fill-opacity="1"` | the same; the class added to one the shape has |
+| RGB colour | `fill="#FF6600" fill-opacity="1"` on every path, no style or class | the same |
+| Paths with no fill, `currentColor` | filled like the others | the same |
+| Strokes | `stroke="none" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4"` on each path (none had a stroke) | not written: strokes stay as they are (the same drawing for these paths) |
+| Path data, root | normalised to absolute polygons; `overflow="hidden"`, `xmlns:xlink` added | not repeated: nothing drawn changes |
+| PNG fallback | drawn again in the new colour, at the placed size at 96 dpi (192 px for 2 in) | drawn again by pptx2svg at the frame's size and 300 dpi, as `add_picture` draws one |
+| Theme link after reopen | read back from the class name (accent 2) | -- |
+
+Not measured, so not written: the class names of the other theme slots (another theme
+colour, or a tint or shade, is written as its value alone -- it looks the same, but
+PowerPoint reads it back as an RGB colour), shapes whose fill is `none` (outline icons:
+left as they are, with a warning; an SVG with nothing else is refused), shapes with a
+stroke of their own, and a transparency (refused).
 
 ### Connectors: where PowerPoint bends them (measured)
 

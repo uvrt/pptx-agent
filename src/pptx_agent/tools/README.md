@@ -33,7 +33,7 @@ ooxml-edit's Responses round-trip test). Chat Completions has not been run live.
 | `shared_misc` | `close_document`, `read_blob`, `set_properties`, `edit_chart`, `edit_smartart` |
 | `ppt_text` | `ppt_format_text`: runs, paragraphs, frames, table cells |
 | `ppt_graphics` | `ppt_add_shape`, `ppt_add_connector`, `ppt_arrange`, `ppt_design_facts` |
-| `ppt_objects` | `ppt_add_picture`, `ppt_add_table`, `ppt_edit_table` |
+| `ppt_objects` | `ppt_add_picture`, `ppt_add_table`, `ppt_edit_table`; `ppt_find_asset` with an asset catalogue configured |
 | `ppt_review` | `ppt_comments` |
 | `ppt_slides` | `ppt_add_slide`, `ppt_draft_slides`, `ppt_manage_slides`, `ppt_set_theme`, `ppt_edit_master` |
 
@@ -85,6 +85,34 @@ edits in it: a new deck's language, the language of new text in a deck that stat
 a new chart's `c:lang`, a new date field's cached text. Without one it is en-US, never the
 server's own. No tool definition or prompt changes. A deck outside the tools takes it as
 `Document.locale` (or `Document.new(locale=...)`).
+
+**Your brand assets.** An icon set or logo library of the application's own -- a folder of
+SVGs (or bitmaps) and an index of their keywords -- is configuration as well, a setting of
+the format:
+
+```python
+from ooxml_edit.tools import FolderCatalogue
+from pptx_agent.tools import deck_format
+
+icons = FolderCatalogue("/srv/app/brand-icons")      # its index.json or index.csv
+toolbox = Toolbox(TOOLS, formats=[deck_format(assets=icons)], groups=GROUPS)
+```
+
+With it the model gets `ppt_find_asset` (deferred, in `ppt_objects`): words in, at most 10
+(up to 50) `{id, name, keywords}` out, best first; and `ppt_add_picture` takes `asset`, one
+of those ids, in place of `image` -- to insert, or on `target` to replace a picture's image.
+The bytes go from the catalogue into the deck; the model never sees a path. Without a
+catalogue neither is sent (with one: about 141 estimated tokens more, all deferred). The
+index is a JSON list, `[{"id": "arrow-up", "file": "arrows/arrow-up.svg", "name": "Arrow
+up", "keywords": ["arrow", "up"]}]`, or a CSV with the columns `id,file,name,keywords`
+(keywords separated by `;`); `file` is required and stays in the folder, `id` defaults to
+its name without the extension ([`ooxml_edit.tools.assets`](https://github.com/uvrt/ooxml-edit/blob/main/src/ooxml_edit/tools/assets.py)).
+An object of your own with `search(query, limit)` and `get(id) -> (bytes, MIME type)` works
+the same: a search service, a database, a DAM.
+
+An inserted SVG icon is recoloured with `ppt_set_shape`'s `fill` (`"accent2"`, `"#1F4E79"`),
+as PowerPoint's Graphics Fill does it (`Shape.recolor`); on a bitmap picture `fill` stays its
+background fill, as in PowerPoint.
 
 ### Tables from data
 
