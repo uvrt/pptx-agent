@@ -19,8 +19,13 @@ snapshot commit; the development history before it is summarised here.
     refusal of an outline-only SVG are gone, and `RecolorWarning` with them), and every
     shape gets PowerPoint's stroke attributes, its own stroke kept.
   - `recolor(line=, line_width=)`: PowerPoint's Graphics Outline -- a `_Stroke_v2` class
-    and rule and `stroke=` on every shape, fills left alone; a weight converted to the
-    SVG's units at the frame's size. With a fill, one style block and both classes.
+    (every slot measured) and rule and `stroke=` on every shape that has a stroke, fills
+    left alone; a colour adds no stroke to a shape without one. A weight is converted to
+    the SVG's units at the frame's size and strokes the shapes that had none in Text 1,
+    PowerPoint's default outline (`MsftOfcThm_Text1_Stroke_v2`); with a colour too, in
+    that colour (the two measured rules composed). A transparency, `"#FF6600 alpha=50%"`,
+    is `stroke-opacity`, drawn once in the PNG (PowerPoint's looked doubled). With a fill,
+    one style block and both classes.
     `ppt_set_shape`'s `line` `color` and `width` on an SVG picture do it (`dash` or
     arrowheads with them are refused; alone, or `color: none`, they are the picture's
     border as before); on a bitmap `line` stays its border.

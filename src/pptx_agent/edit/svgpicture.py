@@ -244,9 +244,8 @@ def attach(blip, rel_id: str) -> None:
 #: The theme slot PowerPoint names in a recoloured SVG's class, by the scheme colour this
 #: library writes -- ``MsftOfcThm_<slot>_Fill_v2`` for a Graphics Fill, ``..._Stroke_v2`` for
 #: a Graphics Outline.  The class is how the theme link survives a save and a reopen.
-#: PowerPoint for Mac, 2026-10-15, oracle2/results.md §1 (every slot's Fill class); the
-#: Stroke class was measured for accent 2 and accent 5 (§2) and is the same name with
-#: ``Stroke`` for ``Fill``.  ``tx1``/``bg1``/``tx2``/``bg2`` (``text1``, ``background1``...)
+#: PowerPoint for Mac, 2026-10-15, oracle2/results.md §1 (every slot's Fill class) and E1
+#: (every slot's Stroke class).  ``tx1``/``bg1``/``tx2``/``bg2`` (``text1``, ``background1``...)
 #: name the Text/Background slots and ``dk1``/``lt1``/``dk2``/``lt2`` the MainDark/MainLight
 #: ones: two classes for the same colour, as in PowerPoint.
 THEME_SLOTS = {
@@ -476,7 +475,9 @@ def stroke_units(root, width_emu: int, height_emu: int) -> float:
 
 def recolor(data: bytes, fill: str | None = None, fill_class: str | None = None,
             opacity: float = 1.0, *, stroke: str | None = None,
-            stroke_class: str | None = None, stroke_width: float | None = None) -> bytes:
+            stroke_class: str | None = None, stroke_opacity: float = 1.0,
+            stroke_width: float | None = None, default_stroke: str = "#000000",
+            default_stroke_class: str | None = "MsftOfcThm_Text1_Stroke_v2") -> bytes:
     """An SVG recoloured as PowerPoint's Graphics Fill (``fill``, ``"#RRGGBB"``) and
     Graphics Outline (``stroke``, ``stroke_width`` in the SVG's user units) rewrite one,
     measured with PowerPoint for Mac 16 (2026-10-15, oracle2/results.md):
@@ -489,6 +490,12 @@ def recolor(data: bytes, fill: str | None = None, fill_class: str | None = None,
       ``.MsftOfcThm_Accent2_Fill_v2 { fill:#E97132; }`` and, for an outline,
       ``.MsftOfcThm_Accent5_Stroke_v2 { stroke:#A02B93; }``, and the class or classes on
       every element (§1, §2); an RGB colour has neither;
+    * an outline colour strokes the shapes that have a stroke (§2, E1) and adds none to
+      the others (E2); a weight gives every shape a stroke, the others in the outline
+      colour, else ``default_stroke`` -- PowerPoint's default outline, Text 1, with its
+      class ``default_stroke_class`` (E2; a colour and a weight together on a shape with
+      no stroke are those two rules composed, not measured together);
+      ``stroke_opacity`` below 1 is the new strokes' ``stroke-opacity`` (E3);
     * stroke attributes on every element in PowerPoint's order -- ``stroke`` (the outline
       colour, else the element's own), ``stroke-width`` (``stroke_width``, else its own),
       ``stroke-linecap``, ``stroke-linejoin``, ``stroke-miterlimit``, ``stroke-opacity`` --
@@ -504,7 +511,8 @@ def recolor(data: bytes, fill: str | None = None, fill_class: str | None = None,
     * PowerPoint's own classes and rules from an earlier recolour are replaced -- the Fill
       one when filling, the Stroke one when outlining -- and the other kept.
 
-    With only ``stroke``/``stroke_width``, fills are left as they are (§2)."""
+    With only ``stroke``/``stroke_width``, fills are left as they are (§2), a shape with no
+    stroke of its own getting ``fill-opacity="1"`` stated (E2)."""
     from lxml import etree
 
     root = parse(data)
@@ -540,43 +548,62 @@ def recolor(data: bytes, fill: str | None = None, fill_class: str | None = None,
             if new_class:
                 kept[new_class] = (f"\n fill:{given}; \n" if part == "Fill"
                                    else f"\n stroke:{given}; \n")
+    if stroke_width is not None and stroke is None and default_stroke_class:
+        kept[default_stroke_class] = f"\n stroke:{default_stroke}; \n"
     width = _number(stroke_width) if stroke_width is not None else None
+    used: set[str] = set()
     for element in painted:
-        classes = [c for c in (element.get("class") or "").split() if c in kept]
-        for new_class in (fill_class if fill is not None else None,
-                          stroke_class if stroke is not None else None):
-            if new_class and new_class not in classes:
-                classes.append(new_class)
-        classes.sort(key=lambda c: c.endswith("_Stroke_v2"))
         values = {name: _stated(element, name) for name in _STROKE}
-        own_fill = element.get("fill"), element.get("fill-opacity")
+        own = own_stroke[id(element)]
+        stroked = (values["stroke"] or "none").lower() != "none"
+        # E2: an outline colour strokes only what has a stroke; a weight gives every
+        # shape one, in the colour given, else the default outline colour (Text 1).
+        new_stroke = new_class = None
+        if stroke is not None and (stroked or width is not None):
+            new_stroke, new_class = stroke, stroke_class
+        elif width is not None and not stroked:
+            new_stroke, new_class = default_stroke, default_stroke_class
+        classes = [c for c in (element.get("class") or "").split() if c in kept
+                   and not (new_stroke is not None and c.endswith("_Stroke_v2"))]
+        for added in (fill_class if fill is not None else None, new_class):
+            if added and added not in classes:
+                classes.append(added)
+        classes.sort(key=lambda c: c.endswith("_Stroke_v2"))
+        used.update(classes)
+        fill_opacity = _stated(element, "fill-opacity")
+        own_fill = element.get("fill")
         for name in ("class", *_STROKE, "fill", "fill-opacity"):
             element.attrib.pop(name, None)
         if classes:
             element.set("class", " ".join(classes))
-        if stroke is not None:
-            element.set("stroke", stroke)
+        if new_stroke is not None:
+            element.set("stroke", new_stroke)
         elif values["stroke"] is not None:
             element.set("stroke", values["stroke"])
         elif not had_sheet:
             element.set("stroke", "none")
         element.set("stroke-width", width or values["stroke-width"] or "1")
-        if own_stroke[id(element)]:
+        if own:
             if values["stroke-linecap"] is not None:
                 element.set("stroke-linecap", values["stroke-linecap"])
         else:
             element.set("stroke-linecap", values["stroke-linecap"] or "butt")
         element.set("stroke-linejoin", values["stroke-linejoin"] or "miter")
         element.set("stroke-miterlimit", values["stroke-miterlimit"] or "4")
-        if own_stroke[id(element)] or values["stroke-opacity"] is not None:
+        if new_stroke is not None and (own or stroke_opacity != 1):
+            element.set("stroke-opacity", _number(stroke_opacity))    # E3
+        elif own or values["stroke-opacity"] is not None:
             element.set("stroke-opacity", values["stroke-opacity"] or "1")
         if fill is not None:
             element.set("fill", fill)
             element.set("fill-opacity", _number(opacity))
         else:
-            for name, value in zip(("fill", "fill-opacity"), own_fill):
-                if value is not None:
-                    element.set(name, value)
+            if own_fill is not None:
+                element.set("fill", own_fill)
+            # E2: a shape with no stroke of its own gets its fill-opacity stated.
+            if not own or fill_opacity is not None:
+                element.set("fill-opacity", fill_opacity or "1")
+    kept = {name: rule for name, rule in kept.items() if name in used}
     if kept:
         order = sorted(kept, key=lambda c: c.endswith("_Stroke_v2"))
         style = etree.SubElement(root, f"{svg}style")    # in the root's namespaces

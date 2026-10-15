@@ -1659,14 +1659,16 @@ class Shape(ShapeFactory):
         """Recolour an SVG picture as PowerPoint's Graphics Fill (``color``) and Graphics
         Outline (``line``, ``line_width`` in EMU) do: a theme colour (``"accent2"``,
         Office's names too) resolved against this slide's theme and colour map, or
-        ``"#RRGGBB"``; ``color`` may have a transparency (``"accent2 alpha=50%"``).
+        ``"#RRGGBB"``, either with a transparency (``"accent2 alpha=50%"``).
 
         As PowerPoint does it (measured, PowerPoint for Mac, 2026-10-15): the picture's XML
         stays as it is and its SVG is rewritten (:func:`~pptx_agent.edit.svgpicture.recolor`
         says exactly what is written).  A fill fills every shape, ``none`` and
         ``currentColor`` ones included, at the colour's opacity; an outline colour strokes
-        every shape and leaves fills alone; an outline weight is every shape's stroke width,
-        converted to the SVG's units at the frame's size.  A theme colour keeps its theme
+        the shapes that have a stroke and leaves fills alone; an outline weight is every
+        shape's stroke width, converted to the SVG's units at the frame's size, and strokes
+        the shapes that had none in the outline colour, else in Text 1, PowerPoint's
+        default outline.  A theme colour keeps its theme
         link through PowerPoint's class (``MsftOfcThm_Accent2_Fill_v2``); a tint or shade is
         written as its value.  The PNG fallback is drawn again, at the frame's size and
         ``fallback_dpi`` as :meth:`Slide.add_picture` draws one (``pip install
@@ -1676,7 +1678,7 @@ class Shape(ShapeFactory):
         them too, those get copies of the originals, as PowerPoint splits them; when a
         picture elsewhere does, this one gets parts of its own.  One undo step.  A
         ``ValueError`` for a bitmap picture (only an SVG can be recoloured: replace its image
-        with an SVG first), for an outline colour with transparency, and for an SVG with
+        with an SVG first), for a transparency other than ``alpha``, and for an SVG with
         nothing to recolour or styles that cannot be carried over.
 
         For example::
@@ -1698,15 +1700,21 @@ class Shape(ShapeFactory):
         opacity = 1.0
         if color is not None:
             fill, fill_class, opacity = self._graphic_color(color, "Fill")
+        stroke_opacity = 1.0
         if line is not None:
-            stroke, stroke_class, _ = self._graphic_color(line, "Stroke")
+            stroke, stroke_class, stroke_opacity = self._graphic_color(line, "Stroke")
         if line_width is not None:
             if line_width < 0:
                 raise ValueError("line_width must be 0 or more")
             width = line_width * _svgpicture.stroke_units(_svgpicture.parse(vector),
                                                           self.width, self.height)
+        # A weight alone strokes shapes that had none in PowerPoint's default outline
+        # colour, Text 1 (PowerPoint for Mac, 2026-10-15, oracle2/results.md E2).
+        default, default_class, _ = self._graphic_color("tx1", "Stroke")
         svg = _svgpicture.recolor(vector, fill, fill_class, opacity, stroke=stroke,
-                                  stroke_class=stroke_class, stroke_width=width)
+                                  stroke_class=stroke_class, stroke_opacity=stroke_opacity,
+                                  stroke_width=width, default_stroke=default,
+                                  default_stroke_class=default_class)
         png = _svgpicture.rasterise(svg, self.width, self.height, fallback_dpi,
                                     self._slide.document.font_dirs)
         package = self._slide.document.package
@@ -1729,17 +1737,15 @@ class Shape(ShapeFactory):
     def _graphic_color(self, spec: "str | Color", part: str) -> tuple[str, str | None, float]:
         """A Graphics Fill or Outline colour: ``(#RRGGBB, PowerPoint's class or None,
         opacity)``.  The class for a theme colour with no modifier but its transparency
-        (PowerPoint for Mac, 2026-10-15, oracle2/results.md §1, §5); the opacity from
-        ``alpha`` (§5: ``fill-opacity``), which an outline does not take (not measured)."""
+        (PowerPoint for Mac, 2026-10-15, oracle2/results.md §1, §5, E1); the opacity from
+        ``alpha`` (``fill-opacity``, §5; ``stroke-opacity``, E3)."""
         parsed = Color.parse(spec)
         alpha, others = None, []
         for name, value in parsed.transforms:
-            if name == "alpha" and part == "Fill" and value is not None:
+            if name == "alpha" and value is not None:
                 alpha = value
             elif name.startswith("alpha"):
-                raise ValueError("an SVG picture's outline is opaque: give a colour without "
-                                 "alpha" if part == "Stroke" else
-                                 "give an SVG picture's transparency as alpha=50%")
+                raise ValueError("give an SVG picture's transparency as alpha=50%")
             else:
                 others.append(name)
         theme_class = (_svgpicture.theme_class(parsed.value, part)

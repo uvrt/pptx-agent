@@ -872,19 +872,19 @@ and saved.
 | RGB colour | `fill="#FF6600" fill-opacity="1"`, no style or class | the same |
 | Stroke attributes (§1-§3) | none stated: `stroke="none" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4"` (no `stroke` when the SVG had a style sheet); a `stroke` attribute of its own: it and its width, the linecap only if given, `stroke-linejoin="miter" stroke-miterlimit="4" stroke-opacity="1"` | the same, in the same order; an inherited value is written as the element's |
 | Shapes with fill `none`, `currentColor`, a gradient (§2, §6) | filled like the others; strokes keep colour and width; the gradient stays in `defs`, unreferenced | the same |
-| Graphics Outline (§2) | `.MsftOfcThm_Accent2_Stroke_v2 { stroke:#E97132; }`, its class and `stroke=` on every element, fills untouched; RGB: `stroke=` alone; a weight: every `stroke-width` in the SVG's units at the placed size (3 pt at 192 px over a 24-unit viewBox: `0.5`) | the same; the Stroke class of slots other than accent 2 and 5 by the Fill classes' pattern |
+| Graphics Outline (§2, E1-E3) | `.MsftOfcThm_Accent2_Stroke_v2 { stroke:#E97132; }` (every slot, the §1 names with `Stroke`), its class and `stroke=` on every stroked element, fills untouched; on shapes with no stroke a colour adds nothing; RGB: `stroke=` alone; a weight: every `stroke-width` in the SVG's units at the placed size (3 pt at 192 px over a 24-unit viewBox: `0.5`), and shapes with no stroke stroked in Text 1 (`MsftOfcThm_Text1_Stroke_v2`, linecap `butt`, `fill-opacity="1"`); a transparency: `stroke-opacity="0.5"` | the same; a colour and a weight together on unstroked shapes: the weight's stroke in the colour (not measured together) |
 | Fill and outline (§2) | one `<style>` with both rules; `class="MsftOfcThm_Accent2_Fill_v2 MsftOfcThm_Accent5_Stroke_v2"` | the same, in one call or two |
 | A style sheet, `style=` (§3) | the `<style>` removed and replaced, old classes dropped, `style=` removed, CSS strokes as attributes, `fill-opacity="1"` | the same; every declaration carried over as the attribute of the element it applied to (tags, classes, ids, descendant and child selectors; anything else refused) |
 | Two pictures sharing the SVG (§4) | split: the recoloured one keeps its relationships and parts, rewritten; the other gets new ones to a copy | the same on one slide (the other's PNG copied, not drawn again); shared with another slide, this picture gets parts of its own |
 | Transparency (§5) | `fill-opacity="0.5"`, never `opacity`; the class kept for a theme colour | the same (`"accent2 alpha=50%"`) |
 | `use`, `symbol` (§6) | both `use` elements and the symbol's path filled; `symbol` gains `overflow="hidden"`, `href` becomes `xlink:href` | filled; `overflow` and `href` left (nothing drawn changes) |
 | Path data, root | normalised to absolute polygons; `overflow="hidden"`, `xmlns:xlink` added | not repeated: nothing drawn changes |
-| PNG fallback | drawn again at the placed size at 96 dpi (192 px for 2 in); with an RGB colour and a transparency its alpha looked applied twice (about 64 for 0.5) | drawn again by pptx2svg at the frame's size and 300 dpi, the transparency once (128 for 0.5) |
+| PNG fallback | drawn again at the placed size at 96 dpi (192 px for 2 in); with an RGB colour and a transparency, fill or outline, its alpha looked applied twice (about 64 for 0.5) | drawn again by pptx2svg at the frame's size and 300 dpi, the transparency once (128 for 0.5) |
 | Theme link after reopen | read back from the class name | -- |
 
 Not measured, so not written: a tint, shade or brightness of the colour (PowerPoint offers
 no script property for one: written as its value, read back as RGB), a gradient Graphics
-Fill, an outline's transparency, dash or arrowheads (refused for an SVG picture's outline),
+Fill, an outline's dash or arrowheads (refused for an SVG picture's outline),
 and a transparency with no colour.
 
 ### Connectors: where PowerPoint bends them (measured)

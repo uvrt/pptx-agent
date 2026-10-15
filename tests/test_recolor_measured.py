@@ -158,6 +158,64 @@ def test_an_outline_colour_strokes_every_shape_and_leaves_fills():
     assert svg.count('stroke="#FF6600" stroke-width="3"') == 4
 
 
+@pytest.mark.parametrize("name, slot, value", SLOTS)
+def test_every_theme_slot_has_powerpoints_stroke_class(name, slot, value):
+    # PowerPoint for Mac, 2026-10-15, oracle2/results.md E1.
+    deck, slide, picture = _picture(LINES)
+    picture.recolor(line=name)
+    svg = picture.vector.decode()
+    css = f"MsftOfcThm_{slot}_Stroke_v2"
+    assert f"<style>\n{_rule(css, 'stroke', value)}</style>" in svg
+    assert svg.count(f'class="{css}" stroke="{value}" stroke-width="3"') == 4
+
+
+def test_an_outline_colour_adds_no_stroke_to_shapes_without_one():
+    # E2: the colour alone leaves an SVG of unstroked shapes as it was drawn: no stroke,
+    # no class, no rule; each shape's fill-opacity stated.
+    deck, slide, picture = _picture(SOLID)
+    picture.recolor(line="accent2")
+    svg = picture.vector.decode()
+    assert "<style" not in svg and "class=" not in svg
+    assert f'{NO_STROKE} fill="#202020" fill-opacity="1"' in svg
+    assert f'{NO_STROKE} fill="#5A5A5A" fill-opacity="1"' in svg
+
+
+def test_an_outline_weight_strokes_unstroked_shapes_in_text_1():
+    # E2: a weight alone strokes every shape in PowerPoint's default outline, Text 1.
+    deck, slide, picture = _picture(SOLID)
+    picture.recolor(line_width=12700)       # 1 pt: 4/3 px, 40 units at 96 px -> 0.5556
+    svg = picture.vector.decode()
+    css = "MsftOfcThm_Text1_Stroke_v2"
+    assert f"<style>\n{_rule(css, 'stroke', '#000000')}</style>" in svg
+    pattern = (f'class="{css}" stroke="#000000" stroke-width="0.5556" stroke-linecap="butt" '
+               'stroke-linejoin="miter" stroke-miterlimit="4" fill="{}" fill-opacity="1"')
+    assert pattern.format("#202020") in svg and pattern.format("#5A5A5A") in svg
+    # A colour with it: the weight adds the stroke, the colour sets it (the two measured
+    # rules composed; not measured together).
+    _, _, other = _picture(SOLID, deck=deck, slide=slide)
+    other.recolor(line="accent5", line_width=12700)
+    svg = other.vector.decode()
+    assert "Text1" not in svg
+    assert svg.count('class="MsftOfcThm_Accent5_Stroke_v2" stroke="#A02B93" '
+                     'stroke-width="0.5556" stroke-linecap="butt"') == 2
+
+
+def test_an_outline_transparency_is_stroke_opacity_and_drawn_once():
+    # E3: stroke-opacity, the class kept for a theme colour, none for RGB.
+    deck, slide, picture = _picture(LINES)
+    picture.recolor(line="#FF6600 alpha=50%")
+    svg = picture.vector.decode()
+    assert "class=" not in svg
+    assert svg.count('stroke="#FF6600" stroke-width="3"') == 4
+    assert svg.count('stroke-miterlimit="4" stroke-opacity="0.5"') == 4
+    # The open frame's left edge (x 2.5-5.5 of 48 units), outside any fill: alpha once.
+    pixel = _pixel(deck.package.read(picture.image_part), 4 / 48, 12 / 48)
+    assert all(abs(a - b) <= 1 for a, b in zip(pixel, (255, 102, 0, 128)))
+    picture.recolor(line="accent2 alpha=50%")
+    assert picture.vector.decode().count(
+        'class="MsftOfcThm_Accent2_Stroke_v2" stroke="#E97132"') == 4
+
+
 def test_an_outline_weight_is_converted_to_the_svgs_units_at_the_placed_size():
     # 48 units placed at 1 in (96 px): 2 px a unit; 1.5 pt is 2 px, so 1 unit (§2: 3 pt
     # over 24 units placed at 192 px is 0.5).
@@ -219,7 +277,8 @@ def test_an_outline_alone_carries_the_style_sheets_fills_over():
     picture.recolor(line="#FF6600")
     paths = list(_elements(picture.vector, "path"))
     assert [p.get("fill") for p in paths] == ["#0A0A0A", "#3C3C3C", "#AB0000"]
-    assert all(p.get("stroke") == "#FF6600" for p in paths)
+    # Only the shape the style sheet stroked takes the colour (E2).
+    assert [p.get("stroke") for p in paths] == [None, "#FF6600", None]
 
 
 @pytest.mark.parametrize("sheet, message", [

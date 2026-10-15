@@ -173,8 +173,6 @@ def test_what_cannot_be_recoloured_is_refused():
     with pytest.raises(ValueError, match="no shape to recolour"):
         empty.recolor("accent2")
     _, _, (icon,) = _picture()
-    with pytest.raises(ValueError, match="without alpha"):
-        icon.recolor(line="accent2 alpha=50%")
     with pytest.raises(ValueError, match="alpha=50%"):
         icon.recolor("accent2 alphaMod=50%")
     with pytest.raises(ValueError, match="a colour, an outline colour or an outline weight"):
