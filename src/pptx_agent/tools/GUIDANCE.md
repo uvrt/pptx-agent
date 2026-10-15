@@ -187,7 +187,8 @@ system = toolbox.system_prompt(extra=HOUSE_RULES)
 - **A rule that requires equal spacing or alignment** -- tiles in a row, process steps,
   icon and label pairs -- should name the call that guarantees it: "Space rows of like
   shapes with `ppt_arrange` `distribute` (`within: content_area` to span it, or a `gap`)
-  and line them up with `align`." Without it the model places each shape by hand and
+  and line them up with `align`; lay tile and card grids out with `ppt_arrange` `grid`
+  (`columns`, `gap`), not box by box." Without it the model places each shape by hand and
   learns of uneven gaps only from `checks.layout` afterwards, a turn per row; models did
   not call separate layout tools unprompted, which is why these are `ppt_arrange` actions
   and the rule says when to use them.

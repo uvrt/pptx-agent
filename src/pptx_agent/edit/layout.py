@@ -10,7 +10,9 @@ every call is one undo step.
   the start, centre or end of the box or spread across it; optionally equal widths;
 * :func:`column` -- the same, top to bottom;
 * :func:`grid` -- ``rows`` x ``columns`` cells with gutters, each shape centred in its
-  cell or resized to it;
+  cell, resized to it, or filling it (a picture keeps its aspect, centred);
+* :func:`flow` -- shapes kept at their size, left to right in cells as large as the
+  largest, wrapping onto the next row where the box ends;
 * :func:`place_labels` -- each label beside its anchor (a shape or a point) on the first
   side, in order of preference, where it collides with nothing, within a stated distance
   of the anchor; the labels that cannot be placed are returned with the reason.
@@ -141,11 +143,13 @@ def grid(shapes: Sequence["Shape"], *, box: Box, rows: int | None = None,
          order: str = "rows", fit: str = "keep") -> list[Box]:
     """Place ``shapes`` in a grid of ``rows`` x ``columns`` equal cells filling ``box``,
     ``gutter`` (x, y) apart, filling ``order`` rows first (or columns first).  ``fit``:
-    keep each shape's size and centre it in its cell, or resize it to the cell.  Either
+    keep each shape's size and centre it in its cell, resize it to the cell (``cell``), or
+    ``fill`` -- resize a shape to the cell but scale a picture to the largest size its
+    frame's aspect allows, centred (a photo is not stretched).  Either
     count may be left out (it follows from the other); both out makes the grid as square
     as can be.  Returns the drawn boxes, in order."""
     _check(order, ("rows", "columns"), "order")
-    _check(fit, ("keep", "cell"), "fit")
+    _check(fit, ("keep", "cell", "fill"), "fit")
     shapes = outermost(shapes)
     count = len(shapes)
     if not count:
@@ -159,21 +163,34 @@ def grid(shapes: Sequence["Shape"], *, box: Box, rows: int | None = None,
     if rows < 1 or columns < 1:
         raise ValueError("rows and columns are 1 or more")
     if rows * columns < count:
-        raise LayoutError(f"{count} shapes do not fit {rows} x {columns} cells",
-                          needed=count, available=rows * columns)
+        raise LayoutError(f"{count} shapes do not fit {rows} x {columns} cells: give more "
+                          "rows or columns, or leave one out", needed=count,
+                          available=rows * columns)
     gx, gy = gutter
     width = (box[2] - gx * (columns - 1)) / columns
     height = (box[3] - gy * (rows - 1)) / rows
-    if width <= 0 or height <= 0:
-        raise LayoutError("the gutters leave no room for the cells",
-                          needed=gx * (columns - 1) + gy * (rows - 1), available=box[2])
+    if width <= 0:
+        raise LayoutError(f"{columns - 1} gutters of {gx / _PT:g} pt leave no room for "
+                          f"{columns} columns in {box[2] / _PT:.2f} pt: give a smaller gap, "
+                          "fewer columns or a wider box", needed=gx * (columns - 1),
+                          available=box[2])
+    if height <= 0:
+        raise LayoutError(f"{rows - 1} gutters of {gy / _PT:g} pt leave no room for "
+                          f"{rows} rows in {box[3] / _PT:.2f} pt: give a smaller gap, "
+                          "more columns or a taller box", needed=gy * (rows - 1),
+                          available=box[3])
     placed = []
     with shapes[0]._slide.document.batch():
         for index, shape in enumerate(shapes):
             row, col = divmod(index, columns) if order == "rows" else divmod(index, rows)[::-1]
             x = box[0] + col * (width + gx)
             y = box[1] + row * (height + gy)
-            if fit == "cell":
+            if fit == "fill" and shape.kind == "picture":
+                _, _, w, h = drawn_box(shape)
+                scale = min(width / w, height / h) if w > 0 and h > 0 else 1
+                w, h = w * scale, h * scale
+                place(shape, x + (width - w) / 2, y + (height - h) / 2, w, h)
+            elif fit in ("cell", "fill"):
                 place(shape, x, y, width, height)
             else:
                 _, _, w, h = drawn_box(shape)
@@ -183,6 +200,45 @@ def grid(shapes: Sequence["Shape"], *, box: Box, rows: int | None = None,
                                       f"{height / _PT:.2f} pt); use fit='cell'",
                                       needed=max(w, h), available=min(width, height))
                 move_to(shape, x + (width - w) / 2, y + (height - h) / 2)
+            placed.append(drawn_box(shape))
+    return placed
+
+
+def flow(shapes: Sequence["Shape"], *, box: Box, gutter: tuple[float, float] = (0, 0),
+         columns: int | None = None) -> list[Box]:
+    """Place ``shapes`` at their own size, left to right from ``box``'s top left in cells
+    as large as the largest of them, ``gutter`` (x, y) apart, wrapping onto the next row
+    after as many as fit across ``box`` (at most ``columns``); each is centred in its cell.
+    Rows that run past the box's foot raise :class:`LayoutError`.  Returns the drawn
+    boxes, in order."""
+    shapes = outermost(shapes)
+    if not shapes:
+        raise ValueError("no shapes to arrange")
+    if columns is not None and columns < 1:
+        raise ValueError("columns is 1 or more")
+    gx, gy = gutter
+    sizes = [drawn_box(shape)[2:] for shape in shapes]
+    width = max(w for w, _ in sizes)
+    height = max(h for _, h in sizes)
+    across = int((box[2] + gx + _PT / 100) // (width + gx)) if width + gx > 0 else len(shapes)
+    if across < 1:
+        raise LayoutError(f"the widest shape is {width / _PT:.2f} pt and the box "
+                          f"{box[2] / _PT:.2f} pt: give a wider box", needed=width,
+                          available=box[2])
+    across = min(across, columns or across, len(shapes))
+    rows = math.ceil(len(shapes) / across)
+    needed = rows * height + (rows - 1) * gy
+    if needed > box[3] + _PT / 100:
+        raise LayoutError(f"{len(shapes)} shapes, {across} to a row, need {needed / _PT:.2f} "
+                          f"pt and the box is {box[3] / _PT:.2f} pt tall: give a taller or "
+                          "wider box, or a smaller gap", needed=needed,
+                          available=box[3])
+    placed = []
+    with shapes[0]._slide.document.batch():
+        for index, (shape, (w, h)) in enumerate(zip(shapes, sizes)):
+            row, col = divmod(index, across)
+            move_to(shape, box[0] + col * (width + gx) + (width - w) / 2,
+                    box[1] + row * (height + gy) + (height - h) / 2)
             placed.append(drawn_box(shape))
     return placed
 
@@ -468,4 +524,4 @@ def _leader(slide: "Slide", anchor_shape, anchor, label, side):
 
 
 __all__ = ["ALIGN_COLUMN", "ALIGN_ROW", "JUSTIFY", "LabelReport", "LayoutError", "Placed",
-           "SIDES", "Unplaced", "column", "grid", "place_labels", "stack"]
+           "SIDES", "Unplaced", "column", "flow", "grid", "place_labels", "stack"]

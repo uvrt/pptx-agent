@@ -29,6 +29,7 @@ facts about the slides it touched (see [GUIDANCE.md](GUIDANCE.md)).
 | Position, size, rotation, flips, fill, gradient, outline, geometry | `ppt_set_shape` | only the fields given change |
 | Connectors that stay attached | `ppt_add_connector` (`straight`, `elbow`, `curved`) | glued to a shape's side, or between points; arrowheads |
 | Z-order, group, ungroup, duplicate, delete | `ppt_arrange` | |
+| Grid and flow | `ppt_arrange` (`grid`, `flow`) | the targets in the order given, row by row, in `columns` (and `rows`) equal cells of a `box` or the content area, `gap` apart (`gap_y` between rows): shapes sized to their cell, pictures keeping their aspect, centred; `flow` keeps their size and wraps; refused when the cells do not fit; one undo step, each target's box returned |
 | Align and distribute | `ppt_arrange` (`align`, `distribute`) | align an edge or centre to the targets' bounds, the slide or the content area; distribute with equal gaps between the outermost targets or across the content area, or with a fixed gap; one undo step, the boxes returned |
 | Pictures: insert, replace | `ppt_add_picture` | from an image blob; replacing keeps the frame, height or width |
 | SVG pictures | `ppt_add_picture` with an `image/svg+xml` blob | stored as PowerPoint 2016 and later store an inserted SVG: the vector, which PowerPoint can recolour, and a PNG fallback made for it; insert and replace |

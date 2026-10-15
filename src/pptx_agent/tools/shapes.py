@@ -450,12 +450,13 @@ def ppt_add_connector(call, doc, items, slide=None, key=None):
 
 @tool("ppt_arrange",
       "Change shapes' z-order; group, ungroup, duplicate, delete, align or distribute "
-      "them (equal gaps). Returns new addresses and moved boxes.",
+      "them (equal gaps); grid them in order, row by row, sized to equal cells (pictures "
+      "keep aspect), or flow them at their size. Returns new addresses and moved boxes.",
       {"doc": string("Document id."),
        "targets": array(string(), "Shapes, or $refs.", min_items=1),
        "action": string("What to do.", enum=["front", "back", "forward", "backward", "group",
                                              "ungroup", "duplicate", "delete", "align",
-                                             "distribute"]),
+                                             "distribute", "grid", "flow"]),
        "dx": number("duplicate: offset. Default 0.", minimum=-10000, maximum=10000,
                     optional=True),
        "dy": number("duplicate: offset. Default 0.", minimum=-10000, maximum=10000,
@@ -468,12 +469,18 @@ def ppt_add_connector(call, doc, items, slide=None, key=None):
        "axis": string("distribute.", enum=["horizontal", "vertical"], optional=True),
        "within": string("distribute: between the outermost targets (default) or across "
                         "the content area.", enum=list(_WITHIN), optional=True),
-       "gap": number("distribute: a fixed gap instead.", minimum=0, maximum=10000,
-                     optional=True)},
+       "gap": number("distribute: a fixed gap instead; grid, flow: between cells.",
+                     minimum=0, maximum=10000, optional=True),
+       "gap_y": number("Between rows, if not gap.", minimum=0, maximum=10000,
+                       optional=True),
+       "columns": integer("grid; flow: at most.", minimum=1, maximum=200, optional=True),
+       "rows": integer("grid.", minimum=1, maximum=200, optional=True),
+       "box": _box("grid, flow. Default the content area.", optional=True)},
       kind=KIND, group=GRAPHICS, mutates=True, refs=("targets[]",))
 @library_errors
 def ppt_arrange(call, doc, targets, action, dx=0, dy=0, ref=None, edge=None, to=None,
-                axis=None, within=None, gap=None):
+                axis=None, within=None, gap=None, gap_y=None, columns=None, rows=None,
+                box=None):
     deck = call.document
     shapes = [shape_at(deck, address, field=f"targets[{i}]") for i, address in
               enumerate(targets)]
@@ -481,12 +488,19 @@ def ppt_arrange(call, doc, targets, action, dx=0, dy=0, ref=None, edge=None, to=
         call.touch(shape._slide.slide_id)
         if action not in ("delete", "ungroup"):
             call.touch(shape.id)
-    for name, value, owner in (("edge", edge, "align"), ("to", to, "align"),
-                               ("axis", axis, "distribute"), ("within", within, "distribute"),
-                               ("gap", gap, "distribute")):
-        if value is not None and action != owner:
-            raise ToolError("invalid_arguments", f"{name} is for {owner}, not {action}",
-                            field=name)
+    for name, value, owners in (("edge", edge, ("align",)), ("to", to, ("align",)),
+                                ("axis", axis, ("distribute",)),
+                                ("within", within, ("distribute",)),
+                                ("gap", gap, ("distribute", "grid", "flow")),
+                                ("gap_y", gap_y, ("grid", "flow")),
+                                ("columns", columns, ("grid", "flow")),
+                                ("rows", rows, ("grid",)), ("box", box, ("grid", "flow"))):
+        if value is not None and action not in owners:
+            raise ToolError("invalid_arguments", f"{name} is for {' and '.join(owners)}, "
+                            f"not {action}", field=name)
+    if action in ("grid", "flow"):
+        return _grid(call, shapes, action, gap=gap, gap_y=gap_y, columns=columns, rows=rows,
+                     box=box)
     if action in ("align", "distribute"):
         return _line_up(call, shapes, action, edge=edge, to=to, axis=axis, within=within,
                         gap=gap)
@@ -531,16 +545,48 @@ def ppt_arrange(call, doc, targets, action, dx=0, dy=0, ref=None, edge=None, to=
                   removed=removed, changed=changed)
 
 
+def _one_slide(shapes):
+    host = shapes[0]._slide
+    if any(shape._slide.slide_id != host.slide_id for shape in shapes):
+        raise ToolError("invalid_arguments", "the targets must be on one slide",
+                        field="targets")
+    return host
+
+
+def _grid(call, shapes, action, *, gap, gap_y, columns, rows, box) -> Result:
+    """ppt_arrange's grid and flow: :func:`pptx_agent.edit.layout.grid` (``fit="fill"``)
+    and :func:`~pptx_agent.edit.layout.flow` on the targets in the order given, in ``box``
+    or the slide's content area (as align and distribute take it)."""
+    from ..edit import layout
+    from ..edit.arrange import outermost
+
+    host = _one_slide(shapes)
+    area = box_emu(box) if box is not None else host.content_area
+    gutter = (emu(gap or 0), emu(gap_y if gap_y is not None else gap or 0))
+    shapes = outermost(shapes)
+    try:
+        if action == "grid":
+            placed = layout.grid(shapes, box=area, rows=rows, columns=columns,
+                                 gutter=gutter, fit="fill")
+        else:
+            placed = layout.flow(shapes, box=area, gutter=gutter, columns=columns)
+    except layout.LayoutError as error:
+        raise ToolError("refused", str(error), field="box" if box is not None else "gap",
+                        details={"area": box_pt(area)}) from None
+    changed = [shape.id for shape in shapes]
+    boxes = {shape.id: box_pt(bounds) for shape, bounds in zip(shapes, placed)}
+    where = "box" if box is not None else "content area"
+    return Result(summary=f"{action}: {len(changed)} shape(s) laid out in the {where}",
+                  changed=changed, data={"area": box_pt(area), "boxes": boxes})
+
+
 def _line_up(call, shapes, action, *, edge, to, axis, within, gap) -> Result:
     """ppt_arrange's align and distribute: :mod:`pptx_agent.edit.arrange` on the targets,
     the content area being :attr:`Slide.content_area <pptx_agent.Slide.content_area>` (the
     layout's body placeholders, else the band under the title)."""
     from ..edit import arrange
 
-    host = shapes[0]._slide
-    if any(shape._slide.slide_id != host.slide_id for shape in shapes):
-        raise ToolError("invalid_arguments", "the targets must be on one slide",
-                        field="targets")
+    host = _one_slide(shapes)
     if action == "align":
         if edge is None:
             raise ToolError("invalid_arguments", "align needs an edge", field="edge",
