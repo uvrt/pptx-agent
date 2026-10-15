@@ -388,6 +388,41 @@ class Table:
             self._grow_frame(dy=delta)
         return self
 
+    def set_text_size(self, size: float) -> "Table":
+        """Set every cell's text to ``size`` points (or a :class:`~pptx_agent.Pt`): each
+        run, and each paragraph's end-of-paragraph size, so an empty cell's line -- which
+        PowerPoint draws, and which sets its row's height -- is that size too.
+
+        For example::
+
+            table.set_text_size(12)
+        """
+        from .units import points_of
+
+        points = points_of(size)
+        if not 1 <= points <= 4000:
+            raise ValueError("size must be between 1 and 4000 points")
+        value = str(round(points * 100))
+        runs = (qn("a:r"), qn("a:fld"), qn("a:br"))
+        with self._editing() as table:
+            for row in self._rows(table):
+                for tc in _cells(row):
+                    body = tc.find(qn("a:txBody"))
+                    for paragraph in [] if body is None else body.findall(qn("a:p")):
+                        for run in paragraph:
+                            if run.tag in runs:
+                                properties = run.find(qn("a:rPr"))
+                                if properties is None:
+                                    properties = make("a:rPr")
+                                    run.insert(0, properties)
+                                properties.set("sz", value)
+                        end = paragraph.find(qn("a:endParaRPr"))
+                        if end is None:
+                            end = make("a:endParaRPr")
+                            paragraph.append(end)
+                        end.set("sz", value)
+        return self
+
     # -- merges -----------------------------------------------------------------------------
 
     @property

@@ -2327,6 +2327,40 @@ class Slide(ShapeFactory):
                            if not cell.is_spanned]
         return effective.text_below(frames, float(points))
 
+    def measure_table(self, data=None, *, rows: int | None = None,
+                      columns: int | None = None, width: int | None = None,
+                      height: int | None = None, style: str | None = None,
+                      size: float | None = None, widths=None, header: bool = True):
+        """Measure a table before placing it here, and add nothing: each row's height as
+        PowerPoint draws it and the pages its rows split into, the header row repeated
+        atop each (a :class:`~pptx_agent.TableMeasure`).
+
+        The table is built as :meth:`add_table` builds one -- ``data`` the cell texts row
+        by row (the header first), ``rows`` and ``columns`` by default ``data``'s, the
+        table style ``style`` -- with every cell's text at ``size`` points
+        (:meth:`Table.set_text_size <pptx_agent.edit.table.Table.set_text_size>`) and the
+        columns ``widths`` EMU wide (by default ``width`` shared evenly), on a copy of the
+        deck, and measured as :attr:`Table.drawn_row_heights
+        <pptx_agent.edit.table.Table.drawn_row_heights>` measures a placed one; the deck
+        is not changed, not even its version.  ``width`` and ``height`` (each page's room,
+        EMU) default to this slide's :attr:`content_area`.  ``header=False`` repeats no
+        row.  Needs pptx2svg.
+
+        To continue a long table on the next slides, place each page's rows under a copy
+        of the header row, the table ``page_heights[i]`` tall or less.
+
+        For example::
+
+            m = slide.measure_table([["Item", "Owner"], *rows_of_text], size=12)
+            m.fits, len(m.pages)                        # (False, 3)
+            [(page.start, page.stop - 1) for page in m.pages]    # [(1, 12), (13, 24), ...]
+        """
+        from .fit import measure_table
+
+        return measure_table(self, data, rows=rows, columns=columns, width=width,
+                             height=height, style=style, size=size, widths=widths,
+                             header=header)
+
     def empty_placeholders(self) -> list[Shape]:
         """The placeholders on this slide that hold nothing, measured in PowerPoint 16:
 
