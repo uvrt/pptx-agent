@@ -6,6 +6,41 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- SVG recolouring as PowerPoint writes it (round 5, T20b). A second round of measurements
+  on PowerPoint for Mac (2026-10-15) covered what T20 left out; `Shape.recolor` now writes
+  what PowerPoint writes in each case:
+  - Every theme slot's class: `MsftOfcThm_<slot>_Fill_v2` for `MainDark1`, `MainLight1`,
+    `MainDark2`, `MainLight2`, `Accent1`-`Accent6`, `Hyperlink`, `FollowedHyperlink`,
+    `Text1`, `Background1`, `Text2` and `Background2` (`dk1`... are the Main slots,
+    `tx1`/`text1`... the Text/Background ones), so every theme colour keeps its link; a
+    tint or shade is still its value alone (not measurable by script).
+    `svgpicture.THEME_SLOTS` and `theme_class()` replace `THEME_CLASSES`.
+  - Shapes with no fill are filled too (outline icons included; the warning and the
+    refusal of an outline-only SVG are gone, and `RecolorWarning` with them), and every
+    shape gets PowerPoint's stroke attributes, its own stroke kept.
+  - `recolor(line=, line_width=)`: PowerPoint's Graphics Outline -- a `_Stroke_v2` class
+    and rule and `stroke=` on every shape, fills left alone; a weight converted to the
+    SVG's units at the frame's size. With a fill, one style block and both classes.
+    `ppt_set_shape`'s `line` `color` and `width` on an SVG picture do it (`dash` or
+    arrowheads with them are refused; alone, or `color: none`, they are the picture's
+    border as before); on a bitmap `line` stays its border.
+  - An SVG's style sheet and `style` attributes are replaced, as PowerPoint replaces them,
+    every declaration carried over as a presentation attribute of the element it applied
+    to (so strokes draw the same); a selector beyond tags, classes, ids and descendant or
+    child combinators, an at-rule, or a property with no attribute is refused. This
+    replaces T20's fill in each shape's `style`.
+  - A transparency, `"accent2 alpha=50%"`, is `fill-opacity="0.5"` (refused before); the
+    PNG fallback draws it once (PowerPoint's own fallback looked to apply it twice for an
+    RGB colour).
+  - A picture sharing its SVG with others on the slide is split as PowerPoint splits it:
+    the recoloured one keeps its relationships and parts, the others get copies (T20 gave
+    the recoloured one new parts); shared with another slide, it still gets its own.
+  - Gradient fills become the solid fill (the gradient stays, unreferenced); `use`
+    elements and a `symbol`'s shapes are filled.
+  - Tools: `ppt_add_picture`'s description says `fill and line` recolour an SVG (+3
+    estimated tokens for every definition, 12,474 -> 12,477, within the 12,480 guard); the
+    core and the strict set are unchanged.
+
 - Brand assets and recolouring (round 5, T20; ooxml-edit 0.34.0). Production shipped two
   tools of its own over a brand icon set (about 2,800 SVGs with a keyword index), and
   `Picture.replace_image(svg=)` had no tool, so a highlighted icon was inserted again.

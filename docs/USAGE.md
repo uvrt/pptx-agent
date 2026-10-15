@@ -965,6 +965,7 @@ icon = slide.add_picture(check, 914400, 914400)        # its own size: 48 px at 
 print(icon.width, icon.vector == check, icon.image_size.width)   # -> 457200 True 150
 green = check.replace(b"#1F5FAD", b"#2E8B57")
 icon.replace_image(green)                                # a recoloured icon, its PNG made
+icon.recolor("accent2", line="#FFFFFF")                  # as PowerPoint's Graphics Fill
 icon.set_vector(None)                                    # a plain bitmap again
 print(icon.vector)                                       # -> None
 ```
@@ -976,6 +977,8 @@ when given, else the SVG drawn at the placed size and `fallback_dpi` (300) by pp
 needs `pip install 'pptx-agent[png]'`. Without a size the picture takes the SVG's `width` and
 `height`, else its `viewBox`, at 96 dpi. The SVG is parsed as untrusted data (no DTD, no
 entities, at most 16 MiB) before it is stored, and an identical one is stored once.
+`recolor(color, line=, line_width=)` rewrites the SVG as PowerPoint's Graphics Fill and Outline
+do (a theme colour keeps its link through PowerPoint's class) and draws the PNG again;
 `replace_image(png, svg=...)` swaps both images at once; `set_vector` attaches, replaces or
 removes the SVG and leaves the PNG. `ppt_add_picture` takes an `image/svg+xml` blob, to insert
 or to replace, and makes the fallback itself; `ppt_read_slides` marks the picture `svg` (the
