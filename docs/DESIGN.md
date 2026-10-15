@@ -30,6 +30,11 @@ changes under reorder. Two wrinkles the obvious implementation gets wrong:
 - Editing a shape **stamps** its current id into `cNvPr/a:extLst`, so it keeps that address even
   if PowerPoint later renumbers. Reading never stamps, or the byte-identity guarantee would
   fail.
+- A deleted shape's or slide's id is **not handed out again** while the `Document` is open
+  (undo and rolled-back batches included): new shapes take PowerPoint's measured rule, the
+  lowest id from 2 the slide has not had in the session; new slides one above the highest
+  `sldId` seen. The memory lives on the `Document`, outside what undo restores; nothing is
+  written to the file, so after a reopen only the ids in it count.
 
 **The picture is addressable.** `slide.render_svg()` tags every shape group with
 `data-pptx-id` carrying the same id the API answers to, so an agent can point at what it sees.

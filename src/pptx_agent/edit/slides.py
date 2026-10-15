@@ -38,6 +38,7 @@ SECTION_EXT_URI = "{521415D9-36F7-43E2-AB2F-B90AF26B5E84}"
 SLIDE_CREATION_ID_EXT_URI = "{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"
 #: The lowest ``sldId`` the schema allows.
 MIN_SLIDE_ID = 256
+#: The highest (ECMA-376 Part 1, ``ST_SlideId`` in pml.xsd: maxExclusive 2147483648).
 MAX_SLIDE_ID = 2147483647
 #: Placeholders PowerPoint leaves on the layout when it makes a slide: they are switched on
 #: per deck under Insert > Header & Footer, not copied.
@@ -602,23 +603,42 @@ def _entry(root: Element, slide_id: int) -> Element:
     raise KeyError(f"no slide with id {slide_id}")
 
 
-def new_slide_id(root: Element) -> int:
-    """One more than the largest ``sldId`` in use (sections included), and at least 256."""
+def slide_ids_in(root: Element) -> list[int]:
+    """Every ``sldId`` a ``presentation.xml`` names -- its slide list and its sections."""
     used = [int(node.get("id")) for node in _entries(root) if (node.get("id") or "").isdigit()]
     used += [int(node.get("id")) for section in _section_lists(root)
              for node in section if (node.get("id") or "").isdigit()]
-    candidate = max(used + [MIN_SLIDE_ID - 1]) + 1
+    return used
+
+
+def new_slide_id(root: Element, above: int = 0) -> int:
+    """One more than the largest ``sldId`` in use (sections included) and than ``above``,
+    and at least 256.
+
+    ``above`` is the largest ``sldId`` the caller has seen since the deck was opened
+    (:meth:`~pptx_agent.edit.document.Document._new_slide_entry`), so a deleted slide's id
+    is not handed out again in the same session.  That deliberately differs from
+    PowerPoint, which reuses a deleted *top* id within the session -- measured with
+    PowerPoint for Mac on 2026-10-15 (agent-work/feedback-round5/oracle/results.md, A2):
+    it takes the highest live ``sldId`` + 1, fills no gaps, stores no high-water mark.
+    The range is ECMA-376 Part 1's ``ST_SlideId`` (pml.xsd): 256 to 2147483647.  Past the
+    top -- which no real deck reaches -- the lowest id not in use is taken.
+    """
+    used = slide_ids_in(root)
+    candidate = max(used + [MIN_SLIDE_ID - 1, above]) + 1
     if candidate > MAX_SLIDE_ID:
         taken = set(used)
         candidate = next(i for i in range(MIN_SLIDE_ID, MAX_SLIDE_ID + 1) if i not in taken)
     return candidate
 
 
-def insert_entry(package: PresentationPackage, slide_part: str, index: int | None) -> int:
-    """List ``slide_part`` at ``index`` (``None``: last); returns its new ``sldId``."""
+def insert_entry(package: PresentationPackage, slide_part: str, index: int | None,
+                 above: int = 0) -> int:
+    """List ``slide_part`` at ``index`` (``None``: last); returns its new ``sldId``, which
+    is above ``above`` too (:func:`new_slide_id`)."""
     path, root = _presentation(package)
     rel_id = package.add_relationship(path, REL_SLIDE, slide_part)
-    slide_id = new_slide_id(root)
+    slide_id = new_slide_id(root, above)
     node = make("p:sldId", id=str(slide_id), r__id=rel_id)
     _place(root, node, index)
     package.mark_dirty(path)
@@ -860,6 +880,7 @@ __all__ = [
     "masters",
     "Placeholder",
     "insert_entry",
+    "slide_ids_in",
     "layouts",
     "move_entry",
     "remove_entry",

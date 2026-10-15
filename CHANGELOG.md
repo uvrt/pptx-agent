@@ -6,6 +6,22 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Ids are never handed out twice while a deck is open (round 5, T9). Deleting shape
+  `256.3` and adding one gave the new shape `256.3`; deleting slide 257 and adding one gave
+  the new slide 257 -- so a reviewer's finding or an agent's note about the old one silently
+  pointed at the new one.
+  - Shapes: PowerPoint's rule, measured with PowerPoint for Mac on 2026-10-15 -- the lowest
+    `cNvPr@id` from 2 that the slide has not had since the deck was opened (every id on it
+    then, every id handed out or deleted since). Of 2..6, delete 6 and add: 7, not 6; of 2,
+    3 and 7, add four: 4, 5, 6 and 8. Layouts and masters likewise.
+  - Slides: one above the highest `sldId` seen since the deck was opened, at most
+    2,147,483,647 (ECMA-376 `ST_SlideId`). This differs on purpose from PowerPoint, which
+    reuses a deleted top `sldId` in the session (measured the same day).
+  - The memory is the `Document`'s, outside what undo restores: an id undone, or added in a
+    batch or tool-call savepoint that rolled back, stays taken; a measuring copy
+    (`copy_of`) carries it on. Nothing is written to the file: after a save and reopen only
+    the ids in it count, as in PowerPoint. The definitions and prompt are unchanged.
+
 - Figures in text keep their source (round 5, T4; ooxml-edit 0.33.0). Tables and charts
   kept where their values came from, text did not: a card saying "Average 2.2 across 41
   items" had no record of the 2.2, and builders expanded their own placeholders first.

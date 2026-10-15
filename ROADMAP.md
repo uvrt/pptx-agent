@@ -447,7 +447,11 @@ typefaces, character spacing and highlight, cell margins, effects.
   and a reference that cannot be unlinked safely is refused. Duplicating shares the layout,
   media and linked slides and copies notes (re-pointed at the copy), charts with their
   workbooks, diagrams and anything unknown; it renews `p14:creationId`. New `sldId`s are one
-  above the largest in use and at least 256. Sections are kept a partition of the slide list
+  above the largest the `Document` has seen since it was opened -- a deleted slide's
+  included, so an id is never handed out twice while the deck is open (undo and rolled-back
+  batches included) -- at least 256 and at most 2,147,483,647 (`ST_SlideId`). That differs
+  on purpose from PowerPoint, which reuses a deleted top `sldId` in the session (measured,
+  below). Sections are kept a partition of the slide list
   in order (no fixture has sections, so the tests add them).
 - **Pictures**: `Slide.add_picture(image, left, top, width=, height=)` (natural size at
   96 dpi, aspect kept when one side is given, E1's de-duplicating `add_image`),
@@ -817,7 +821,8 @@ box.bring_forward(); goal.send_backward()
 
 Every creation is one undo step (text, fill, outline and adjust values included), byte for
 byte; gets a `cNvPr@id` free on the slide (and free as a local id, so the new shape's id is
-`<sldId>.<cNvPr@id>`); PowerPoint's name for it; and this library's durable id stamp, written
+`<sldId>.<cNvPr@id>`) and never one the slide had since the deck was opened, as PowerPoint
+picks (measured, below); PowerPoint's name for it; and this library's durable id stamp, written
 with its own `pa:` prefix. A shape added to a group goes in the group's child space and the
 group re-fits, as when a child moves. PowerPoint does not put tables in groups, so
 `group.add_table` is refused. `Shape.connection_sites` and the router read the preset's
@@ -831,7 +836,8 @@ is evaluated too.
 
 Measured on PowerPoint for Mac 16 through its AppleScript -- `make new shape`/`text box`/
 `connector`/`shape table`, `begin connect`/`end connect`, `adjustment_value`, `z order` --
-saving each deck and reading the XML.
+saving each deck and reading the XML. The two id rows were measured on 2026-10-15
+(round 5, T9; results kept outside the repository with the other oracle runs).
 
 | What | PowerPoint writes | Written here |
 | --- | --- | --- |
@@ -844,6 +850,8 @@ saving each deck and reading the XML.
 | Table | `graphicFrameLocks noGrp="1"`, `tblPr firstRow="1" bandRow="1"`, style `{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}` (Medium Style 2 - Accent 1), even columns and rows, `a16:colId`/`rowId`, empty `tcPr` | same; ids `10001...` instead of random |
 | Names | type and `cNvPr@id - 1`: "TextBox 3" is id 4. English names from PowerPoint's own table (`strman_f401`: "Rectangle", "Oval", "Straight Arrow Connector", "Elbow Connector", "Curved Connector", "TextBox", "Table", "Flowchart: Decision"...); presets it cannot insert are "Shape" | same |
 | Ids | `a16:creationId` GUID on every new shape, `p14:modId` on a table | this library's stamp instead |
+| `cNvPr@id` (2026-10-15) | the lowest id from 2 not taken, where taken is every id on the slide when it was opened and every id handed out or deleted since: delete 6 of 2..6 and add, 7; of 2, 3 and 7 add four, 4, 5, 6 and 8; of 10, 20, 30 add two, 2 and 3. After a save and reopen only the ids in the file count. Nothing is stored in the file; a `pa:id` stamp is ignored (and kept) | the same, for the `Document`'s lifetime: an id undone or rolled back stays taken, a layout's and a master's shapes likewise, a scratch copy carries the deck's on; a numeric stamp is taken too |
+| `sldId` (2026-10-15) | the highest live `sldId` + 1, gaps not filled: delete 258 of 256..258 and add, 258 again; delete 257, 259. Nothing stored | one above the highest seen since the deck was opened (259 in both), so a deleted slide's id is never another's while it is open; after a reopen, PowerPoint's rule |
 | Bring forward / send backward | one step past the next (previous) shape, overlapping or not | same |
 | On re-save | an attached connector's frame, `stCxn` and `endCxn` kept as written | -- |
 

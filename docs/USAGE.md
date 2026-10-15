@@ -84,8 +84,10 @@ kpi.set_text("12.1%")                   # the figure stays bold, same font and c
 deck.save("out.pptx")
 ```
 
-Ids never change when shapes or slides move. A shape id with `#` (`257.3#5`) is one the
-deck itself numbered twice; use it as it is.
+Ids never change when shapes or slides move, and while a deck is open an id is never handed
+out twice: delete shape `256.3` or slide `257` and what is added next gets a new id, even
+after an undo, so a note that tracks an id never silently points at another shape or slide.
+A shape id with `#` (`257.3#5`) is one the deck itself numbered twice; use it as it is.
 
 > **The outline is Markdown: do not paste its text into `set_text`.** `to_outline` escapes
 > Markdown punctuation (`a\*b`, `\- item`) and marks bold as `**...**`; `set_text` writes

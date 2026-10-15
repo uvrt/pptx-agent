@@ -369,6 +369,27 @@ def test_a_failing_item_changes_nothing(toolbox, session):
     assert session.entry("d1").document.to_bytes() == before
 
 
+def test_an_id_a_rolled_back_call_handed_out_stays_taken(toolbox, session):
+    # Round 5, T9: a shape made by a batch op that rolled back, or undone, keeps its id to
+    # itself, so nothing that noted the id is pointed at another shape.
+    box = {"x": 40, "y": 160, "w": 120, "h": 50}
+    result = call(toolbox, session, "batch", atomic=True, ops=[
+        {"tool": "ppt_add_shape", "arguments": {"doc": "d1", "slide": "s:256", "items": [
+            {"preset": "rect", "box": box}]}},
+        {"tool": "ppt_set_text", "arguments": {"doc": "d1", "items": [
+            {"target": "256.999", "text": "nowhere"}]}}])
+    assert result.error.code == "not_found"
+    first = ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256",
+                    items=[{"preset": "rect", "box": box}])).created[0]
+    ok(call(toolbox, session, "undo", doc="d1"))
+    second = ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256",
+                     items=[{"preset": "rect", "box": box}])).created[0]
+    taken = {shape.id for shape in session.entry("d1").document.slides[0].shapes}
+    assert first == "256.4"      # 256.3 was the rolled-back shape's (the title is 256.2)
+    assert first not in taken and second != first
+    assert int(second.split(".")[1]) == int(first.split(".")[1]) + 1
+
+
 def test_measure_then_build_agree(toolbox, session):
     spec = [{"runs": [{"text": "Discover", "bold": True, "size": 16}], "align": "center"},
             {"runs": [{"text": "Interviews, data audit, stakeholder map"}],

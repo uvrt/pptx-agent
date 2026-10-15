@@ -9,6 +9,11 @@ reference taken before an edit still resolves afterwards.
 **The slide half** is ``p:sldId/@id`` from ``sldIdLst`` -- a deck-unique integer that is
 unaffected by reordering, unlike the slide's position.
 
+Neither half is handed out twice while a ``Document`` is open: a new shape's ``cNvPr@id``
+and a new slide's ``sldId`` avoid every one seen since it was opened, deleted and undone
+ones included (:meth:`~pptx_agent.edit.document.Slide._next_shape_ids`,
+:meth:`~pptx_agent.edit.document.Document._new_slide_entry`).
+
 **The shape half** comes from the first of these that is available:
 
 1. a pptx-agent stamp in ``p:cNvPr/a:extLst``, written the first time a shape is mutated;
