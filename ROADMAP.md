@@ -86,6 +86,7 @@ inputs, plus 63 opt-in PowerPoint oracle tests.
 | Fills: solid, gradient, image, none — theme colours kept as `schemeClr` | Complete (E1) |
 | Outlines: width, colour, dash, cap, arrowheads | Complete (E1) |
 | Tables: cell text/fill/borders, sizing, merge/split, merge-aware row/column insert/delete | Complete (E1) |
+| Tables measured before placing: each row's drawn height and the pages its rows split into, the header repeated (`Slide.measure_table`, `ppt_add_table` with `measure`); continuing a long table on the next slides builds on it (round 5, T3) | Complete (round 5, T13) |
 | Groups: addressable children, child-space moves, grouping, PowerPoint-style refit | Complete (E1) |
 | Ungrouping, with transforms composed into the parent | Complete (E2) |
 | Delete, duplicate, z-order (front, back, one step forward or back) | Complete (steps: E5) |

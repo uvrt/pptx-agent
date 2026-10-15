@@ -222,6 +222,18 @@ runs past it as `off_slide` with `detail="rows"`, `rows` (the first and last row
 edge, 1-based) and `rows_fit`: keep `rows_fit` rows on this slide and move the rest to a
 table on the next.
 
+To know before placing one, `slide.measure_table(data, size=12)` builds the table on a copy
+of the deck (the deck is not changed) and returns a `TableMeasure`: each row's drawn
+`heights`, the header first, and the `pages` its rows split into -- ranges of table rows,
+the header row repeated atop each -- in the slide's content area (or `height=`), with each
+page's `page_heights`. `widths=` sets the column widths, `style=` the table style, as an add
+takes them; `table.set_text_size(12)` sizes a placed table's text the same way.
+
+```python
+m = slide.measure_table([["Item", "Owner"], *rows_of_text], size=12)
+m.fits, [(page.start, page.stop - 1) for page in m.pages]   # (False, [(1, 12), (13, 24), (25, 30)])
+```
+
 A table's style and its Table Design flags (Header Row, Total Row, First and Last Column,
 Banded Rows and Columns) say how PowerPoint draws it. `deck.table_styles` lists the styles a
 table can take: the deck's own from `ppt/tableStyles.xml` first (a brand template's), then

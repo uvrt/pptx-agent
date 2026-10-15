@@ -6,6 +6,28 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Measuring a table before placing it (round 5, T13): an agent no longer places a table
+  to learn it needs four slides.
+  - `ppt_add_table` with `measure: true` adds nothing -- no version, no undo step -- and
+    returns each row's height as PowerPoint draws it (`heights`, the header first), the
+    table's `height`, whether it `fits`, and its `pages`: the rows below the header, from 1
+    (with `from`, the source rows), that fit each page with the header row repeated, and
+    each page's table height (`[{"rows": "1-9", "h": 309.6}, {"rows": "10-18", ...}]`). A
+    page is the box's `h`, or the slide's content area when `h` is 0; a row too tall for a
+    page gets one to itself and is listed in `too_tall`. It takes everything an add takes:
+    `from`, `from_columns`, `header`, literal `data`, `style`.
+  - `ppt_add_table` takes `size` (every cell's text size, points, empty lines too) and
+    `widths` (column widths, points), adding and measuring alike.
+  - `Slide.measure_table(data, width=, height=, style=, size=, widths=, header=)` is the
+    library call, a `TableMeasure` (`heights`, `pages` as ranges of table rows,
+    `page_heights`, `fits`, `too_tall`); `pptx_agent.edit.fit.paginate` splits row heights
+    into pages; `Table.set_text_size(points)` sizes a table's text. The table is built on a
+    copy of the deck by the same code an add uses (`edit.fit.build_table`) and measured as
+    `Table.drawn_row_heights` measures a placed table, so a table placed with a box `h` of 0
+    is drawn at exactly the measured heights.
+  - The definitions: `measure`, `size` and `widths` on the deferred, non-strict
+    `ppt_add_table` add 77 estimated tokens to every definition (12,119 -> 12,196; the guard
+    12,120 -> 12,200), none to the core (3,526). The strict set is unchanged.
 - Text colour as drawn and inherited text sizes against a minimum (round 5, T12), none of
   it in the definitions: the tool definitions, their estimated tokens and the strict set
   are unchanged.
