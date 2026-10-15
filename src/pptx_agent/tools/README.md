@@ -128,6 +128,28 @@ moves the columns' entries (and drops the deleted one's). Copies of the frame, i
 or its shapes have their own copy of the tags part; deleting the frame or the slide
 deletes it.
 
+### Measuring a table before placing it
+
+`ppt_add_table` with `measure: true` builds nothing: it takes the same arguments as an add
+(`from`, `from_columns`, `header` or literal `data`, `style`, and `size` -- every cell's
+text size -- and `widths` -- the column widths -- which an add takes too) and returns each
+row's height as PowerPoint draws it, the table's height, whether it fits, and the pages its
+rows split into with the header row repeated on each. A page's room is the box's `h`, or the
+slide's content area height when `h` is 0; `pages` number the rows below the header from 1
+(with `from`, its source rows) and give each page's table height, header included:
+
+```json
+{"heights": [28.8, 28.8, 50.4, ...], "height": 1022.4, "page_height": 342.63,
+ "fits": false, "header": 28.8,
+ "pages": [{"rows": "1-9", "h": 309.6}, {"rows": "10-18", "h": 331.2}, ...]}
+```
+
+The table is built on a copy of the deck and measured as `Table.drawn_row_heights`
+measures a placed one, so a table placed with these arguments and a box `h` of 0 is drawn
+at exactly these heights; the deck is not changed (no version, no undo step). A row too
+tall for a page under the header gets a page of its own and is listed in `too_tall`. The
+library call is `Slide.measure_table(...)`, a `TableMeasure`.
+
 The provider SDKs read their keys from the environment (`ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`). When the loop ends, `session.take_outputs()` holds what `save_document`
 wrote, as bytes.

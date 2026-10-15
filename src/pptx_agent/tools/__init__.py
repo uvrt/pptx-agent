@@ -26,8 +26,9 @@ What is here (the tool layer's roadmap numbers them):
 * text: ``ppt_set_text`` (speaker notes too) and ``ppt_format_text`` (table cells too);
 * shapes: ``ppt_add_shape``, ``ppt_set_shape``, ``ppt_add_picture`` (SVG pictures too),
   ``ppt_add_connector``, ``ppt_arrange`` (align and distribute too); ``ppt_add_shape``
-  with ``measure: true`` measures text before building; tables: ``ppt_add_table``,
-  ``ppt_edit_table`` (fill and borders too);
+  with ``measure: true`` measures text before building; tables: ``ppt_add_table`` (with
+  ``measure: true``, row heights and pages before placing), ``ppt_edit_table`` (fill and
+  borders too);
 * slides: ``ppt_add_slide``, ``ppt_draft_slides``, ``ppt_manage_slides``, ``ppt_set_theme``;
 * charts and SmartArt, through the shared ``edit_chart`` (``action: "read"`` reads one) and
   ``edit_smartart`` (:mod:`.charts`);

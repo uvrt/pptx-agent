@@ -359,6 +359,186 @@ def rows_fitting(shape: "Shape", bottom: int | None = None,
     return RowsFit(count, tuple(heights), top, limit)
 
 
+@dataclass(frozen=True)
+class TableMeasure:
+    """A table measured before it is placed (:meth:`Slide.measure_table
+    <pptx_agent.Slide.measure_table>`): each row's height as PowerPoint draws it, and how
+    the rows split into pages of :attr:`page_height` with the header row repeated atop each.
+
+    ``heights`` is each table row's height, EMU, the header first: what its text needs,
+    cell margins included, laid out by pptx2svg's table layout as :func:`table_heights`
+    lays out a placed table's.  A row's stored height is a minimum, so a table placed with
+    a box height of 0 is drawn at exactly these heights; a taller box shares its height
+    among the rows and draws any row its text needs more for taller.  ``header_rows`` is
+    how many rows repeat atop every page (1, or 0 for none).  ``pages`` are each page's
+    rows below the header, as ranges of table rows: ``range(1, 13)`` is rows 1 to 12.  A
+    row that does not fit a page even alone under the header gets a page of its own and
+    is listed in :attr:`too_tall`.
+
+    For example::
+
+        m = slide.measure_table(rows_of_text, size=12)
+        [(page.start, page.stop - 1) for page in m.pages]    # [(1, 12), (13, 24), (25, 30)]
+    """
+
+    heights: tuple[int, ...]
+    header_rows: int
+    page_height: int
+    pages: tuple[range, ...]
+
+    @property
+    def height(self) -> int:
+        """The whole table's height, EMU, every row on one slide.
+
+        For example::
+
+            slide.measure_table(rows_of_text).height
+        """
+        return sum(self.heights)
+
+    @property
+    def fits(self) -> bool:
+        """Whether the whole table fits one page.
+
+        For example::
+
+            slide.measure_table(rows_of_text).fits      # False: it needs pages
+        """
+        return self.height <= self.page_height + _TOLERANCE
+
+    @property
+    def page_heights(self) -> tuple[int, ...]:
+        """Each page's table height, EMU, its header row included.
+
+        For example::
+
+            slide.measure_table(rows_of_text).page_heights
+        """
+        header = sum(self.heights[:self.header_rows])
+        return tuple(header + sum(self.heights[page.start:page.stop]) for page in self.pages)
+
+    @property
+    def too_tall(self) -> tuple[int, ...]:
+        """The table rows taller than a page, under the header: each is a page alone, and
+        still runs past it.
+
+        For example::
+
+            slide.measure_table(rows_of_text).too_tall    # (): every row fits a page
+        """
+        header = sum(self.heights[:self.header_rows])
+        return tuple(row for row in range(self.header_rows, len(self.heights))
+                     if header + self.heights[row] > self.page_height + _TOLERANCE)
+
+
+def paginate(heights, page_height: int, header_rows: int = 1) -> tuple[range, ...]:
+    """Split a table's rows into pages of ``page_height`` EMU, the first ``header_rows``
+    rows repeated atop each: each page's other rows, as ranges of table rows, filled in
+    order until the next row would run past the page.  A row too tall for a page under the
+    header gets one of its own.  ``()`` for a table with no rows below its header.
+
+    For example::
+
+        paginate([365760] * 30, 4351338)            # (range(1, 11), range(11, 21), ...)
+    """
+    heights = [int(height) for height in heights]
+    header = sum(heights[:header_rows])
+    pages, start, y = [], header_rows, header
+    for row in range(header_rows, len(heights)):
+        if row > start and y + heights[row] > page_height + _TOLERANCE:
+            pages.append(range(start, row))
+            start, y = row, header
+        y += heights[row]
+    if start < len(heights):
+        pages.append(range(start, len(heights)))
+    return tuple(pages)
+
+
+def measure_table(slide: "Slide", data=None, *, rows: int | None = None,
+                  columns: int | None = None, width: int | None = None,
+                  height: int | None = None, style: str | None = None,
+                  size: float | None = None, widths=None, header: bool = True) -> TableMeasure:
+    """See :meth:`Slide.measure_table <pptx_agent.Slide.measure_table>`."""
+    from .document import _require_renderer
+
+    _require_renderer()
+    data = [["" if text is None else str(text) for text in row] for row in (data or [])]
+    rows = len(data) if rows is None else int(rows)
+    columns = max((len(row) for row in data), default=0) if columns is None else int(columns)
+    if rows < 1 or columns < 1:
+        raise ValueError("a table needs at least one row and one column: give data, or rows "
+                         "and columns")
+    if widths is not None:
+        widths = [int(value) for value in widths]
+        if len(widths) != columns:
+            raise ValueError(f"{len(widths)} widths for {columns} columns")
+    area = None
+    if (width is None and widths is None) or height is None:
+        area = slide.content_area
+    if widths is not None:
+        width = sum(widths)
+    elif width is None:
+        width = area[2]
+    if int(width) <= 0:
+        raise ValueError("width must be positive")
+    page_height = area[3] if height is None else int(height)
+    if page_height <= 0:
+        raise ValueError("height must be positive: the room for each page, EMU")
+    copy = _scratch(slide.document)
+    made = None
+    template = getattr(slide, "kind", None) in ("layout", "master")
+    if template:
+        # A layout's or master's table is measured on a slide built on it: the same master,
+        # the same text defaults; the slide goes again.
+        found = copy._template_by_key(slide.slide_id)
+        layouts = [found] if slide.kind == "layout" else found.layouts
+        if not layouts:
+            raise ValueError(f"{slide.slide_id} has no layout to measure a table on")
+        target = made = copy.add_slide(layouts[0])
+    else:
+        target = copy.slide(slide.slide_id)
+    frame = None
+    try:
+        frame = build_table(target, rows, columns, 0, 0, int(width), 0, data, style=style,
+                            size=size, widths=widths)
+        heights = tuple(table_heights(frame))
+    finally:
+        if frame is not None:
+            frame.delete()
+        if made is not None:
+            made.delete()
+    header_rows = 1 if header else 0
+    return TableMeasure(heights, header_rows, page_height,
+                        paginate(heights, page_height, header_rows))
+
+
+def build_table(host, rows: int, columns: int, left: int, top: int, width: int, height: int,
+                data=None, *, style: str | None = None, size: float | None = None,
+                widths=None) -> "Shape":
+    """A new table on ``host`` (:meth:`Slide.add_table <pptx_agent.Slide.add_table>`) with
+    ``data``'s text, row by row (cut to the table), every cell's text at ``size`` points
+    (:meth:`Table.set_text_size`) and each column ``widths[i]`` EMU wide: one way to build,
+    for ``ppt_add_table`` and for :func:`measure_table`, so what is measured is what is
+    placed.
+
+    For example::
+
+        frame = build_table(slide, 3, 2, 914400, 914400, 4572000, 0, [["Item", "Due"]])
+    """
+    frame = host.add_table(rows, columns, left, top, width, height, style=style)
+    table = frame.table
+    for row, values in enumerate((data or [])[:rows]):
+        for column, text in enumerate(values[:columns]):
+            if text:
+                table.cell(row, column).text = text
+    if widths is not None:
+        for column, value in enumerate(widths):
+            table.set_column_width(column, int(value))
+    if size is not None:
+        table.set_text_size(size)
+    return frame
+
+
 # -- the layout ------------------------------------------------------------------------------
 
 
@@ -1122,6 +1302,7 @@ def _flatten(shapes):
     return out
 
 
-__all__ = ["Overflow", "RowsFit", "TextFit", "TextMeasure", "WRAP_MARGIN", "fit_box",
-           "fit_height", "measure", "measure_text", "overflows", "rows_fitting",
-           "slide_problems", "slide_report", "table_heights"]
+__all__ = ["Overflow", "RowsFit", "TableMeasure", "TextFit", "TextMeasure", "WRAP_MARGIN",
+           "build_table", "fit_box", "fit_height", "measure", "measure_table", "measure_text",
+           "overflows", "paginate", "rows_fitting", "slide_problems", "slide_report",
+           "table_heights"]
