@@ -16,9 +16,16 @@ size here is the size a render shows:
   by pptx2svg: an unstyled title is drawn at 18 pt, not at the chart's 10.  A title's own
   ``c:txPr`` (21.2.2.217; what ooxml-edit's ``set_text_style`` writes for a title with no
   rich text) is read after the rich text's paragraph.  The chart space's ``c:txPr`` is not
-  applied to titles, as pptx2svg does not apply it.
+  applied to a rich title, as pptx2svg does not apply it.
+* **An automatic chart title** -- a ``c:title`` with no ``c:tx``, which PowerPoint shows
+  as the series' name -- takes its own ``c:txPr``'s size, else **1.2 times** the chart
+  space's ``c:txPr`` size rounded to the nearest point, else 18 pt
+  (:func:`ooxml_common.chart.layout.powerpoint_auto_title_size`, as pptx2svg draws it).
+  Measured on PowerPoint 16 for Mac, 2026-10-16: a chart-wide 8, 10, 11 and 24 pt drew it
+  at 10, 12, 13 and 29 pt, bold; none at 18 pt; an unsized title ``c:txPr`` changed
+  nothing.  A rich title with no size anywhere stays 18 pt, whatever the chart-wide size.
 
-What is checked is what PowerPoint shows: a title the chart states (PowerPoint shows no
+What is checked is what PowerPoint shows: a title the chart states (its text, or the
 automatic one), axes not deleted and with tick labels, data labels that show something, a
 legend that is there.
 """
@@ -29,7 +36,7 @@ from dataclasses import dataclass
 from xml.etree import ElementTree
 
 from lxml import etree
-from ooxml_common.chart.layout import DEFAULT_CHART_FONT_PT
+from ooxml_common.chart.layout import DEFAULT_CHART_FONT_PT, powerpoint_auto_title_size
 from ooxml_common.chart.read import AXIS_ELEMENTS, parse_chart_space
 from ooxml_common.drawingml.read_text import parse_text_body
 from ooxml_common.xmlutil import child, local_name
@@ -88,8 +95,11 @@ def chart_text(shape) -> list[ChartText]:
     node = child(space, "chart")
     if chart.title_stated:
         title = child(node, "title")
-        out += [ChartText("title", *found) for found in
-                _title_sizes(chart.title, child(title, "txPr"), styles, "title")]
+        if child(title, "tx") is None:
+            out.append(ChartText("title", *_auto_title_size(chart, chart_size)))
+        else:
+            out += [ChartText("title", *found) for found in
+                    _title_sizes(chart.title, child(title, "txPr"), styles, "title")]
     plot_area = child(node, "plotArea")
     axes = [n for n in (plot_area if plot_area is not None else ())
             if local_name(n.tag) in AXIS_ELEMENTS]
@@ -167,6 +177,16 @@ def _master_styles(shape) -> list:
     package = slide.document.package
     master = inherit.master_of(package, inherit.layout_of(package, slide.part_path))
     return inherit.list_styles(package, master, None, None, None, False)[1:]
+
+
+def _auto_title_size(chart, chart_size: float | None) -> tuple[float, str]:
+    """``(size, source)`` of an automatic chart title (see the module's notes)."""
+    size = powerpoint_auto_title_size(chart)
+    if _txpr(chart.title_text_properties):
+        return size, "the title's text properties"
+    if chart_size:
+        return size, f"1.2 times the chart's text properties ({chart_size:g} pt), rounded"
+    return size, f"PowerPoint's default {size:g} pt for an automatic title"
 
 
 def _title_sizes(title, txpr_node, styles, what: str) -> list[tuple[float, str]]:

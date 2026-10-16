@@ -6,6 +6,21 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A chart's dates read as dates (round 6; ooxml-edit 0.39.0): `edit_chart read` lists
+  categories kept as serials under a date code as ISO dates (`2026-03-02`, not `46083`)
+  with `category_format`, the code that shows them; a category is named by that date
+  (`category: "2026-03-02"`), and one that is none is refused listing the dates. The
+  outline's chart summary lists them so too. ISO, not the code's text: a model reads it
+  whatever the locale, and it is the form `from` dates take. `render` draws them as
+  PowerPoint does (pptx2svg on ooxml-common 0.17.0: `5 januari 2026`). No definition
+  changes.
+- The chart text check sizes an automatic title (a `c:title` with no text, which
+  PowerPoint shows as the series' name) as PowerPoint draws it: its own `c:txPr` size,
+  else 1.2 times the chart-wide size rounded to the point (8, 10, 11 and 24 pt give 10,
+  12, 13 and 29), else 18 pt -- measured on PowerPoint 16 for Mac, 2026-10-16. It was
+  sized as a rich title (the master's text styles, 18 pt). A rich title with no size
+  stays 18 pt whatever the chart-wide size (measured).
+
 - Date formats (round 6, R9; ooxml-edit 0.38.0, `ooxml_edit.dates`). Excel's date tokens
   (`d dd ddd dddd m mm mmm mmmm mmmmm yy yyyy`, either case), everything else written as
   given; month and day names measured in Excel for Mac, 2026-10-16, for en-US, en-GB,
