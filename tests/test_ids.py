@@ -304,3 +304,45 @@ def test_slide_ids_stay_in_the_schemas_range():
     assert new_slide_id(root, above=300) == 301
     assert new_slide_id(root, above=MAX_SLIDE_ID) == 257   # past the top: lowest free
     assert MAX_SLIDE_ID == 2**31 - 1                       # ST_SlideId: maxExclusive 2^31
+
+
+def _deck_with_slide_id(slide_id: int) -> Document:
+    """A made-up deck whose one slide has ``sldId`` ``slide_id``."""
+    import io
+    import zipfile
+
+    deck = Document.new()
+    deck.add_slide("Blank")
+    source = zipfile.ZipFile(io.BytesIO(deck.to_bytes()))
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for info in source.infolist():
+            data = source.read(info)
+            if info.filename == "ppt/presentation.xml":
+                assert data.count(b'<p:sldId id="256"') == 1
+                data = data.replace(b'<p:sldId id="256"', f'<p:sldId id="{slide_id}"'.encode())
+            target.writestr(info, data)
+    return Document.open(out.getvalue())
+
+
+def test_slide_ids_near_the_top_continue_from_256_as_powerpoint_does():
+    # Measured with PowerPoint for Mac, 2026-10-16 (round 6, R12): sldId 2147483641 and twelve
+    # new slides give 2147483642 ... 2147483647, then 256 ... 261; nothing is renumbered.
+    deck = _deck_with_slide_id(2147483641)
+    added = [deck.add_slide("Blank").slide_id for _ in range(12)]
+    assert added == [*range(2147483642, 2147483648), *range(256, 262)]
+    assert deck.slides[0].slide_id == 2147483641
+    reopened = Document.open(deck.to_bytes())
+    assert [s.slide_id for s in reopened.slides] == [2147483641, *added]
+    assert reopened.add_slide("Blank").slide_id == 262
+
+
+def test_past_the_top_a_deleted_id_is_not_handed_out_again_in_the_session():
+    deck = _deck_with_slide_id(2147483647)
+    assert [deck.add_slide("Blank").slide_id for _ in range(3)] == [256, 257, 258]
+    deck.delete_slide(256)
+    deck.delete_slide(2147483647)
+    assert deck.add_slide("Blank").slide_id == 259      # PowerPoint would take 256 again
+    assert deck.duplicate_slide(257).slide_id == 260
+    reopened = Document.open(deck.to_bytes())          # after a reopen: the file's ids only
+    assert reopened.add_slide("Blank").slide_id == 261  # 257..260 live, max+1 = 261

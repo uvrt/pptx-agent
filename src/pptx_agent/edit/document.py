@@ -3216,6 +3216,8 @@ class Document(CommentOps):
         self._shape_ids_seen: dict[int | str, set[int]] = {}
         #: The largest ``sldId`` seen; ``None`` until a slide is added.
         self._slide_id_high: int | None = None
+        #: Every ``sldId`` seen (the file's and those handed out), for the ids past the top.
+        self._slide_ids_seen: set[int] = set()
 
     # -- lifecycle -------------------------------------------------------------------------
 
@@ -4080,10 +4082,13 @@ class Document(CommentOps):
         if self._slide_id_high is None:
             origin = self._opened_package()
             root = origin.tree(origin.presentation_part())
-            self._slide_id_high = max(_slides.slide_ids_in(root), default=0) \
-                if root is not None else 0
-        slide_id = _slides.insert_entry(self.package, part, index, self._slide_id_high)
+            found = _slides.slide_ids_in(root) if root is not None else []
+            self._slide_id_high = max(found, default=0)
+            self._slide_ids_seen |= set(found)
+        slide_id = _slides.insert_entry(self.package, part, index, self._slide_id_high,
+                                        self._slide_ids_seen)
         self._slide_id_high = max(self._slide_id_high, slide_id)
+        self._slide_ids_seen.add(slide_id)
         return slide_id
 
     # -- the full-state SVG ----------------------------------------------------------------
@@ -4466,6 +4471,7 @@ def copy_of(document: "Document") -> "Document":
     copy._origin = document._opened_package()
     copy._shape_ids_seen = {key: set(ids) for key, ids in document._shape_ids_seen.items()}
     copy._slide_id_high = document._slide_id_high
+    copy._slide_ids_seen = set(document._slide_ids_seen)
     return copy
 
 

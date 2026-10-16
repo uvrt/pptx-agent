@@ -57,13 +57,29 @@ def slide_id_of(address: str) -> int | None:
 
 def slide(deck, address: str, *, field: str = "slide"):
     """The slide ``address`` names (``s:256``, or the bare ``256``); ``not_found`` lists
-    the slides."""
+    the slides.  A bare number that is no slide's id but a position says which slide is
+    there, never taking it: "no slide id 2 ...; slide 2 is s:257: write 's:257'"."""
     text = str(address).strip()
     try:
         return deck.slide(text if text.startswith("s:") else f"s:{text}")
     except (KeyError, IndexError, ValueError):
-        raise ToolError("not_found", f"no slide {address!r}", field=field,
-                        valid_options=[f"s:{s.slide_id}" for s in deck.slides][:50]) from None
+        ids = [s.slide_id for s in deck.slides]
+        message = f"no slide {address!r}"
+        if text.isdigit() and 1 <= int(text) <= len(ids):
+            message = (f"no slide id {text} (a bare number here is an id, s:{text}); slide "
+                       f"{text} is s:{ids[int(text) - 1]}: write 's:{ids[int(text) - 1]}'")
+        raise ToolError("not_found", message, field=field,
+                        valid_options=[f"s:{sid}" for sid in ids][:50]) from None
+
+
+def id_hint(deck, number: int) -> str:
+    """What a position that is out of range says when it is a slide's id: "; slide id 278
+    is slide 4: write 's:278' or 4" -- the slide is never taken for it.  ``""`` otherwise."""
+    ids = [s.slide_id for s in deck.slides]
+    if number not in ids:
+        return ""
+    position = ids.index(number) + 1
+    return f"; slide id {number} is slide {position}: write 's:{number}' or {position}"
 
 
 def template_key_of(address: str) -> str | None:
@@ -145,7 +161,8 @@ def numbers(deck, slides: Iterable[int | str] | None, *, field: str = "slides") 
     """1-based slide numbers, checked; all slides when ``None``.  An item may also be a
     slide's address, ``s:<id>`` (a ``$ref`` the dispatcher has already replaced by one), or
     a number written as a string (``"2"``, as a strict decoder writes it where the schema
-    says string): the slide's position now."""
+    says string): the slide's position now.  A number past the last slide that is a slide's
+    id is refused with the hint (:func:`id_hint`), never read as that slide."""
     count = len(deck.slides)
     if slides is None:
         return list(range(1, count + 1))
@@ -153,8 +170,9 @@ def numbers(deck, slides: Iterable[int | str] | None, *, field: str = "slides") 
     for index, item in enumerate(slides):
         number = _position(deck, item, f"{field}[{index}]") if isinstance(item, str) else item
         if not 1 <= number <= count:
-            raise ToolError("not_found", f"no slide {number}; the deck has {count}",
-                            field=field, valid_options=list(range(1, count + 1))[:50])
+            raise ToolError("not_found", f"no slide {number} (the deck has {count})"
+                            f"{id_hint(deck, number)}", field=field,
+                            valid_options=list(range(1, count + 1))[:50])
         if number not in out:
             out.append(number)
     return out
@@ -173,7 +191,10 @@ def _position(deck, item: str, field: str) -> int:
                         "or a slide's id, s:<id>", field=field,
                         valid_options=[f"s:{sid}" for sid in ids][:50])
     if int(head) not in ids:
-        raise ToolError("not_found", f"no slide {item!r}", field=field,
+        number = int(head)
+        hint = (f"; slide {number} is s:{ids[number - 1]}: write 's:{ids[number - 1]}' or "
+                f"{number}") if 1 <= number <= len(ids) else ""
+        raise ToolError("not_found", f"no slide {item!r}{hint}", field=field,
                         valid_options=[f"s:{sid}" for sid in ids][:50])
     return ids.index(int(head)) + 1
 
@@ -638,5 +659,6 @@ def color_json(color, shape=None) -> dict[str, str] | None:
 
 
 __all__ = ["KIND", "box_emu", "box_pt", "checks", "emu", "facts", "fit_json", "host",
-           "layout_json", "library_errors", "one_text", "paragraphs_text", "place", "pt",
-           "resolve", "shape", "slide", "slide_id_of", "spec_of", "template_key_of", "text_params", "write_text"]
+           "id_hint", "layout_json", "library_errors", "one_text", "paragraphs_text", "place",
+           "pt", "resolve", "shape", "slide", "slide_id_of", "spec_of", "template_key_of",
+           "text_params", "write_text"]

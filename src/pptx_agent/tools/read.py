@@ -257,11 +257,11 @@ def _compact_row(shape) -> list[Any]:
       "fill, line, text and font sizes. compact: id, kind, box, fill, first words per "
       "shape. svg: an SVG per slide, data-id per shape.",
       {"doc": string("Document id."),
-       "slides": array(integer(minimum=1), "Slide numbers from 1. Default all.",
-                       optional=True),
+       "slides": array(string(or_integer=1), "Slide numbers from 1, or ids (s:256, $ref). "
+                       "Default all.", optional=True),
        "detail": string("What to show.", enum=["outline", "geometry", "compact", "svg"]),
        "cursor": string("next_cursor of the previous page.", optional=True)},
-      kind=KIND, group=CORE)
+      kind=KIND, group=CORE, refs=("slides[]",))
 @library_errors
 def ppt_read_slides(call, doc, detail, slides=None, cursor=None):
     deck = call.document

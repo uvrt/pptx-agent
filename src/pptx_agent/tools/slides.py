@@ -12,8 +12,8 @@ from typing import Any
 from ooxml_edit.tools import Result, ToolError, array, boolean, integer, obj, string, tool
 
 from ..edit.theme import MAPPED, SLOTS
-from .common import (KIND, box_pt, library_errors, numbers, resolve, slide as slide_at,
-                     template_key_of, template_options)
+from .common import (KIND, box_pt, id_hint, library_errors, numbers, resolve,
+                     slide as slide_at, template_key_of, template_options)
 
 SLIDES = "ppt_slides"
 _KEY = string("Retry key: a repeat with the same key makes nothing new.", optional=True)
@@ -48,8 +48,8 @@ def _position(deck, at: int | None, field: str = "at") -> int | None:
     if at is None:
         return None
     if not 1 <= at <= len(deck.slides) + 1:
-        raise ToolError("invalid_arguments", f"position {at}; from 1 to {len(deck.slides) + 1}",
-                        field=field)
+        raise ToolError("invalid_arguments", f"position {at}; from 1 to {len(deck.slides) + 1}"
+                        f"{id_hint(deck, at)}", field=field)
     return at - 1
 
 
@@ -172,8 +172,8 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
         if to is None:
             raise ToolError("invalid_arguments", "move needs to", field="to")
         if not 1 <= to <= len(deck.slides):
-            raise ToolError("invalid_arguments", f"position {to}; from 1 to {len(deck.slides)}",
-                            field="to")
+            raise ToolError("invalid_arguments", f"position {to}; from 1 to {len(deck.slides)}"
+                            f"{id_hint(deck, to)}", field="to")
         deck.move_slide(target, to - 1)
         return Result(summary=f"Moved s:{target.slide_id} to {to}",
                       changed=[f"s:{target.slide_id}"], data={"order": _order(deck)})
@@ -270,10 +270,11 @@ def _template_layout(deck, address: str | None, field: str):
        "slide_number": boolean("set_footer. Default true.", optional=True),
        "date": string("set_footer: auto (updates), fixed text, or leave out for none.",
                       optional=True),
-       "slides": array(integer(minimum=1), "set_footer: only these slides (Apply). Default "
-                       "all (Apply to All: masters and layouts too).", optional=True),
+       "slides": array(string(or_integer=1), "set_footer: only these slides (Apply), numbers "
+                       "or ids (s:256). Default all (Apply to All: masters and layouts too).",
+                       optional=True),
        "on_title_slide": boolean("set_footer. Default false.", optional=True)},
-      kind=KIND, group=SLIDES, mutates=True, refs=("target",))
+      kind=KIND, group=SLIDES, mutates=True, refs=("target", "slides[]"))
 @library_errors
 def ppt_edit_master(call, doc, action, target=None, text=None, reassign_to=None,
                     slide_number=None, date=None, slides=None, on_title_slide=None):

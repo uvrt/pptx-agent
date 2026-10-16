@@ -14,7 +14,7 @@ from typing import Any
 from ooxml_edit.tools import Result, ToolError, array, boolean, obj, string, tool
 from ooxml_edit.tools.results import page_list
 
-from .common import KIND, library_errors, slide_id_of
+from .common import KIND, library_errors, numbers, slide_id_of
 
 REVIEW = "ppt_review"
 
@@ -56,11 +56,12 @@ def _need(value, field: str):
                                              "edit", "delete"]),
        "items": array(_ITEM, "The comments to act on (not list).", optional=True),
        "author": string("add, reply: the author's name.", optional=True),
-       "slides": array(string(), "list: only these slides (s:256). Default all.",
-                       optional=True),
+       "slides": array(string(or_integer=1), "list: only these slides, numbers or ids "
+                       "(s:256). Default all.", optional=True),
        "open_only": boolean("list: only unresolved threads.", optional=True),
        "cursor": string("next_cursor of the previous page.", optional=True)},
-      kind=KIND, group=REVIEW, mutates=True, refs=("items[].target", "items[].comment"),
+      kind=KIND, group=REVIEW, mutates=True,
+      refs=("items[].target", "items[].comment", "slides[]"),
       reads=lambda arguments: arguments.get("action") == "list")
 @library_errors
 def ppt_comments(call, doc, action, items=None, author=None, slides=None, open_only=False,
@@ -69,9 +70,7 @@ def ppt_comments(call, doc, action, items=None, author=None, slides=None, open_o
     if action == "list":
         chosen = None
         if slides:
-            from .common import slide as slide_at
-
-            chosen = [slide_at(deck, s, field="slides") for s in slides]
+            chosen = [deck.slides[n - 1] for n in numbers(deck, slides)]
         threads = [t for t in (deck.comments() if chosen is None else
                                [t for s in chosen for t in deck.comments(s)])
                    if not (open_only and t.done)]
