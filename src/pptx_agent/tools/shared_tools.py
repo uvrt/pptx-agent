@@ -13,7 +13,7 @@ from typing import Any
 from ooxml_edit.tools import Result, ToolError, collect_warnings, page_list, shared
 
 from .common import (KIND, facts, library_errors, numbers, slide_id_of, template_key_of,
-                     validate_delta)
+                     template_options, validate_delta)
 from ..edit.document import font_dirs_of, locale_of
 from ..edit.effective import text_minimums
 from .render import png_size, render_slides_reporting
@@ -260,15 +260,18 @@ def render(call, doc, slides=None, pages=None, width=None):
     deck = call.document
     if not slides:
         raise ToolError("invalid_arguments", f"name the slides to render, at most "
-                        f"{MAX_RENDER}, e.g. [1]", field="slides",
-                        valid_options=list(range(1, len(deck.slides) + 1))[:50])
+                        f"{MAX_RENDER}, e.g. [1], or a layout, L2", field="slides",
+                        valid_options=(list(range(1, len(deck.slides) + 1))
+                                       or template_options(deck))[:50])
     if len(slides) > MAX_RENDER:
         raise ToolError("limit", f"at most {MAX_RENDER} slides per render", field="slides")
-    wanted = numbers(deck, slides)
+    wanted = _render_targets(deck, slides)
     width = width or DEFAULT_WIDTH
     entry = call.entry
     version = entry.version
-    ids = {n: deck.slides[n - 1].slide_id for n in wanted}
+    # A slide by its id, a layout or master by its key (L2, M0): what the cache is keyed by.
+    ids = {item: item if isinstance(item, str) else deck.slides[item - 1].slide_id
+           for item in wanted}
     # The font folders, resolved here (the session's, else OOXML_FONT_DIRS) and handed to
     # the worker, which sees neither; they key the cache, so renders with different
     # folders do not mix.  The locale likewise: the session's, handed over and keying.
@@ -290,14 +293,57 @@ def render(call, doc, slides=None, pages=None, width=None):
     for number in wanted:
         png, left_out = entry.render_cache.get((version, ids[number], width, fonts, locale))
         w, h = png_size(png)
-        image = call.image(png, w, h, label=f"slide {number} (s:{ids[number]})")
+        image = call.image(png, w, h, label=_render_name(deck, number))
         described.append(image.describe())
-        unrendered += [{"slide": f"s:{ids[number]}", **item} for item in left_out]
+        address = number if isinstance(number, str) else f"s:{ids[number]}"
+        unrendered += [{"slide": address, **item} for item in left_out]
     data: dict[str, Any] = {"cached": [n for n in wanted if n not in missing]}
+    if any(isinstance(n, str) for n in wanted):
+        data["template_note"] = TEMPLATE_NOTE
     if unrendered:
         data["missing_glyphs"] = unrendered
         data["missing_glyphs_note"] = MISSING_GLYPHS_NOTE
-    return Result(summary=f"Rendered slide(s) {', '.join(map(str, wanted))}", data=data)
+    shown = [", ".join(str(n) for n in wanted if not isinstance(n, str))]
+    shown = [f"slide(s) {shown[0]}"] if shown[0] else []
+    shown += [f"{n} ({'layout' if n.startswith('L') else 'master'})"
+              for n in wanted if isinstance(n, str)]
+    return Result(summary=f"Rendered {', '.join(shown)}", data=data)
+
+
+def _render_targets(deck, slides) -> "list[int | str]":
+    """What a render draws, in order and once each: slide numbers, and layouts' and
+    masters' keys (``L2``, ``M0``) -- the addresses ppt_edit_master and the add tools
+    take."""
+    out: list = []
+    for index, item in enumerate(slides):
+        text = item.strip() if isinstance(item, str) else None
+        if text and template_key_of(text) == text:
+            try:
+                found = deck._template_by_key(text).id
+            except KeyError:
+                raise ToolError("not_found", f"no layout or master {text!r}",
+                                field=f"slides[{index}]",
+                                valid_options=template_options(deck)) from None
+        else:
+            found = numbers(deck, [item])[0]
+        if found not in out:
+            out.append(found)
+    return out
+
+
+def _render_name(deck, item) -> str:
+    """An image's label: ``slide 2 (s:257)``, ``layout L2 'Title and Content'``."""
+    if not isinstance(item, str):
+        return f"slide {item} (s:{deck.slides[item - 1].slide_id})"
+    template = deck._template_by_key(item)
+    kind = "layout" if item.startswith("L") else "master"
+    return f"{kind} {item} {template.name!r}"
+
+
+#: What a layout's or master's image is, for the model reading it.
+TEMPLATE_NOTE = ("a layout or master is drawn as a new slide on it starts, its placeholders "
+                 "as dashed boxes tagged with type and idx (a wireframe, not PowerPoint's "
+                 "drawing); describe lists the layouts")
 
 
 #: What a ``missing_glyphs`` fact means for the model reading the image.

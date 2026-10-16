@@ -4326,31 +4326,40 @@ class Document(CommentOps):
     def render_svg(self, slides=None, **options) -> list[str]:
         """Render via pptx2svg.  Requires ``pip install pptx-agent[render]``.  ``slides`` as
         :meth:`to_outline` takes them: 1-based numbers, :class:`Slide` objects or
-        ``"s:<sldId>"`` ids.
+        ``"s:<sldId>"`` ids -- and layouts and masters (``"L2"``, ``"M0"``, a
+        :class:`Layout` or :class:`Master`), each drawn as a template view: what a slide on
+        it starts as, its placeholders outlined and tagged with their type and ``idx``
+        (pptx2svg's wireframe, not PowerPoint's own drawing).  In the order given.
 
         For example::
 
             svgs = deck.render_svg([1, 2])               # 1-based slide numbers
             svgs = deck.render_svg(["s:257"])            # or by id
+            svgs = deck.render_svg(["L2", "M0"])         # a layout, a master
 
         ``agent=True`` gives pptx2svg's compact agent view (see :meth:`Slide.render_svg`),
-        with pptx2svg's own ids.
+        with pptx2svg's own ids; slides only.
         """
         pptx2svg = _require_renderer()
         if self.font_dirs is not None and not options.get("agent"):
             options.setdefault("font_dirs", list(self.font_dirs))
         options.setdefault("locale", locale_of(self))
+        numbers, parts, order = self._targets(slides)
         if options.pop("agent", False):
+            if parts:
+                raise ValueError("the agent view is of slides; render a layout or master "
+                                 "without agent=True")
             convert = getattr(pptx2svg, "convert_pptx_to_agent_svg", None)
             if convert is None:
                 raise RuntimeError("this pptx2svg has no agent view "
                                    "(convert_pptx_to_agent_svg); upgrade pptx2svg")
             return convert(self.to_bytes(),
-                           pptx2svg.ConvertOptions(slide_numbers=self._numbers(slides),
+                           pptx2svg.ConvertOptions(slide_numbers=numbers,
                                                    locale=options["locale"]))
-        convert_options = pptx2svg.ConvertOptions(slide_numbers=self._numbers(slides),
+        convert_options = pptx2svg.ConvertOptions(slide_numbers=numbers,
+                                                  **_template_options(pptx2svg, parts),
                                                   **options)
-        return pptx2svg.convert_pptx_to_svg(self.to_bytes(), convert_options)
+        return _in_order(pptx2svg.convert_pptx_to_svg(self.to_bytes(), convert_options), order)
 
     def render_png(self, slides=None, **options) -> list[bytes]:
         """Render to PNG via pptx2svg.  Requires ``pip install pptx-agent[png]``.  ``slides``
@@ -4368,15 +4377,16 @@ class Document(CommentOps):
             options.setdefault("font_dirs", list(self.font_dirs))
         options.setdefault("locale", locale_of(self))
         render_keys = {"width", "height", "font_mapping", "measurer", "warnings", "locale"}
+        numbers, parts, order = self._targets(slides)
         convert_options = pptx2svg.ConvertOptions(
-            slide_numbers=self._numbers(slides),
+            slide_numbers=numbers, **_template_options(pptx2svg, parts),
             **{k: v for k, v in options.items() if k in render_keys}
         )
-        return pptx2svg.convert_pptx_to_png(
+        return _in_order(pptx2svg.convert_pptx_to_png(
             self.to_bytes(),
             convert_options,
             **{k: v for k, v in options.items() if k not in render_keys},
-        )
+        ), order)
 
     def _numbers(self, slides) -> "list[int] | None":
         """1-based slide numbers from what :meth:`to_outline` accepts."""
@@ -4386,8 +4396,51 @@ class Document(CommentOps):
 
         return [slide.index + 1 for slide in select(self, slides)]
 
+    def _targets(self, slides) -> "tuple[list[int] | None, list[str], list[int] | None]":
+        """What a render draws: the slides' 1-based numbers, the layouts' and masters' part
+        paths (``"L2"``, ``"M0"``, a :class:`Layout` or :class:`Master` among ``slides``),
+        and the order to put pptx2svg's images -- the slides', then the templates' -- back
+        in (``None``: as they come)."""
+        from .ids import is_template_key
+
+        if slides is None or isinstance(slides, (int, str)) or hasattr(slides, "slide_id") \
+                or isinstance(slides, (_slides.Layout, _slides.Master)):
+            slides = None if slides is None else [slides]
+        if slides is None:
+            return None, [], None
+        kept, parts, where = [], [], []
+        for item in slides:
+            if isinstance(item, (_slides.Layout, _slides.Master)):
+                parts.append(item.part_path)
+                where.append(("t", len(parts) - 1))
+            elif isinstance(item, str) and is_template_key(item.strip()):
+                parts.append(self._template_by_key(item.strip()).part_path)
+                where.append(("t", len(parts) - 1))
+            else:
+                kept.append(item)
+                where.append(("s", len(kept) - 1))
+        numbers = self._numbers(kept)
+        if not parts:
+            return numbers, [], None
+        return numbers, parts, [i if kind == "s" else len(kept) + i for kind, i in where]
+
     def __repr__(self) -> str:
         return f"<Document {len(self.slides)} slides>"
+
+
+def _template_options(pptx2svg, parts: list[str]) -> dict:
+    """``ConvertOptions(templates=...)`` for the layouts and masters a render draws; a
+    pptx2svg without template views refuses them."""
+    if not parts:
+        return {}
+    if "templates" not in getattr(pptx2svg.ConvertOptions, "__dataclass_fields__", {}):
+        raise RuntimeError("this pptx2svg cannot draw a layout or master (no "
+                           "ConvertOptions.templates); upgrade pptx2svg")
+    return {"templates": parts}
+
+
+def _in_order(images: list, order: "list[int] | None") -> list:
+    return images if order is None else [images[index] for index in order]
 
 
 def _slide_id_of(slide: object) -> int:

@@ -285,6 +285,26 @@ class _TemplatePart:
         """
         return self._document._slides_on(self.part_path)
 
+    def render_svg(self, **options) -> str:
+        """This layout or master as SVG: its template view, what a slide on it starts as
+        with its placeholders outlined and tagged (see :meth:`Document.render_svg
+        <pptx_agent.Document.render_svg>`).
+
+        For example::
+
+            svg = deck.layout("Title and Content").render_svg()
+        """
+        return self._document.render_svg([self], **options)[0]
+
+    def render_png(self, **options) -> bytes:
+        """This layout or master as PNG, as :meth:`render_svg` draws it.
+
+        For example::
+
+            png = deck.masters[0].render_png(width=1280)
+        """
+        return self._document.render_png([self], **options)[0]
+
     def add_shape(self, *args, **kwargs):
         """Add an autoshape here, as :meth:`Slide.add_shape <pptx_agent.Slide.add_shape>`
         does; every slide built on it draws it, behind the slide's own shapes.

@@ -49,6 +49,20 @@ def test_a_subprocess_worker_renders_what_this_process_renders(caplog):
     assert not [r for r in caplog.records if "not a registered" in r.getMessage()]
 
 
+def test_a_subprocess_worker_renders_a_layout_too():
+    # A layout's key travels to the worker as a slide number does (round 6, R11).
+    data = _deck()
+    expected = render_slides(data, ["L2", 1], 320, [])
+    with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS,
+                 runner=SubprocessPool(1), font_dirs=[]) as box:
+        session = box.session()
+        session.open(data, "deck.pptx")
+        result = box.dispatch(session, "render", {"doc": "d1", "slides": ["L2", 1],
+                                                  "width": 320})
+    assert result.ok, result.error
+    assert [image.data for image in result.images] == expected
+
+
 def render_in_a_daemonic_process(queue, data: bytes) -> None:
     try:
         with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS, font_dirs=[]) as box:

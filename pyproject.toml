@@ -81,7 +81,9 @@ classifiers = [
 # edit_chart read lists a chart's dates as ISO dates.  ooxml-common 0.17.0:
 # powerpoint_auto_title_size, which the chart text check sizes an automatic title by.
 # ooxml-edit 0.40.0: the dot chart (add_chart "dot", Chart.is_dot).
-dependencies = ["lxml>=4.9", "ooxml-common>=0.17.0", "ooxml-edit>=0.40.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.41.0: render's slides description names layouts and masters (L2, M0);
+# pptx2svg: ConvertOptions(templates=...), the template view a layout renders by (R11).
+dependencies = ["lxml>=4.9", "ooxml-common>=0.17.0", "ooxml-edit>=0.41.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]
