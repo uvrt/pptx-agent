@@ -55,6 +55,10 @@ def new_document(call, kind, template_blob=None, size=None, title=None, author=N
 @library_errors
 def save_document(call, doc, name, format):
     deck = call.document
+    # Slide numbers written by reference, as the slides are now: PowerPoint may have moved
+    # them since the deck was opened (pptx_agent.edit.slidenumbers).
+    renumbered = deck.update_slide_numbers() if format in ("pptx", "potx", "outline") else []
+    deck.slide_numbers_kept = []
     if format == "pptx":
         data = deck.to_bytes(template=False)
     elif format == "potx":
@@ -72,12 +76,15 @@ def save_document(call, doc, name, format):
                            if left.get(k))
         summary += f"; still in the deck: {counts} (unresolved, listed)"
         described = {**described, "unresolved": left}
+    if renumbered:
+        described = {**described, "slide_numbers": renumbered[:UNRESOLVED_LISTED]}
     return Result(summary=summary, data=described)
 
 
 #: The fit, collision, empty-placeholder and small-text facts ``save_document`` reports
 #: when any are left.
-UNRESOLVED = ("overflows", "collisions", "off_slide", "empty_placeholders", "small_text")
+UNRESOLVED = ("overflows", "collisions", "off_slide", "empty_placeholders", "small_text",
+              "missing_slides")
 #: At most this many of each kind are listed.
 UNRESOLVED_LISTED = 20
 
@@ -349,7 +356,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
     if notes:
         data = {**data, "notes": notes}
     count = sum(len(data.get(k) or []) for k in ("overflows", "collisions", "off_slide",
-                                                  "small_text"))
+                                                  "small_text", "missing_slides"))
     new = len((data.get("validate") or {}).get("new") or [])
     return Result(summary=f"{count} fit/collision fact(s), {new} new validation problem(s)",
                   data=data)

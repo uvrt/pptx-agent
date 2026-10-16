@@ -486,6 +486,10 @@ EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows 'Click to add .
                            "bullet, in the export too); fill them or delete them "
                            "(ppt_manage_slides delete_empty_placeholders)")
 
+MISSING_SLIDES_NOTE = ("missing_slides: a slide number written by reference ({{slide:s:<id>}}) "
+                       "whose slide was deleted keeps its last number; write the text anew "
+                       "or delete it")
+
 ROWS_NOTE = ("rows_past: a table's rows grow to fit their text and PowerPoint cuts off what "
              "passes the slide's bottom; keep rows_fit rows and move the rest to a table on "
              "the next slide, or shorten the text")
@@ -494,8 +498,11 @@ ROWS_NOTE = ("rows_past: a table's rows grow to fit their text and PowerPoint cu
 def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
           include: Iterable[str] = ("fit", "collisions")) -> dict[str, Any]:
     """Fit and collision facts for some slides, in points, from one measurement each; with
-    ``fit``, the empty placeholders too (:meth:`Slide.empty_placeholders`)."""
+    ``fit``, the empty placeholders too (:meth:`Slide.empty_placeholders`), and the slide
+    numbers written by reference whose slide is gone (``missing_slides``,
+    :func:`pptx_agent.edit.slidenumbers.missing`)."""
     from ..edit.fit import slide_report
+    from ..edit.slidenumbers import missing
 
     wanted = set(include)
     overflows: list[dict] = []
@@ -540,6 +547,7 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
                     allowance.append({"shape": address, "over": pt(fit.overflow),
                                       "allowance": pt(fit.slack)})
     out: dict[str, Any] = {}
+    gone = missing(deck, slide_ids) if "fit" in wanted else []
     if "fit" in wanted:
         out["overflows"] = overflows
         out["off_slide"] = off_slide
@@ -557,6 +565,9 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
         if small:
             out["small_text"] = small_text_json(small, minimums)
             out["small_text_note"] = small_text_note(minimums, out["small_text"])
+        if gone:
+            out["missing_slides"] = gone
+            out["missing_slides_note"] = MISSING_SLIDES_NOTE
     if "collisions" in wanted:
         out["collisions"] = collisions
     return out
@@ -574,6 +585,8 @@ def validate_delta(entry, problems=None) -> dict[str, Any]:
 
 #: At most this many layout facts in one result.
 LAYOUT_LIMIT = 5
+#: At most this many renumbered slide references in one result's checks.
+LISTED_NUMBERS = 20
 
 
 def checks(entry, touched) -> dict[str, Any]:
@@ -594,6 +607,12 @@ def checks(entry, touched) -> dict[str, Any]:
     layout = layout_json(deck, [t for t in touched if isinstance(t, str)])
     if layout:
         out["layout"] = layout
+    kept = getattr(deck, "slide_numbers_kept", None)
+    if kept:                       # slide numbers written by reference, renumbered
+        out["slide_numbers"] = kept[:LISTED_NUMBERS]
+        if len(kept) > LISTED_NUMBERS:
+            out["slide_numbers_total"] = len(kept)
+        deck.slide_numbers_kept = []
     out["validate"] = validate_delta(entry)
     return out
 

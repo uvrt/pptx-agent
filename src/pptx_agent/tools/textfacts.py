@@ -7,6 +7,10 @@ shape's, or a table cell's (the table's frame keeps the facts) -- and
 :meth:`Spot.written` keeps the new facts and what the edit left of the old ones
 (:func:`pptx_agent.edit.provenance.facts_written`), in the call's undo step.  Speaker notes
 and SmartArt nodes take the values but keep no facts.
+
+A slide's number by reference, ``{{slide:s:262}}`` (``{{slide:$intro}}``), is the deck's own
+reference (``DocumentFormat.own_facts``): :func:`slide_number` writes it, as the slide's
+number field shows it, and the deck keeps it current (:mod:`pptx_agent.edit.slidenumbers`).
 """
 
 from __future__ import annotations
@@ -17,7 +21,10 @@ from typing import Any, Iterable, Mapping
 
 from ooxml_edit import provenance as _records
 
+from ooxml_edit.tools import ToolError
+
 from ..edit import provenance as _provenance
+from ..edit import slidenumbers as _slidenumbers
 
 #: A text address: a shape, a table cell, a paragraph, a run.
 _ADDRESS = re.compile(r"^([^/]+)(?:/cell(\d+),(\d+))?(?:/p(\d+)(?:/r(\d+))?)?$")
@@ -107,4 +114,32 @@ def cell_facts(call, field: str) -> list[tuple[int, Any]]:
     return [(fact.start, fact) for fact in call.facts_at(field)]
 
 
-__all__ = ["Spot", "cell_facts", "placed", "spot"]
+def slide_number(deck, name: str) -> tuple[str, dict[str, Any]]:
+    """What ``{{slide:<name>}}`` writes: the number of the slide ``name`` (``s:262``, or the
+    address a ``$ref`` named) as its slide-number field shows it, and the fact's ``slide``
+    (its id).  A bare number, a shape or a slide that is not there is refused, listing the
+    slides."""
+    text = str(name).strip()
+    now = _slidenumbers.numbers(deck)
+    first, ids = _slidenumbers.order(deck)
+    options = [f"s:{sid}" for sid in ids][:50]
+    head = text[2:] if text.startswith("s:") else None
+    if head is None or not head.isdigit():
+        said = f"{{{{slide:{text}}}}} names no slide: write {{{{slide:s:<id>}}}} or a $ref to a slide"
+        if text.isdigit() and 1 <= int(text) - first + 1 <= len(ids):
+            sid = ids[int(text) - first]
+            said = (f"{{{{slide:{text}}}}}: a slide reference names the slide, not its number "
+                    f"(that is what it writes); slide {text} is s:{sid}: write "
+                    f"{{{{slide:s:{sid}}}}}")
+        elif "." in text:
+            said = (f"{{{{slide:{text}}}}}: {text} is a shape; a slide reference names a "
+                    f"slide: {{{{slide:s:{text.split('.')[0]}}}}}")
+        raise ToolError("invalid_arguments", said, valid_options=options)
+    sid = int(head)
+    if sid not in now:
+        raise ToolError("not_found", f"{{{{slide:s:{sid}}}}}: the deck has no slide s:{sid}",
+                        valid_options=options)
+    return str(now[sid]), {"slide": sid}
+
+
+__all__ = ["Spot", "cell_facts", "placed", "slide_number", "spot"]

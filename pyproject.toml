@@ -74,7 +74,9 @@ classifiers = [
 # the text tools' references and the shapes' UVRT_TEXT_FACTS tags are built on.
 # ooxml-edit 0.35.0: folded ref names, namespaced tools in a batch, nesting hints and
 # aliases by path (Tool.aliases "items[].top"), which ppt_format_text's spacing uses.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.35.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.37.0: a format's own references (DocumentFormat.own_facts), by which
+# {{slide:s:262}} is written and kept (pptx_agent.edit.slidenumbers).
+dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.37.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

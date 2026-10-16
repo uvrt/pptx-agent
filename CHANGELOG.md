@@ -6,6 +6,39 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Slide numbers by reference (round 6, R8): `{{slide:s:262}}` -- or `{{slide:$results}}`,
+  a ref to a slide -- in any text tool's text (`ppt_set_text`, `ppt_add_shape`, a table's
+  `data` and `set_cells`, `replace_text`'s `replace`) writes that slide's number, kept
+  current for agenda and divider slides. The deck's own reference (ooxml-edit 0.37.0,
+  `DocumentFormat.own_facts`), kept as a text fact like a dataset value's
+  (`UVRT_TEXT_FACTS`, `source` `slide:s:262`, `slide` 262), listed in `data.facts`.
+  - The number is the one the slide's slide-number field shows: its position plus
+    `p:presentation@firstSlideNum` minus one (as pptx2svg measured the field), hidden
+    slides counted as the field counts them.
+  - Kept current: at the end of every outermost `Document.batch` -- every tool call, and
+    every library call that adds, deletes, moves or duplicates slides -- the deck compares
+    its slide order with the one it last numbered for and, when it changed, rewrites the
+    numbers that moved, in the same undo step (undo takes both back). The text is
+    rewritten as a text tool writes it, so the run keeps its formatting, and the other
+    facts in the text move with it. The checks list each (`slide_numbers`: `shape`,
+    `slide`, `text`, `was`). `Document.update_slide_numbers()` rewrites them all;
+    `Document.save`, `save_as_template` and `save_document` call it first (its changes in
+    `save_document`'s `slide_numbers`), so a deck PowerPoint reordered is caught on save.
+  - A reference whose slide was deleted keeps its last number and is marked `gone`, so a
+    slide later given the same id (a reopened deck hands out a deleted top id again) is
+    never taken for it; `check` and `save_document` list it as `missing_slides` ("slide
+    s:262 no longer exists: the text keeps its last number, 3"), counted in `check`'s
+    summary.
+  - Refused, listing the slides: `{{slide:3}}` (says which slide is number 3), a shape
+    (`{{slide:257.2}}`), a slide that is not there, a document handle or a number format.
+  - Not kept current: speaker notes and SmartArt nodes (they keep no facts), shapes copied
+    to another deck (their slide facts are dropped; the text stays), and an edited number
+    (its fact is dropped as any edited fact is). PowerPoint has no field that shows another
+    slide's number, so in a deck edited in PowerPoint the number is plain text and stays
+    stale until this library next changes its slide order or saves it.
+  - The prompt fragment names the syntax in one sentence; no definition changes (every
+    definition 12,506, core 3,560 estimated).
+
 - A minimum text size per kind, tables grouped, chart text checked (round 6, R1). 380 of
   402 `small_text` entries in a 46-slide deck were table cells the brief allowed smaller.
   - `deck_format(min_text_size=...)` also takes a mapping, `{"body": 12, "table": 10,
