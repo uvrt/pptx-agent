@@ -6,6 +6,31 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Slides by id wherever slides are named (round 6, R6). `ppt_read_slides slides:[278]`
+  said "no slide 278": slide lists took positions only, render and check ids too.
+  - Every `slides` list takes a number from 1, `s:<id>` or a `$ref`: `ppt_read_slides`,
+    `ppt_edit_master` (set_footer), `ppt_comments` (list), and from ooxml-edit 0.36.0
+    `find_text` and `replace_text`, as `render` and `check` did. `ppt_comments`' list
+    read a bare number as an id before; it is a position now, as in every list.
+  - A number past the last slide that is a slide's id is refused with the way to say it,
+    never taken for that slide: "no slide 278 (the deck has 12); slide id 278 is slide 4:
+    write 's:278' or 4". `s:4` when 4 is no id but a position: "slide 4 is s:259: write
+    's:259' or 4". A `slide` argument (where a bare number is an id, `s:256`'s short
+    form) given a position: "no slide id 2 ...; slide 2 is s:257: write 's:257'". `at` and
+    `to` (positions to put a slide at) given an id: "position 278; from 1 to 13; slide id
+    278 is slide 4: ...". `tools.common.id_hint`.
+  - Definitions: `ppt_read_slides`' slides are strings with `orInteger` (as render's),
+    the core +18 estimated (3,542 -> 3,560), every definition +29 (12,477 -> 12,506); the
+    guard rises to 12,510.
+- Slide ids near the top of the range (round 6, R12; measured with PowerPoint for Mac on
+  2026-10-16): once 2,147,483,647 is taken, new slide ids continue from 256, the lowest
+  free, exactly as PowerPoint does -- a deck whose slide is 2147483641 gets 2147483642 to
+  2147483647, then 256, 257, ... -- and no existing slide is renumbered. The order was
+  already this; what changed is that an id past the top is also never one handed out or
+  deleted earlier in the session (it used to be the lowest not in use, so a deleted 256
+  came back): the in-session rule holds there too. PowerPoint hands a deleted id out
+  again; this does not while the deck is open.
+
 - Forgiving the model's small mistakes (round 6, R2, R3, R4, R7), each read with a line in
   the result's `warnings` and no change to any definition:
   - Text and paragraphs together (`ppt_set_text`, `ppt_add_shape`, measuring too): when
@@ -97,8 +122,9 @@ snapshot commit; the development history before it is summarised here.
     then, every id handed out or deleted since). Of 2..6, delete 6 and add: 7, not 6; of 2,
     3 and 7, add four: 4, 5, 6 and 8. Layouts and masters likewise.
   - Slides: one above the highest `sldId` seen since the deck was opened, at most
-    2,147,483,647 (ECMA-376 `ST_SlideId`). This differs on purpose from PowerPoint, which
-    reuses a deleted top `sldId` in the session (measured the same day).
+    2,147,483,647 (ECMA-376 `ST_SlideId`), then the lowest free from 256 (round 6, R12,
+    above). This differs on purpose from PowerPoint, which reuses a deleted top `sldId` in
+    the session (measured the same day).
   - The memory is the `Document`'s, outside what undo restores: an id undone, or added in a
     batch or tool-call savepoint that rolled back, stays taken; a measuring copy
     (`copy_of`) carries it on. Nothing is written to the file: after a save and reopen only

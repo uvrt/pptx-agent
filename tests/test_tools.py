@@ -106,10 +106,15 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: unchanged.  An asset catalogue, when the application configures one
 #: (``deck_format(assets=...)``), adds the deferred ppt_find_asset and ppt_add_picture's
 #: ``asset`` (+141, 12,615); without one nothing is sent for it.
+#: Round 6, R6: slides by id in every ``slides`` list -- ppt_read_slides', ppt_edit_master's
+#: and ppt_comments' here, find_text's and replace_text's from ooxml-edit 0.36.0 (strings
+#: with ``orInteger``, as render's) -- add 18 to the core (3,542 -> 3,560, about 5,269
+#: counted by the proxy) and 29 to every definition (12,477 -> 12,506); the guard rises to
+#: 12,510.  The strict set changes: replace_text's ``slides`` items are now strings.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12480
+ALL_GUARD = 12510
 
 
 def estimate_tokens(definitions) -> int:
@@ -1220,3 +1225,66 @@ def test_edit_chart_takes_slide_for_target_when_adding(toolbox, session):
                      box={"x": 40, "y": 100, "w": 300, "h": 200}, chart_type="column", categories=["A", "B"],
                      data=[{"name": "S", "values": [1, 2]}]))
     assert "slide read as target" in result.warnings
+
+
+# -- slides by id wherever slides are named (round 6, R6) ------------------------------------------
+
+
+def _refused(result, code):
+    assert not result.ok, json.dumps(result.to_json(), indent=1)
+    assert result.error.code == code, result.error.message
+    return result.error
+
+
+@pytest.mark.parametrize("tool_name, extra", [
+    ("ppt_read_slides", {"detail": "compact"}),
+    ("find_text", {"text": "Detail"}),
+    ("replace_text", {"find": "Detail", "replace": "Details", "expect": "one"}),
+    ("render", {"width": 200}),
+    ("check", {}),
+    ("ppt_comments", {"action": "list"}),
+    ("ppt_edit_master", {"action": "set_footer", "text": "Made up"}),
+])
+def test_every_slides_list_takes_ids_and_a_bare_id_is_refused_with_the_hint(
+        toolbox, session, tool_name, extra):
+    by_id = call(toolbox, session, tool_name, doc="d1", slides=["s:257"], **extra)
+    if tool_name != "render":                    # rendering may lack a renderer here
+        ok(by_id)
+    error = _refused(call(toolbox, session, tool_name, doc="d1", slides=[257], **extra),
+                     "not_found")
+    assert error.message == ("no slide 257 (the deck has 2); slide id 257 is slide 2: "
+                             "write 's:257' or 2")
+    error = _refused(call(toolbox, session, tool_name, doc="d1", slides=[9], **extra),
+                     "not_found")
+    assert error.message == "no slide 9 (the deck has 2)"
+    error = _refused(call(toolbox, session, tool_name, doc="d1", slides=["s:2"], **extra),
+                     "not_found")
+    assert "slide 2 is s:257: write 's:257' or 2" in error.message
+
+
+def test_read_slides_by_id_and_by_ref_reads_that_slide(toolbox, session):
+    read = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="outline",
+                   slides=["s:257"]))
+    assert "Detail" in json.dumps(read.data) and "Plan" not in json.dumps(read.data)
+    ok(call(toolbox, session, "ppt_manage_slides", doc="d1", action="duplicate",
+            slide="s:256", to=1, ref="copy"))
+    read = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
+                   slides=["$copy", 3]))
+    assert read.ok
+
+
+def test_a_slide_argument_given_a_position_says_which_slide_is_there(toolbox, session):
+    error = _refused(call(toolbox, session, "ppt_manage_slides", doc="d1", action="delete",
+                          slide="2"), "not_found")
+    assert error.message.endswith("slide 2 is s:257: write 's:257'")
+    assert len(session.documents["d1"].document.slides) == 2
+
+
+def test_a_position_given_a_slide_id_says_which_position_that_is(toolbox, session):
+    error = _refused(call(toolbox, session, "ppt_manage_slides", doc="d1", action="move",
+                          slide="s:256", to=257), "invalid_arguments")
+    assert error.message == ("position 257; from 1 to 2; slide id 257 is slide 2: write "
+                             "'s:257' or 2")
+    error = _refused(call(toolbox, session, "ppt_add_slide", doc="d1", layout="Blank",
+                          at=256), "invalid_arguments")
+    assert "slide id 256 is slide 1" in error.message

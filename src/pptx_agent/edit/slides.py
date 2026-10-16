@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import zlib
 from dataclasses import dataclass, field
-from typing import NamedTuple
+from typing import Iterable, NamedTuple
 
 from ..oxml.package import CT_SLIDE, PresentationPackage, REL_SLIDE, REL_SLIDE_LAYOUT
 from ..oxml.xml import (
@@ -611,34 +611,43 @@ def slide_ids_in(root: Element) -> list[int]:
     return used
 
 
-def new_slide_id(root: Element, above: int = 0) -> int:
+def new_slide_id(root: Element, above: int = 0, seen: Iterable[int] = ()) -> int:
     """One more than the largest ``sldId`` in use (sections included) and than ``above``,
-    and at least 256.
+    and at least 256; once 2147483647 is taken, the lowest id from 256 that is neither in
+    use nor in ``seen``.
 
-    ``above`` is the largest ``sldId`` the caller has seen since the deck was opened
-    (:meth:`~pptx_agent.edit.document.Document._new_slide_entry`), so a deleted slide's id
-    is not handed out again in the same session.  That deliberately differs from
-    PowerPoint, which reuses a deleted *top* id within the session -- measured with
-    PowerPoint for Mac on 2026-10-15 (agent-work/feedback-round5/oracle/results.md, A2):
-    it takes the highest live ``sldId`` + 1, fills no gaps, stores no high-water mark.
-    The range is ECMA-376 Part 1's ``ST_SlideId`` (pml.xsd): 256 to 2147483647.  Past the
-    top -- which no real deck reaches -- the lowest id not in use is taken.
+    ``above`` is the largest ``sldId`` the caller has seen since the deck was opened, and
+    ``seen`` every one (:meth:`~pptx_agent.edit.document.Document._new_slide_entry`), so a
+    deleted slide's id is not handed out again in the same session.  That deliberately
+    differs from PowerPoint, which reuses a deleted *top* id within the session -- measured
+    with PowerPoint for Mac on 2026-10-15 (agent-work/feedback-round5/oracle/results.md,
+    A2): it takes the highest live ``sldId`` + 1, fills no gaps, stores no high-water mark.
+    The range is ECMA-376 Part 1's ``ST_SlideId`` (pml.xsd): 256 to 2147483647.  Near the
+    top the order is PowerPoint's, measured with PowerPoint for Mac on 2026-10-16
+    (agent-work/feedback-round6/oracle/results.md, R12): the largest + 1 while that is at
+    most 2147483647, then the lowest free id from 256 -- a deck whose one slide is
+    2147483641 gets 2147483642 to 2147483647, then 256, 257, ... -- and no existing slide
+    is ever renumbered.  (PowerPoint hands a deleted low id out again too; this does not
+    within a session.)
     """
     used = slide_ids_in(root)
     candidate = max(used + [MIN_SLIDE_ID - 1, above]) + 1
     if candidate > MAX_SLIDE_ID:
-        taken = set(used)
-        candidate = next(i for i in range(MIN_SLIDE_ID, MAX_SLIDE_ID + 1) if i not in taken)
+        taken = set(used) | set(seen)
+        candidate = next((i for i in range(MIN_SLIDE_ID, MAX_SLIDE_ID + 1) if i not in taken),
+                         None)
+        if candidate is None:
+            raise ValueError("every slide id from 256 to 2147483647 is taken")
     return candidate
 
 
 def insert_entry(package: PresentationPackage, slide_part: str, index: int | None,
-                 above: int = 0) -> int:
+                 above: int = 0, seen: Iterable[int] = ()) -> int:
     """List ``slide_part`` at ``index`` (``None``: last); returns its new ``sldId``, which
-    is above ``above`` too (:func:`new_slide_id`)."""
+    is above ``above`` too, or past the top none in ``seen`` (:func:`new_slide_id`)."""
     path, root = _presentation(package)
     rel_id = package.add_relationship(path, REL_SLIDE, slide_part)
-    slide_id = new_slide_id(root, above)
+    slide_id = new_slide_id(root, above, seen)
     node = make("p:sldId", id=str(slide_id), r__id=rel_id)
     _place(root, node, index)
     package.mark_dirty(path)
