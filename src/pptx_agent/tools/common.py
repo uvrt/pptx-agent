@@ -307,6 +307,57 @@ def given_text(item: Mapping[str, Any]) -> Mapping[str, Any]:
     return item
 
 
+def one_text(call, item: Mapping[str, Any], *, field: str) -> Mapping[str, Any]:
+    """An item as it is written: with both ``text`` and ``paragraphs``, when the paragraphs'
+    text is ``text`` -- as :func:`write_text` writes them: each paragraph its runs' texts one
+    after another, the paragraphs joined by ``\\n`` -- the item with ``paragraphs`` only, and
+    a warning; refused, saying where they part, when it is not.  A model that states the
+    formatting often sends the plain text too."""
+    item = given_text(item)
+    if "text" not in item or "paragraphs" not in item:
+        return item
+    said = paragraphs_text(item["paragraphs"])
+    if said != item["text"]:
+        raise ToolError("invalid_arguments", "text and paragraphs say different things ("
+                        + _parting(item["text"], said) + "): give paragraphs alone to state "
+                        "the formatting, or text alone", field=f"{field}.paragraphs",
+                        valid_options=["text", "paragraphs"])
+    call.result.warnings.append(f"{field}: text and paragraphs say the same; paragraphs "
+                                "used -- give one of them")
+    return {key: value for key, value in item.items() if key != "text"}
+
+
+def paragraphs_text(paragraphs: Any) -> str:
+    """The plain text ``paragraphs`` write: runs' texts joined, paragraphs by ``\\n``."""
+    return "\n".join("".join(run.get("text", "") for run in paragraph.get("runs") or []
+                             if isinstance(run, Mapping))
+                     for paragraph in paragraphs if isinstance(paragraph, Mapping))
+
+
+def _parting(text: str, said: str) -> str:
+    """Where ``text`` and the paragraphs' text ``said`` first differ, briefly."""
+    given, written = text.split("\n"), said.split("\n")
+    if len(given) != len(written):
+        return (f"text has {len(given)} paragraph(s) split at \\n, paragraphs "
+                f"{len(written)}")
+    for index, (one, other) in enumerate(zip(given, written)):
+        if one != other:
+            at = next((i for i, (a, b) in enumerate(zip(one, other)) if a != b),
+                      min(len(one), len(other)))
+            return (f"paragraph {index + 1}: text has {_near(one, at)!r}, "
+                    f"paragraphs[{index}] {_near(other, at)!r}")
+    return "they differ"
+
+
+def _near(line: str, at: int, width: int = 40) -> str:
+    """``line``, or the part of it around ``at`` when it is long."""
+    if len(line) <= width:
+        return line
+    start = max(0, min(at - width // 2, len(line) - width))
+    return ("..." if start else "") + line[start:start + width] + (
+        "..." if start + width < len(line) else "")
+
+
 def frame_of(frame: Mapping[str, Any]) -> dict[str, Any]:
     """A ``frame`` argument as :class:`TextSpec`'s frame fields (EMU)."""
     out: dict[str, Any] = {}
@@ -587,5 +638,5 @@ def color_json(color, shape=None) -> dict[str, str] | None:
 
 
 __all__ = ["KIND", "box_emu", "box_pt", "checks", "emu", "facts", "fit_json", "host",
-           "layout_json", "library_errors", "place", "pt", "resolve", "shape", "slide",
-           "slide_id_of", "spec_of", "template_key_of", "text_params", "write_text"]
+           "layout_json", "library_errors", "one_text", "paragraphs_text", "place", "pt",
+           "resolve", "shape", "slide", "slide_id_of", "spec_of", "template_key_of", "text_params", "write_text"]

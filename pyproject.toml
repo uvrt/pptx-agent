@@ -72,7 +72,9 @@ classifiers = [
 # charts.actions.add_style_actions/apply_add_style, which the add handler runs.
 # ooxml-edit 0.33.0: text facts (Tool.facts, call.facts, provenance.facts_after_edit), which
 # the text tools' references and the shapes' UVRT_TEXT_FACTS tags are built on.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.33.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.35.0: folded ref names, namespaced tools in a batch, nesting hints and
+# aliases by path (Tool.aliases "items[].top"), which ppt_format_text's spacing uses.
+dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.35.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

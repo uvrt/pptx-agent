@@ -19,7 +19,7 @@ from ..edit.fill import ARROWHEADS
 DASHES = ["solid", "dash", "dot", "dashDot", "lgDash", "sysDash", "sysDot"]
 from .common import (ANCHOR, AUTOFIT, KIND, box_emu, box_pt, emu, frame_of, insets_param,
                      library_errors, place, pt, resolve, shape as shape_at, host as slide_at,
-                     spec_of, text_params, write_text)
+                     one_text, spec_of, text_params, write_text)
 from . import textfacts
 from .text import COMMON_PRESETS, preset_of
 
@@ -139,6 +139,7 @@ def ppt_add_shape(call, doc, slide, items, measure=False, key=None):
     fits = {}
     for index, item in enumerate(items):
         field = f"items[{index}]"
+        item = one_text(call, item, field=field)
         preset = preset_of(item)
         x, y, w, h = box_emu(item["box"])
         if preset == "textbox":
@@ -177,6 +178,7 @@ def _measure(call, where, items) -> Result:
     measured_items = []
     for index, item in enumerate(items):
         field = f"items[{index}]"
+        item = one_text(call, item, field=field)
         spec = spec_of(item, field=field)
         if spec is None:
             if "text" not in item:

@@ -12,7 +12,8 @@ from ooxml_edit.tools import (CORE, Result, ToolError, array, boolean, integer, 
 from ..edit.text import Paragraph, Run, TextFrame
 from . import textfacts
 from .common import (ALIGN, ANCHOR, AUTOFIT, AUTOFIT_ALIASES, BULLET, KIND, emu, fit_json, insets_param,
-                     library_errors, resolve, text_params, touch_address, write_text)
+                     library_errors, one_text, resolve, text_params, touch_address,
+                     write_text)
 
 TEXT_GROUP = "ppt_text"
 #: Up to this many items, a call returns each target's own fit; beyond it (and in a batch)
@@ -69,7 +70,8 @@ def ppt_set_text(call, doc, items):
     deck = call.document
     fits = {}
     written: list[str] = []
-    for index, item in enumerate(items):
+    for index, given in enumerate(items):
+        item = one_text(call, given, field=f"items[{index}]")
         if "text" not in item and "paragraphs" not in item:
             raise ToolError("invalid_arguments", "give text or paragraphs",
                             field=f"items[{index}].text", valid_options=["text", "paragraphs"])
@@ -92,6 +94,11 @@ def ppt_set_text(call, doc, items):
     return Result(summary=f"Set the text of {len(items)} target(s)",
                   changed=[item["target"] for item in items], data={"fits": fits})
 
+
+#: A paragraph's spacing named by its side, as a model writes it (``top: 6``, round 6, R7):
+#: read as ``space_before`` and ``space_after``.  An item has no other top or bottom -- the
+#: frame's are ``insets.top`` and ``anchor: "top"`` -- so the meaning is the one.
+SPACING_ALIASES = {"items[].top": "space_before", "items[].bottom": "space_after"}
 
 _RUN_KEYS = ("bold", "italic", "underline", "strike", "size", "font", "color", "hyperlink")
 _PARAGRAPH_KEYS = ("align", "level", "bullet", "space_before", "space_after", "line_spacing")
@@ -126,7 +133,8 @@ _FRAME_KEYS = ("autofit", "font_scale", "insets", "anchor", "wrap")
            "anchor": string(enum=ANCHOR, optional=True),
            "wrap": boolean(optional=True)}),
            "Targets and their formatting.", min_items=1)},
-      kind=KIND, group=TEXT_GROUP, mutates=True, refs=("items[].target",))
+      kind=KIND, group=TEXT_GROUP, mutates=True, refs=("items[].target",),
+      aliases=SPACING_ALIASES)
 @library_errors
 def ppt_format_text(call, doc, items):
     from ..edit.units import Pt
