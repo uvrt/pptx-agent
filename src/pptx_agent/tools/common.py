@@ -483,9 +483,11 @@ def small_text_note(minimums: dict[str, float], found: list[dict]) -> str:
 
 #: Said with ``chart_title_font`` (:func:`pptx_agent.edit.chart_text.unstated_title_fonts`).
 CHART_TITLE_FONT_NOTE = ("chart_title_font: chart title states no font: PowerPoint draws it in "
-                         "Arial 18 pt, not the theme's font. Run each fix (edit_chart): font "
-                         "+mn-lt is the theme's body font; size 18.62 is what edit_chart add "
-                         "writes for a new title, given where the title states none")
+                         "Arial 18 pt (at its own size where it states one), not the theme's "
+                         "font. Run each fix (edit_chart): font +mn-lt is the theme's body font; "
+                         "bold false, or PowerPoint draws the restyled title bold; size 18.62 is "
+                         "what edit_chart add writes for a new title, given where the title "
+                         "states none")
 
 EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows 'Click to add ...' in an "
                            "empty one while editing (a whitespace-only one shows a stray "

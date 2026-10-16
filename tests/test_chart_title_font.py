@@ -43,7 +43,7 @@ def _session(deck):
 
 
 def _fix(frame_id: str, size: bool = True) -> dict:
-    style = {"font": "+mn-lt", **({"size": NEW_TITLE_SIZE} if size else {})}
+    style = {"font": "+mn-lt", **({"size": NEW_TITLE_SIZE} if size else {}), "bold": False}
     return {"action": "set_text_style", "target": frame_id, "part": "title", "style": style}
 
 
@@ -56,6 +56,7 @@ def test_check_lists_the_chart_once_with_the_call_that_states_its_font():
     assert note.startswith("chart_title_font: chart title states no font: PowerPoint draws it "
                            "in Arial 18 pt")
     assert "+mn-lt is the theme's body font" in note and "18.62" in note
+    assert "bold false" in note
     assert NEW_TITLE_SIZE == 18.62
 
 
@@ -68,6 +69,13 @@ def test_the_fix_settles_it_and_nothing_is_fixed_by_itself():
     assert again["chart_title_font"] == before
     fixed = toolbox.dispatch(session, "edit_chart", {"doc": doc, **before[0]["fix"]})
     assert "chart_title_font" not in fixed.checks
+    # It writes b="0" beside the paragraph defaults it adds: with them and no b, PowerPoint
+    # draws the title bold (measured: +mn-lt and 18.62 pt without b came out Aptos bold).
+    opened = session.documents[doc].document
+    xml = opened.package.read(opened.shape(frame.id).chart.part).decode()
+    title = re.search(r"<c:title>.*?</c:title>", xml, re.S).group(0)
+    assert re.search(r'<a:defRPr sz="1862" b="0">', title)
+    assert re.search(r'<a:rPr lang="en-US" sz="1862" b="0">', title)
     assert "chart_title_font" not in toolbox.dispatch(session, "check", {"doc": doc}).data
 
 
@@ -91,6 +99,7 @@ def test_save_lists_it_unresolved_with_its_note():
 
 
 def test_a_title_that_states_a_size_but_no_face_is_listed_without_a_size():
+    # Measured: drawn Arial at its own size (sz 2400: ArialMT 24).
     deck, slide, frame = _deck(SIZED)
     assert title_font_fix(frame.id, frame) == _fix(frame.id, size=False)
 
@@ -101,10 +110,19 @@ def _found(markup: str | None):
 
 
 def test_no_finding_for_a_new_chart_an_automatic_title_or_a_stated_face():
-    assert _found(None) is None          # edit_chart add's title: +mn-lt at 18.62 pt
+    assert _found(None) is None          # edit_chart add's title: +mn-lt, 18.62 pt, b="0"
     assert _found(AUTOMATIC) is None     # the minor face, bold (measured): not Arial
     assert _found(UNSTYLED.replace('<a:rPr lang="en-US"/>',
                                    '<a:rPr lang="en-US"><a:latin typeface="Georgia"/></a:rPr>')) is None
+    # Paragraph defaults without a face: the theme's face (bold), not Arial -- not listed.
+    assert _found(UNSTYLED.replace('<a:p><a:r>', '<a:p><a:pPr><a:defRPr sz="1862"/></a:pPr><a:r>')) is None
+
+
+def test_edit_chart_adds_titles_that_state_b_0():
+    deck, slide, frame = _deck(None)
+    xml = deck.package.read(deck.shape(frame.id).chart.part).decode()
+    title = re.search(r"<c:title>.*?</c:title>", xml, re.S).group(0)
+    assert re.search(r'<a:defRPr sz="1862" b="0"', title) and "+mn-lt" in title
 
 
 def test_no_finding_for_a_deleted_title():

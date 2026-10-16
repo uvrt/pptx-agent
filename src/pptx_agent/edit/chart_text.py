@@ -25,17 +25,19 @@ size here is the size a render shows:
   at 10, 12, 13 and 29 pt, bold; none at 18 pt; an unsized title ``c:txPr`` changed
   nothing.  A rich title with no size anywhere stays 18 pt, whatever the chart-wide size.
 
-**A rich chart title that states no font** -- no face and no size in its runs, paragraphs,
-list style or ``c:txPr``, under a chart-wide ``c:txPr`` that names no face -- is drawn by
-PowerPoint in **18 pt Arial**, regular, black, not in the theme's font a text box gets
-(measured on PowerPoint 16 for Mac, 2026-10-16; ``ooxml_common.chart.layout.title_states_no_font``,
+**A rich chart title that states no font** -- no paragraph ``a:defRPr`` and no face on its
+runs (``ooxml_common.chart.layout.title_states_no_font``) -- is drawn by PowerPoint in
+**Arial**, regular, at the run's size or 18 pt, not in the theme's font a text box gets,
+whatever the chart-wide ``c:txPr`` names (measured on PowerPoint 16 for Mac, 2026-10-16,
 as pptx2svg draws it).  :func:`unstated_title_fonts` lists each such chart with the one
 ``edit_chart`` call that states it: ``set_text_style``, part ``title``, font ``+mn-lt`` (the
-theme's body font, a reference rather than a name) and, where the title states no size
-either, the size ``edit_chart add`` writes for a new chart's title (ooxml-edit's
-``POWERPOINT_LOOK``, 18.62 pt).  A title that states a size but no face is listed too,
-without a size: what PowerPoint draws it in is not measured, and stating the face settles
-it.  Nothing is changed by itself.
+theme's body font, a reference rather than a name), ``bold`` false and, where the title
+states no size, the size ``edit_chart add`` writes for a new chart's title (ooxml-edit's
+``POWERPOINT_LOOK``, 18.62 pt).  ``bold`` false is needed: the call writes a paragraph
+``a:defRPr``, and a title with one is drawn **bold** unless ``b="0"`` is stated (measured:
+``+mn-lt`` and 18.62 pt without ``b`` came out Aptos bold).  A title that has paragraph
+defaults is drawn in the theme's face already and is not listed.  Nothing is changed by
+itself.
 
 What is checked is what PowerPoint shows: a title the chart states (its text, or the
 automatic one), axes not deleted and with tick labels, data labels that show something, a
@@ -49,7 +51,7 @@ from xml.etree import ElementTree
 
 from lxml import etree
 from ooxml_common.chart.layout import (DEFAULT_CHART_FONT_PT, powerpoint_auto_title_size,
-                                       title_states_no_face, title_states_no_font)
+                                       title_states_no_font)
 from ooxml_common.chart.read import AXIS_ELEMENTS, parse_chart_space
 from ooxml_common.drawingml.read_text import parse_text_body
 from ooxml_common.xmlutil import child, local_name
@@ -111,12 +113,20 @@ def title_font_fix(address: str, shape) -> dict | None:
     chart = read[1]
     if chart.auto_title_deleted or chart.title is None or not chart.title.plain:
         return None
-    if not title_states_no_face(chart):
+    if not title_states_no_font(chart):
         return None
     style: dict = {"font": THEME_FONT}
-    if title_states_no_font(chart):
+    if not _states_size(chart.title.rich):
         style["size"] = NEW_TITLE_SIZE
+    style["bold"] = False
     return {"action": "set_text_style", "target": address, "part": "title", "style": style}
+
+
+def _states_size(rich) -> bool:
+    """Whether a title's runs state a size (its paragraphs state no defaults: see
+    :func:`title_font_fix`)."""
+    return any(run.properties is not None and run.properties.font_size
+               for paragraph in rich.paragraphs for run in paragraph.runs)
 
 
 def unstated_title_fonts(slide) -> list[dict]:
