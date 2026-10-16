@@ -111,10 +111,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: with ``orInteger``, as render's) -- add 18 to the core (3,542 -> 3,560, about 5,269
 #: counted by the proxy) and 29 to every definition (12,477 -> 12,506); the guard rises to
 #: 12,510.  The strict set changes: replace_text's ``slides`` items are now strings.
+#: Round 6, R9: date formats -- ``date_format`` on ppt_add_table and ppt_edit_table (a table
+#: from rows, its dates as text in a pattern) and on the shared edit_chart (ooxml-edit
+#: 0.38.0: add from, its category dates kept as an Excel code) -- add 84 to every
+#: definition (12,506 -> 12,590), none to the core (3,560): all three tools are deferred.
+#: The guard rises to 12,595.  The strict set is unchanged in its members; the two table
+#: tools' schemas gain one optional string each.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12510
+ALL_GUARD = 12595
 
 
 def estimate_tokens(definitions) -> int:

@@ -16,7 +16,11 @@ locale's day order (``3/1/2026`` en-US, ``1/3/2026`` nl-BE) -- a Python date, an
 8601 text of a ``date``, ``datetime`` or ``time`` column (a workbook's date cells, a
 derive's dates), so one deck never mixes ``1/3/2026`` and ``2026-01-20``; a number as the
 General format writes it with the session locale's decimal separator, a logical value
-``TRUE`` or ``FALSE``, a blank as an empty cell.  Nothing is cut: a source too big for a table (200 rows with the header, 50
+``TRUE`` or ``FALSE``, a blank as an empty cell.  ``date_format`` writes the dates of the
+columns placed in a pattern of Excel's date tokens instead (``d mmmm yyyy`` is ``2 March
+2026``, ``2 maart 2026`` in nl-BE; ``dd/mm/yyyy`` ``02/03/2026``; month and day names
+measured in Excel for Mac, 2026-10-16 -- :mod:`ooxml_edit.dates`), as fixed text: the
+pattern's separators in every locale.  Nothing is cut: a source too big for a table (200 rows with the header, 50
 columns, 5,000 cells), or for the table it is written into, is refused, saying by how much;
 ``rows`` fewer than the source's is refused saying how to place fewer -- a row range of the
 source (``t:items/#1:#9``, ``d:by_region/#10:``) -- or to go on over more slides.
@@ -83,6 +87,7 @@ _COLUMN_NAMES = {"columns": names_as("columns", "from_columns")}
 _FROM_COLUMNS = array(string(), "from's columns, in order. Default all.", optional=True)
 _HEADER = array(string(), "from's header texts; [] none. Default column names.",
                 optional=True)
+_DATE_FORMAT = string("Dates of from as e.g. d mmmm yyyy or dd/mm/yyyy.", optional=True)
 
 #: The most a table takes: rows (the header included), columns and cells.
 MAX_ROWS, MAX_COLUMNS, MAX_CELLS = 200, 50, 5000
@@ -139,6 +144,7 @@ def table_json(frame, table) -> dict[str, Any]:
        "from": string("Or rows of d:<id> or t:<table>.", optional=True),
        "from_columns": _FROM_COLUMNS,
        "header": _HEADER,
+       "date_format": _DATE_FORMAT,
        "style": _STYLE,
        "size": number("Text size, points.", minimum=1, maximum=400, optional=True),
        "widths": array(number(minimum=0, maximum=10000), "Column widths, points.",
@@ -155,19 +161,19 @@ def table_json(frame, table) -> dict[str, Any]:
 @library_errors
 def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, style=None,
                   ref=None, key=None, header=None, from_columns=None, size=None, widths=None,
-                  measure=False, **given):
+                  measure=False, date_format=None, **given):
     source = given.get("from")
     more = bool(given.get("continue"))
     placed = None
     if source is None:
-        _no_source(from_columns, header)
+        _no_source(from_columns, header, date_format)
         for name, value in (("rows", rows), ("columns", columns)):
             if value is None:
                 raise ToolError("invalid_arguments", f"give {name}, or from", field=name)
     else:
         if data is not None:
             raise ToolError("invalid_arguments", "from replaces data: give one", field="data")
-        placed = _placed(call, source, from_columns, header)
+        placed = _placed(call, source, from_columns, header, date_format)
         need_rows, need_columns = placed.size
         _fits(placed, MAX_ROWS, MAX_COLUMNS)
         if more and rows is not None and rows != need_rows:
@@ -349,15 +355,17 @@ def _measure(call, host, box, rows, columns, data, style, size, widths, placed) 
 class _Placed:
     """A source's rows as table text: the header (if any), then a row per source row."""
 
-    def __init__(self, rows, at, header, locale):
+    def __init__(self, rows, at, header, locale, date_format=None):
         self.rows, self.at, self.header, self.locale = rows, at, header, locale
+        self.date_format = date_format
         #: The block's size: the header row and a row per source row; a column per pick.
         self.size = ((1 if header else 0) + len(rows.dataset.rows), len(at))
 
     def texts(self) -> list[list[str]]:
         """The block's text, row by row (the header first)."""
         return ([self.header] if self.header else []) + [
-            [_text(self.rows, row, column, self.locale) for column in self.at]
+            [_text(self.rows, row, column, self.locale, self.date_format)
+             for column in self.at]
             for row in range(len(self.rows.dataset.rows))]
 
     def provenance(self, top: int, order=None) -> dict[str, Any]:
@@ -371,15 +379,19 @@ class _Placed:
                             for col, column in enumerate(self.at)]}
 
 
-def _no_source(from_columns, header):
-    for name, value in (("from_columns", from_columns), ("header", header)):
+def _no_source(from_columns, header, date_format=None):
+    for name, value in (("from_columns", from_columns), ("header", header),
+                        ("date_format", date_format)):
         if value is not None:
             raise ToolError("invalid_arguments", f"{name} is for from; give from too",
                             field=name)
 
 
-def _placed(call, source, from_columns, header) -> _Placed:
-    """The source's rows and the columns picked, as text; refusals name the cell."""
+def _placed(call, source, from_columns, header, date_format=None) -> _Placed:
+    """The source's rows and the columns picked, as text; refusals name the cell.
+    ``date_format`` writes the dates of the columns picked in that pattern
+    (:func:`ooxml_edit.tools.sources.date_pattern`), refused when none of them holds a
+    date."""
     rows = call.source(source, field="from")
     names = from_columns if from_columns is not None else list(rows.dataset.columns)
     if not names:
@@ -393,16 +405,22 @@ def _placed(call, source, from_columns, header) -> _Placed:
     elif header and len(header) != len(at):
         raise ToolError("invalid_arguments", f"{len(header)} header texts for {len(at)} "
                         "columns; [] for no header row", field="header")
-    return _Placed(rows, at, list(header), call.locale)
+    if date_format is not None:
+        sources.date_pattern(date_format, call.locale)
+        count = len(rows.dataset.rows)
+        if not any(rows.date(row, column) is not None for column in at for row in range(count)):
+            raise sources.no_dates(rows, at)
+    return _Placed(rows, at, list(header), call.locale, date_format)
 
 
-def _text(rows, row: int, column: int, locale) -> str:
-    """A source value as cell text, as a chart's category label writes it; a blank is
-    empty; anything else (not a finite number) is refused, naming the cell."""
+def _text(rows, row: int, column: int, locale, date_format=None) -> str:
+    """A source value as cell text, as a chart's category label writes it (a date in
+    ``date_format`` when given); a blank is empty; anything else (not a finite number) is
+    refused, naming the cell."""
     value = rows.dataset.rows[row][column]
     if value is None or value == "":
         return ""
-    text = rows.label(row, column, locale)
+    text = rows.label(row, column, locale, date_format)
     if text is None:
         raise ToolError("invalid_arguments", f"{rows.where(row, column)} is "
                         f"{sources.what(value)}: a cell takes text, a number, a logical value "
@@ -456,6 +474,7 @@ _SIDES = ["top", "bottom", "left", "right", "all"]
                       optional=True),
        "from_columns": _FROM_COLUMNS,
        "header": _HEADER,
+       "date_format": _DATE_FORMAT,
        "index": integer("insert_*: new row/column's position, default last; delete_*: "
                         "which; set_cells from: first row.", minimum=0,
                         maximum=10000, optional=True),
@@ -487,7 +506,7 @@ _SIDES = ["top", "bottom", "left", "right", "all"]
 @library_errors
 def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None, span=None,
                    sizes=None, rows=None, columns=None, fill=None, borders=None, style=None,
-                   flags=None, header=None, from_columns=None, **given):
+                   flags=None, header=None, from_columns=None, date_format=None, **given):
     frame, table = _table(call.document, target)
     source = given.get("from")
     if source is not None:
@@ -497,8 +516,9 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
         if cells is not None:
             raise ToolError("invalid_arguments", "from replaces cells: give one",
                             field="cells")
-        return _set_from(call, frame, table, source, from_columns, header, index or 0)
-    _no_source(from_columns, header)
+        return _set_from(call, frame, table, source, from_columns, header, index or 0,
+                         date_format)
+    _no_source(from_columns, header, date_format)
 
     def need(name, value):
         if value is None:
@@ -596,9 +616,10 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
                   data=table_json(fresh, fresh.table))
 
 
-def _set_from(call, frame, table, source, from_columns, header, top: int) -> Result:
+def _set_from(call, frame, table, source, from_columns, header, top: int,
+              date_format=None) -> Result:
     """``set_cells`` from a source: the block written from row ``top``, column 0."""
-    placed = _placed(call, source, from_columns, header)
+    placed = _placed(call, source, from_columns, header, date_format)
     if top >= table.rows:
         raise ToolError("not_found", f"no row {top}; the table has {table.rows}",
                         field="index")
