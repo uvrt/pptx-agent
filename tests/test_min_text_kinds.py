@@ -230,3 +230,47 @@ def test_a_points_own_label_is_read_over_its_series():
     rewrite_chart(deck, frame, lambda xml: xml.replace("<c:dLbls>", "<c:dLbls>" + point, 1))
     labels = sorted((t.size, t.source) for t in chart_text(frame) if t.part == "data_labels")
     assert labels == [(6.5, "a point's data label"), (11.97, "the series' data labels")]
+
+
+def _automatic_title(xml: str) -> str:
+    """The chart's title without its text: PowerPoint's automatic title."""
+    return re.sub(r"(<c:title>)<c:tx>.*?</c:tx>", r"\1", xml, count=1, flags=re.S)
+
+
+def _chart_wide(size: str | None):
+    def change(xml: str) -> str:
+        xml = _automatic_title(xml)
+        # The chart space's own c:txPr is the last one in the part.
+        head, _, tail = xml.rpartition("<c:txPr>")
+        tail = re.sub(r'(<a:defRPr)( sz="\d+")?', r"\1" + (f' sz="{size}"' if size else ""), tail,
+                      count=1)
+        return head + "<c:txPr>" + tail
+    return change
+
+
+@pytest.mark.parametrize("wide, size", [("800", 10.0), ("1000", 12.0), ("1100", 13.0),
+                                        ("2400", 29.0)])
+def test_an_automatic_title_is_1_2_times_the_charts_text_rounded(wide, size):
+    # Measured on PowerPoint 16 for Mac, 2026-10-16 (round 6 follow-up to R1).
+    deck, slide, frame = chart_deck(title="Regions")
+    rewrite_chart(deck, frame, lambda xml: _chart_wide(wide)(re.sub(
+        r'(<c:title>.*?)<c:txPr>.*?</c:txPr>', r"\1", xml, count=1, flags=re.S)))
+    title = [(t.size, t.source) for t in chart_text(frame) if t.part == "title"]
+    assert title == [(size, f"1.2 times the chart's text properties ({int(wide) / 100:g} pt), "
+                            "rounded")]
+
+
+def test_an_automatic_title_without_a_chart_size_is_18_points():
+    deck, slide, frame = chart_deck(title="Regions")
+    rewrite_chart(deck, frame, lambda xml: _chart_wide(None)(re.sub(
+        r'(<c:title>.*?)<c:txPr>.*?</c:txPr>', r"\1", xml, count=1, flags=re.S)))
+    assert [(t.size, t.source) for t in chart_text(frame) if t.part == "title"] == [
+        (18.0, "PowerPoint's default 18 pt for an automatic title")]
+
+
+def test_an_automatic_titles_own_size_wins():
+    deck, slide, frame = chart_deck(title="Regions")
+    # ooxml-edit's look keeps a sized title c:txPr (18.62 pt) beside the rich text.
+    rewrite_chart(deck, frame, _chart_wide("800"))
+    assert [(t.size, t.source) for t in chart_text(frame) if t.part == "title"] == [
+        (18.62, "the title's text properties")]

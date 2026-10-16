@@ -500,7 +500,9 @@ def test_a_charts_dates_are_kept_in_the_locales_code(toolbox, language, code, fi
                    box=CHART, chart_type="line", date_format="d mmm yyyy",
                    **{"from": "d:dated", "columns": ["due", "rating"]})).created[0]
     read = ok(call(toolbox, session, "edit_chart", doc="d1", target=made, action="read"))
-    assert read.data["categories"] == [first, first + 36, first + 69]
+    # Read back as ISO dates (ooxml-edit 0.39.0), with the code that shows them.
+    assert read.data["categories"] == ["2026-01-05", "2026-02-10", "2026-03-15"]
+    assert read.data["category_format"] == code
     deck = session.entry("d1").document
     chart = deck.shape(made).chart
     root = etree.fromstring(deck.package.read(chart.part))
@@ -514,3 +516,16 @@ def test_a_charts_dates_are_kept_in_the_locales_code(toolbox, language, code, fi
             series="rating", **{"from": "d:dated", "columns": ["due", "rating"]}))
     read = ok(call(toolbox, session, "edit_chart", doc="d1", target=made, action="read"))
     assert read.data["series"][0]["values"] == [3.5, 4, 1.25]
+    # A category is named by its date, as the read lists it.
+    ok(call(toolbox, session, "edit_chart", doc="d1", target=made, action="set_value",
+            series="rating", category="2026-02-10", value=2))
+    read = ok(call(toolbox, session, "edit_chart", doc="d1", target=made, action="read"))
+    assert read.data["series"][0]["values"] == [3.5, 2, 1.25]
+    error = failed(call(toolbox, session, "edit_chart", doc="d1", target=made,
+                        action="set_value", series="rating", category="2026-02-11", value=2),
+                   "label_not_found")
+    assert "2026-02-10" in error.valid_options
+    # The outline's chart summary lists them as dates too.
+    from pptx_agent.outline.read import chart_summary
+
+    assert "categories: 2026-01-05, 2026-02-10, 2026-03-15]" in chart_summary(deck.shape(made))

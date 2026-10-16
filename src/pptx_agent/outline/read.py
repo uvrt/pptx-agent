@@ -351,7 +351,10 @@ def chart_summary(shape: "Shape") -> str:
     names = [_summary_text(s.name or "") for s in chart.series]
     if names:
         words.append("series: " + ", ".join(names))
-    categories = [_summary_text("" if c is None else str(c)) for c in chart.categories]
+    dates = chart.category_dates   # dates kept as serials: their ISO dates
+    categories = [_summary_text("" if c is None else str(c))
+                  for c in (chart.categories if dates is None else
+                            [d if d is not None else c for d, c in zip(dates, chart.categories)])]
     if categories:
         words.append("categories: " + ", ".join(categories))
     return "[chart: " + "; ".join(words) + "]"

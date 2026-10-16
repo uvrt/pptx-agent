@@ -77,8 +77,10 @@ classifiers = [
 # ooxml-edit 0.37.0: a format's own references (DocumentFormat.own_facts), by which
 # {{slide:s:262}} is written and kept (pptx_agent.edit.slidenumbers).  ooxml-edit 0.38.0:
 # date patterns (ooxml_edit.dates; Rows.label's date_format, sources.date_pattern), which
-# the tables' date_format writes by.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.15.0", "ooxml-edit>=0.38.0", "markdown-it-py>=3.0",
+# the tables' date_format writes by.  ooxml-edit 0.39.0: Chart.category_dates, by which
+# edit_chart read lists a chart's dates as ISO dates.  ooxml-common 0.17.0:
+# powerpoint_auto_title_size, which the chart text check sizes an automatic title by.
+dependencies = ["lxml>=4.9", "ooxml-common>=0.17.0", "ooxml-edit>=0.39.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

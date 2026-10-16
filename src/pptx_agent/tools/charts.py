@@ -37,24 +37,45 @@ def _series(chart, which: str | None):
     return chart.series_named(which)
 
 
+def _labels(chart) -> list[str]:
+    """The categories as a model reads and names them: ISO dates for dates kept as serials
+    (``chart.category_dates``), else each label as text."""
+    dates = chart.category_dates
+    raw = chart.categories
+    if dates is None:
+        return [str(c) for c in raw]
+    return [str(c) if day is None else day for day, c in zip(dates, raw)]
+
+
+def _categories(chart) -> list:
+    """The categories a read lists: ISO dates for dates, else the labels as they are."""
+    return _labels(chart) if chart.category_dates is not None else list(chart.categories)
+
+
 def _category(chart, which: str | None):
+    labels = _labels(chart)
     if which is None:
         raise ToolError("invalid_arguments", "this action needs category", field="category",
-                        valid_options=[str(c) for c in chart.categories][:50])
-    labels = [str(c) for c in chart.categories]
+                        valid_options=labels[:50])
     if which not in labels and which.isdigit():
         index = int(which)
         if index >= len(labels):
             raise ToolError("not_found", f"no category {index}; there are {len(labels)}",
                             field="category", valid_options=labels[:50])
         return index
+    if chart.category_dates is not None:
+        if labels.count(which) == 1:
+            return labels.index(which)
+        raise ToolError("label_not_found", f"no category {which!r} in {chart.address} (chart); "
+                        "its categories are dates, named as YYYY-MM-DD: "
+                        + ", ".join(labels[:50]), field="category", valid_options=labels[:50])
     return chart.category_index(which)
 
 
 def _point(chart, which: str) -> int:
     """A point by category label, or position from 0 (a scatter chart's x values are
     labels too)."""
-    labels = [str(c) for c in chart.categories]
+    labels = _labels(chart)
     if which in labels:
         hits = [k for k, label in enumerate(labels) if label == which]
         if len(hits) == 1:
@@ -66,10 +87,13 @@ def _point(chart, which: str) -> int:
 
 def chart_json(frame, chart) -> dict[str, Any]:
     data = {"address": frame.id, "type": chart.chart_type, "title": chart.title,
-            "categories": list(chart.categories),
+            "categories": _categories(chart),
             "series": [{"name": series.name, "values": list(series.values)}
                        for series in chart.series],
             "number_formats": chart.number_formats}
+    if chart.category_dates is not None:
+        # Dates kept as serials: listed as ISO dates, and how the chart shows them.
+        data["category_format"] = chart.category_format
     if chart.gap_width is not None:
         data["gap_width"] = chart.gap_width
     return data
