@@ -240,7 +240,8 @@ def _compact_row(shape) -> list[Any]:
             text = f"{table.rows}×{table.columns}: {_words(table.cell(0, 0).text_frame.text)}"
         elif shape.has_chart:
             kind, chart = "chart", shape.chart
-            text = f"{chart.chart_type or 'chart'}, {len(chart.series_names)} series"
+            kind_of = "dot" if chart.is_dot else chart.chart_type
+            text = f"{kind_of or 'chart'}, {len(chart.series_names)} series"
         elif shape.has_diagram:
             kind = "smartart"
     bounds = shape.bounds

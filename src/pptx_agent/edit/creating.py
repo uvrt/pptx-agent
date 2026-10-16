@@ -230,7 +230,8 @@ class ShapeFactory:
         Edit Data opens them (ooxml-edit's :func:`~ooxml_edit.charts.add_chart`).
 
         ``chart_type`` is ``column``, ``stacked_column``, ``bar``, ``stacked_bar``, ``line``,
-        ``pie``, ``scatter``, ``radar``, ``radar_filled`` or ``bubble``; ``categories`` the
+        ``pie``, ``scatter``, ``radar``, ``radar_filled``, ``bubble`` or ``dot`` (a marker per
+        category, no line: a line chart that :attr:`Chart.is_dot` reads back); ``categories`` the
         category labels (a scatter or bubble chart's x values); ``series`` ``[{"name": ...,
         "values": [...]}]``, one value per category (``None`` is a blank) -- a column chart's
         series may add ``"type": "line"`` (target markers over actual columns, with

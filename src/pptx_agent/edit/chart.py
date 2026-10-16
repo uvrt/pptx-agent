@@ -95,6 +95,15 @@ class Chart(_chart.Chart):
         return super().chart_type
 
     @property
+    def is_dot(self) -> bool:
+        """Whether the chart is a dot chart: a line chart whose every series has no line and
+        a marker, however it was made (``add_chart("dot", ...)`` makes one)::
+
+            chart.chart_type, chart.is_dot  # ('line', True)
+        """
+        return super().is_dot
+
+    @property
     def chart_types(self) -> list[str]:
         """Every plot's type, in order -- two for a combination chart::
 

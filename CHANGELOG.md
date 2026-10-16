@@ -6,6 +6,18 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A dot chart (round 6, R10; ooxml-edit 0.40.0): `edit_chart` `add` with `chart_type:
+  "dot"` draws one marker per category on the value axis, no line -- averages on a fixed
+  1-5 scale with their values is one call (`axis: "value"`, `scale: {"min": 1, "max": 5}`,
+  `data_labels: true`). It is a native line chart, so PowerPoint edits it as one: each
+  series' line off and a marker on (a 5 pt circle in the series colour, the marker
+  PowerPoint gives a new scatter series, measured); `colors` colour the markers.
+  `edit_chart read`, `ppt_read_slides`' compact view and the outline report any line chart
+  whose series all have no line and a marker as `dot` (`Chart.is_dot`); `set_values` and
+  `add_series` keep it one. Categories run along the bottom: the schema has no horizontal
+  line chart, and a scatter chart has no category labels. The `chart_type` enum gains
+  `dot` (+2 estimated tokens to every definition, 12,590 -> 12,592; the guard stays
+  12,595; edit_chart is sent non-strict).
 - A chart's dates read as dates (round 6; ooxml-edit 0.39.0): `edit_chart read` lists
   categories kept as serials under a date code as ISO dates (`2026-03-02`, not `46083`)
   with `category_format`, the code that shows them; a category is named by that date

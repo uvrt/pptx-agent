@@ -185,3 +185,46 @@ def test_a_label_position_is_not_a_legend_position(session):
                     categories=["A"], data=[{"name": "S", "values": [1]}], box=BOX,
                     position="center")
     assert error.field == "position"
+
+
+# -- the dot chart (round 6, R10) ---------------------------------------------------------------
+
+AREAS = ["North", "South", "East", "West"]
+
+
+def test_edit_chart_adds_a_dot_chart_on_a_fixed_scale_in_one_call(session):
+    added = run(session, target="s:256", action="add", chart_type="dot", categories=AREAS,
+                data=[{"name": "Mean", "values": [3.2, 4.1, 2.7, 3.9]}], box=BOX,
+                axis="value", scale={"min": 1, "max": 5, "major_unit": 1}, data_labels=True,
+                number_format="0.0", colors=["tx2"], position="none", ref="dots")
+    assert added.data["type"] == "dot"
+    read = run(session, target="$dots", action="read")
+    assert read.data["type"] == "dot" and read.data["types"] == ["line"]
+    assert read.data["scales"]["value"]["minimum"] == 1
+    assert read.data["scales"]["value"]["maximum"] == 5
+    assert read.data["series_format"]["Mean"]["marker_fill"] == "tx2"
+    run(session, target="$dots", action="set_values", series="Mean", values=[1, 2, 3, 4])
+    grown = run(session, target="$dots", action="add_series", text="Goal", values=[4, 4, 4, 4])
+    assert grown.data["type"] == "dot"
+    box, current = session
+    deck = current.entry("d1").document
+    assert deck.validate() == []
+    chart = deck.shape(read.data["address"]).chart
+    assert chart.is_dot and chart.chart_type == "line"
+    assert all(entry["shown"] for entry in chart.data_labels[:1])
+
+
+def test_a_line_chart_made_line_less_reads_back_as_dot(session):
+    run(session, target="s:256", action="add", chart_type="line", categories=AREAS,
+        data=[{"name": "Mean", "values": [3.2, 4.1, 2.7, 3.9]}], box=BOX, ref="l")
+    assert run(session, target="$l", action="read").data["type"] == "line"
+    changed = run(session, target="$l", action="format_series", series="Mean",
+                  style={"line": "none", "marker": "circle"})
+    assert changed.data["type"] == "dot"
+    box, current = session
+    listed = box.dispatch(current, "ppt_read_slides",
+                          {"doc": "d1", "slides": [1], "detail": "compact"})
+    assert "dot, 1 series" in str(listed.to_json())
+    outline = box.dispatch(current, "ppt_read_slides",
+                           {"doc": "d1", "slides": [1], "detail": "outline"})
+    assert "[chart: dot;" in str(outline.to_json())
