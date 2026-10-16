@@ -1042,6 +1042,15 @@ print([str(p) for p in problems])                  # this deck arrives with thre
 deck.save("out.pptx")
 ```
 
+A layout or master renders on its own -- `deck.layout("Title and Content").render_png()`,
+`deck.render_png(["L2", "M0", 1])` (in the order given) -- as what a new slide on it starts
+as: the background, the master's shapes unless the layout hides them, the layout's own,
+and each placeholder as a grey dashed box with its prompt in its text style and a tag with
+its type and `idx` (`title`, `content 1`, `dt 10`), a banner naming the layout. That
+wireframe is pptx2svg's own drawing, not PowerPoint's; the SVG's root says
+`data-template="layout"`. The `render` tool takes `L2` and `M0` the same way; `describe`
+lists the layouts with their names and placeholders.
+
 `validate()` returns `Problem(code, part, detail)` values; a deck may arrive with some, so
 compare before and after an edit. No edit adds one. Only PowerPoint itself can say for
 certain that a deck opens: the test suite's opt-in oracle drives it.

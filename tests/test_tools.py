@@ -120,6 +120,10 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: Round 6, R10: edit_chart's chart_type enum gains ``dot`` (ooxml-edit 0.40.0): +2 to every
 #: definition (12,590 -> 12,592), none to the core; the guard stays 12,595.  edit_chart is
 #: sent non-strict, so the strict set is unchanged.
+#: Round 6, R11: render takes layouts and masters; its ``slides`` description says
+#: "; layouts L2, masters M0" and ``slides``/``pages`` no longer repeat the description's
+#: "at most 4" (ooxml-edit 0.41.0): +1 to the core (3,560 -> 3,561), every definition
+#: unchanged (12,592); the guard stays 12,595.  The strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
@@ -832,6 +836,45 @@ def test_render_and_check_take_slide_ids_refs_and_numbers(toolbox, session):
     assert call(toolbox, session, "check", doc="d1", slides=[True]).error.code == "invalid_arguments"
 
 
+def test_render_takes_layouts_and_masters(toolbox, session):
+    # Production feedback round 6, R11: seeing a template's layouts took a slide per layout,
+    # added, rendered and deleted.  render takes them as ppt_edit_master names them.
+    shown = ok(call(toolbox, session, "render", doc="d1", slides=["L2", 1, "M0"], width=320))
+    assert [image.label for image in shown.images] == [
+        "layout L2 'Title and Content'", "slide 1 (s:256)", "master M0 'Office Theme'"]
+    assert shown.summary == "Rendered slide(s) 1, L2 (layout), M0 (master)"
+    assert "wireframe" in shown.data["template_note"]
+    assert ok(call(toolbox, session, "render", doc="d1", slides=["L2"], width=320)
+              ).data["cached"] == ["L2"]
+    # An edit to the layout is a new version: drawn again.
+    ok(call(toolbox, session, "ppt_edit_master", doc="d1", action="set_prompt",
+            target="L2.3", text="Your points"))
+    assert ok(call(toolbox, session, "render", doc="d1", slides=["L2"], width=320)
+              ).data["cached"] == []
+    # A layout made in the session, by the address its result gives.
+    (made,) = ok(call(toolbox, session, "ppt_edit_master", doc="d1", action="add_layout",
+                      text="Legal")).created
+    legal = ok(call(toolbox, session, "render", doc="d1", slides=[made], width=320))
+    assert legal.images[0].label == f"layout {made} 'Legal'"
+    assert "template_note" not in ok(call(toolbox, session, "render", doc="d1", slides=[1],
+                                          width=320)).data
+
+
+def test_render_refuses_a_layout_it_does_not_have_listing_those_it_has(toolbox, session):
+    error = call(toolbox, session, "render", doc="d1", slides=[1, "L99"]).error
+    assert error.code == "not_found" and error.field == "slides[1]"
+    assert "L2 (Title and Content)" in error.valid_options and "M0 (Office Theme)" in error.valid_options
+    # A layout's shape is no layout.
+    assert call(toolbox, session, "render", doc="d1", slides=["L2.3"]).error.code == "invalid_arguments"
+
+
+def test_render_with_no_slides_named_offers_the_layouts_of_an_empty_deck(toolbox):
+    session = toolbox.session(clock=CLOCK)
+    session.open(Document.new().to_bytes(), "template.pptx")
+    error = call(toolbox, session, "render", doc="d1").error
+    assert error.field == "slides" and "L1 (Title Slide)" in error.valid_options
+
+
 def test_render_reports_the_version_it_drew(toolbox, session, monkeypatch):
     """A render works on the deck's bytes with the lock let go: an edit made meanwhile does
     not wait, and the render reports (and caches under) the version it drew."""
@@ -882,6 +925,22 @@ def test_render_says_which_text_its_image_leaves_out(toolbox, monkeypatch):
     assert "PowerPoint draws it" in first["missing_glyphs_note"]
     again = ok(call(toolbox, session, "render", doc="d1", slides=[1], width=320)).data
     assert again["cached"] == [1] and again["missing_glyphs"] == first["missing_glyphs"]
+
+
+def test_render_says_which_layout_text_its_image_leaves_out(toolbox, monkeypatch):
+    """A layout's view reports the text it leaves out under the layout's key."""
+    pytest.importorskip("pptx2svg.glyphs")
+    monkeypatch.setenv("PPTX2SVG_OFFICE_FONTS", "0")
+    monkeypatch.setattr("pptx2svg.fonts.bundle_dir", lambda: None)
+    monkeypatch.setattr("pptx2svg.glyphs.system_font_dirs", lambda: [])
+    monkeypatch.setattr(toolbox.pool, "run",
+                        lambda fn, *args, timeout=None, **kwargs: fn(*args, **kwargs))
+    session = toolbox.session(clock=CLOCK)
+    session.open(_deck(), "plan.pptx")
+    ok(call(toolbox, session, "ppt_edit_master", doc="d1", action="set_prompt",
+            target="L2.3", text="\u58f2\u4e0a\u9ad8"))
+    found = ok(call(toolbox, session, "render", doc="d1", slides=["L2"], width=320)).data
+    assert [item["slide"] for item in found["missing_glyphs"] if item["script"] == "CJK"] == ["L2"]
 
 
 def test_check_and_save_behind_the_gate(toolbox, session):

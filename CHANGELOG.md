@@ -6,6 +6,22 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- `render` takes layouts and masters (round 6, R11; ooxml-edit 0.41.0, pptx2svg's
+  `ConvertOptions(templates=...)`): `slides: ["L2", "M0", 1]`, the addresses
+  ppt_edit_master and the add tools take, in the order given. A layout is drawn as a new
+  slide on it starts -- its background, the master's shapes unless `showMasterSp` hides
+  them, its own shapes -- with every placeholder a grey dashed box holding its prompt in
+  its text style and tagged with its type and `idx`, and a banner naming it; a master
+  likewise with its own placeholders. A wireframe of pptx2svg's, chosen for a designer:
+  PowerPoint draws no empty placeholder outside editing, and Slide Master view is not
+  measured. The image is labelled `layout L2 'Title and Content'`, the result carries a
+  `template_note`, and the cache keys a layout by its key. `describe` already lists the
+  layouts with names and placeholders. In the library: `Document.render_svg/render_png`
+  take `"L2"`, `"M0"`, a `Layout` or a `Master` among `slides`, and `Layout.render_png()`,
+  `Master.render_svg()` draw one. Definitions: render's `slides` names the forms and
+  `slides`/`pages` stop repeating the tool's "at most 4": the core +1 estimated token
+  (3,560 -> 3,561), every definition unchanged (12,592); the guard stays 12,595. render's
+  schema types are unchanged.
 - A dot chart (round 6, R10; ooxml-edit 0.40.0): `edit_chart` `add` with `chart_type:
   "dot"` draws one marker per category on the value axis, no line -- averages on a fixed
   1-5 scale with their values is one call (`axis: "value"`, `scale: {"min": 1, "max": 5}`,

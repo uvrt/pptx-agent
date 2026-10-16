@@ -15,14 +15,15 @@ from ooxml_edit.tools import worker_task
 
 
 @worker_task
-def render_slides(data: bytes, numbers: list[int], width: int,
+def render_slides(data: bytes, numbers: "list[int | str]", width: int,
                   font_dirs: "list[str] | None" = None, locale: Any = None) -> list[bytes]:
-    """PNG bytes of the 1-based slides ``numbers`` of the deck ``data``, ``width`` px wide."""
+    """PNG bytes of the 1-based slides ``numbers`` of the deck ``data``, ``width`` px wide.
+    An item may be a layout's or master's key (``"L2"``, ``"M0"``): its template view."""
     return render_slides_reporting(data, numbers, width, font_dirs, locale)[0]
 
 
 @worker_task
-def render_slides_reporting(data: bytes, numbers: list[int], width: int,
+def render_slides_reporting(data: bytes, numbers: "list[int | str]", width: int,
                             font_dirs: "list[str] | None" = None, locale: Any = None
                             ) -> tuple[list[bytes], list[list[dict]]]:
     """:func:`render_slides`, and for each slide the text its image leaves out: pptx2svg's
@@ -45,12 +46,15 @@ def render_slides_reporting(data: bytes, numbers: list[int], width: int,
         # The same facts come back in ``found``; the worker's stderr is nobody's to read.
         warnings.filterwarnings("ignore", message=".*no font this render loads")
         images = list(deck.render_png(list(numbers), width=int(width), warnings=found))
-    by_slide: dict[int, list[dict]] = {}
+    # A layout's or master's view is reported by its part (its slide number is 0).
+    keys = {template.part_path: template.id for template in [*deck.layouts, *deck.masters]}
+    by_slide: dict = {}
     for warning in found:
         detail = getattr(warning, "detail", None)
         if getattr(warning, "code", None) != "glyphs-missing" or detail is None:
             continue
-        by_slide.setdefault(warning.slide_number, []).append(
+        where = keys.get(getattr(warning, "part_path", None)) or warning.slide_number
+        by_slide.setdefault(where, []).append(
             {"face": detail.face, "script": detail.script, "sample": detail.sample})
     return images, [by_slide.get(number, []) for number in numbers]
 

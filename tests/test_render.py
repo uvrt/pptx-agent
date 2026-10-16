@@ -135,3 +135,47 @@ def test_edited_runs_reach_the_render(product_page):
     svg = slide.render_svg()
     assert "Sentinel run" in svg or "Sentinel" in svg
     assert "#C00000" in svg.upper()
+
+
+# -- layouts and masters (round 6, R11) -----------------------------------------------------
+
+
+def _template_deck() -> Document:
+    deck = Document.new()
+    deck.add_slide("Title Only").title = "Plan"
+    return deck
+
+
+def _template_of(svg: str) -> "tuple[str, str] | None":
+    match = re.search(r'data-template="([^"]*)" data-template-part="([^"]*)"', svg)
+    return match.groups() if match else None
+
+
+def test_a_layout_or_master_renders_as_its_template_view():
+    deck = _template_deck()
+    layout = deck.layout("Title and Content")
+    master = deck.masters[0]
+    svgs = deck.render_svg(["L2", 1, master])
+    # In the order asked: the slides' and the templates' images are put back in it.
+    assert [_template_of(svg) for svg in svgs] == [
+        ("layout", layout.part_path), None, ("master", master.part_path)]
+    assert ">title</tspan>" in svgs[0] and ">content 1</tspan>" in svgs[0]
+    assert "“Title and Content”" in svgs[0]
+    assert layout.render_svg() == svgs[0]
+    assert deck.render_svg(layout) == [svgs[0]]
+
+
+def test_a_layout_renders_to_png():
+    pytest.importorskip("resvg_py")
+    png = _template_deck().layout("L2").render_png(width=320)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_the_agent_view_is_of_slides_only():
+    with pytest.raises(ValueError, match="agent view is of slides"):
+        _template_deck().render_svg(["L2"], agent=True)
+
+
+def test_an_unknown_layout_is_refused_by_name():
+    with pytest.raises(KeyError, match="no layout L99"):
+        _template_deck().render_svg(["L99"])
