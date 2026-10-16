@@ -2436,30 +2436,46 @@ class Slide(ShapeFactory):
             if (name is None or shape.name == name) and (kind is None or shape.kind == kind)
         ]
 
-    def text_below(self, points: float) -> list:
+    def text_below(self, points) -> list:
         """The text on this slide drawn smaller than ``points``, by its effective size --
         inherited from a layout or master and scaled by a stored autofit, as
         :attr:`Run.effective_size <pptx_agent.Run.effective_size>` gives it -- one
         :class:`~pptx_agent.edit.effective.SmallText` per shape (or table cell), size and
-        source, with where the size comes from.  Groups are looked into; positions a merge
-        covers are not.
+        source, with where the size comes from; a chart's per part of its text (title,
+        axis titles, axis labels, data labels, legend: :mod:`~pptx_agent.edit.chart_text`).
+        Groups are looked into; positions a merge covers are not.
+
+        ``points`` is a number for every kind of text, or a mapping of kinds to points --
+        ``{"body": 12, "table": 10, "chart": 10}``: ``body`` the text of shapes and
+        placeholders, ``table`` table cells', ``chart`` charts'; a kind left out is not
+        checked (:func:`~pptx_agent.edit.effective.text_minimums`).
 
         For example::
 
             [(t.address, t.size, t.source) for t in slide.text_below(12)]
             # [('256.3', 9.0, "layout 'Title and Content' body placeholder")]
+            [t.part for t in slide.text_below({"chart": 10})]
+            # ['axis_labels', 'legend']
         """
         from . import effective
         from .fit import _flatten
 
-        frames = []
+        minimums = effective.text_minimums(points)
+        found: list = []
         for shape in _flatten(self.shapes):
             if shape.kind == "shape" and shape.text_frame is not None:
-                frames.append((shape.id, shape.text_frame))
+                if "body" in minimums:
+                    found += effective.text_below([(shape.id, shape.text_frame)],
+                                                  minimums["body"])
             elif shape.kind == "graphic_frame" and shape.has_table:
-                frames += [(cell.address, cell.text_frame) for cell in shape.table.iter_cells()
-                           if not cell.is_spanned]
-        return effective.text_below(frames, float(points))
+                if "table" in minimums:
+                    found += effective.text_below(
+                        [(cell.address, cell.text_frame, shape.id)
+                         for cell in shape.table.iter_cells() if not cell.is_spanned],
+                        minimums["table"], "table")
+            elif shape.kind == "graphic_frame" and shape.has_chart and "chart" in minimums:
+                found += effective.chart_text_below(shape.id, shape, minimums["chart"])
+        return found
 
     def measure_table(self, data=None, *, rows: int | None = None,
                       columns: int | None = None, width: int | None = None,
@@ -3195,11 +3211,13 @@ class Document(CommentOps):
     #: layer sets it from its session (``Toolbox(locale=...)``).
     locale: "Locale | None" = None
 
-    #: The application's minimum text size, points: the agent tool layer's ``check`` (and
-    #: the checks after every change) report text drawn smaller, by its effective size and
-    #: where it comes from (:meth:`Slide.text_below`).  ``None`` (the default): no
-    #: minimum.  The tool layer sets it from its format (``deck_format(min_text_size=12)``).
-    min_text_size: "float | None" = None
+    #: The application's minimum text size, points -- one number for every kind of text, or
+    #: a mapping by kind, ``{"body": 12, "table": 10, "chart": 10}`` (a kind left out is not
+    #: checked): the agent tool layer's ``check`` (and the checks after every change)
+    #: report text drawn smaller, by its effective size and where it comes from
+    #: (:meth:`Slide.text_below`).  ``None`` (the default): no minimum.  The tool layer
+    #: sets it from its format (``deck_format(min_text_size=12)``).
+    min_text_size: "float | dict[str, float] | None" = None
 
     def __init__(self, package: OoxmlPackage) -> None:
         self.package = package

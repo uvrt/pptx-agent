@@ -20,6 +20,7 @@ guesses.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from ..oxml.xml import FILL_TAGS, Element, find, get_int, local_name, qn
@@ -244,25 +245,69 @@ def size_source(host, paragraph: Element, run: Element | None) -> str:
     return where if scale == 1.0 else f"{where} at {round(scale * 100):g}% autofit"
 
 
+#: The kinds of text a minimum size is set for (``deck_format(min_text_size={...})``):
+#: ``body`` the text of shapes, text boxes and placeholders (groups looked into), ``table``
+#: table cells' text, ``chart`` a chart's title, axis titles, axis labels, data labels and
+#: legend (:mod:`.chart_text`).
+TEXT_KINDS = ("body", "table", "chart")
+
+
+def text_minimums(value) -> dict[str, float]:
+    """A minimum text size as ``{kind: points}``: a number is every kind's; a mapping names
+    kinds of :data:`TEXT_KINDS` (a kind it leaves out, or gives ``None``, is not checked).
+    ``None`` is no minimum (``{}``).  Raises ``ValueError`` for an unknown kind or a size
+    outside 1 to 400 points."""
+    if value is None:
+        return {}
+    if isinstance(value, Mapping):
+        unknown = [kind for kind in value if kind not in TEXT_KINDS]
+        if unknown:
+            raise ValueError(f"min_text_size has no kind {unknown[0]!r}; the kinds are "
+                             f"{', '.join(TEXT_KINDS)} (a kind left out is not checked)")
+        if not value:
+            raise ValueError("min_text_size is an empty mapping; name body, table or chart, "
+                             "or give None for no minimum")
+        return {kind: _points(points) for kind, points in value.items() if points is not None}
+    points = _points(value)
+    return {kind: points for kind in TEXT_KINDS}
+
+
+def _points(value) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) \
+            or not 1 <= float(value) <= 400:
+        raise ValueError(f"min_text_size {value!r}: points between 1 and 400, a mapping of "
+                         "body, table and chart to points, or None for no minimum")
+    return float(value)
+
+
 @dataclass(frozen=True)
 class SmallText:
     """Text drawn below a minimum size (:meth:`Slide.text_below
-    <pptx_agent.Slide.text_below>`): the shape or table cell's ``address``, the effective
-    ``size`` in points and ``source``, where that size comes from (:func:`size_source`)."""
+    <pptx_agent.Slide.text_below>`): the shape, table cell or chart's ``address``, the
+    effective ``size`` in points and ``source``, where that size comes from
+    (:func:`size_source`); its ``kind`` (:data:`TEXT_KINDS`), the ``shape`` that holds it (a
+    cell's table, else the address) and, for a chart, the ``part`` of its text
+    (``"axis_labels"``..., :data:`.chart_text.PARTS`)."""
 
     address: str
     size: float
     source: str
+    kind: str = "body"
+    shape: str | None = None
+    part: str | None = None
 
     def to_json(self) -> dict:
         return {"shape": self.address, "size": self.size, "from": self.source}
 
 
-def text_below(frames, minimum: float) -> list[SmallText]:
+def text_below(frames, minimum: float, kind: str = "body") -> list[SmallText]:
     """Each ``(address, text frame)``'s text drawn below ``minimum`` points, once per
-    address, size and source, smallest first within an address."""
+    address, size and source, smallest first within an address.  A frame may be given as
+    ``(address, text frame, shape)`` to name the shape holding it (a cell's table)."""
     out: list[SmallText] = []
-    for address, frame in frames:
+    for entry in frames:
+        address, frame = entry[0], entry[1]
+        holder = entry[2] if len(entry) > 2 else address
         host = frame._host()
         found: dict[tuple[float, str], SmallText] = {}
         for paragraph in frame.paragraphs:
@@ -274,8 +319,59 @@ def text_below(frames, minimum: float) -> list[SmallText]:
                 if points >= minimum:
                     continue
                 source = size_source(host, element, run._element())
-                found.setdefault((points, source), SmallText(address, points, source))
+                found.setdefault((points, source),
+                                 SmallText(address, points, source, kind, holder))
         out += sorted(found.values(), key=lambda item: item.size)
+    return out
+
+
+def chart_text_below(address: str, shape, minimum: float) -> list[SmallText]:
+    """A chart shape's text drawn below ``minimum`` points, once per part, size and source,
+    smallest first within a part (:func:`.chart_text.chart_text`)."""
+    from .chart_text import PARTS, chart_text
+
+    found: dict[tuple[str, float, str], SmallText] = {}
+    for text in chart_text(shape):
+        if text.size < minimum:
+            found.setdefault((text.part, text.size, text.source),
+                             SmallText(address, text.size, text.source, "chart", address,
+                                       text.part))
+    return sorted(found.values(), key=lambda item: (PARTS.index(item.part), item.size))
+
+
+def small_text_json(found: list[SmallText], minimums: dict[str, float]) -> list[dict]:
+    """``check``'s ``small_text``: a shape's text one entry per size and source, as
+    :meth:`SmallText.to_json`; a **table one entry** -- ``{"table": address, "cells": how
+    many cells, "size": the smallest, "min", "from": where the smallest comes from}``; a
+    **chart one entry** -- ``{"chart": address, "min", "parts": [{"part", "size", "from"}]}``,
+    each part's smallest size, the part as ``edit_chart``'s ``set_text_style`` names it."""
+    out: list[dict] = []
+    groups: dict[tuple[str, str], dict] = {}
+    for item in found:
+        if item.kind == "body":
+            out.append(item.to_json())
+            continue
+        key = (item.kind, item.shape or item.address)
+        entry = groups.get(key)
+        if item.kind == "table":
+            if entry is None:
+                entry = groups[key] = {"table": key[1], "cells": set(), "size": item.size,
+                                       "min": minimums.get("table"), "from": item.source}
+                out.append(entry)
+            entry["cells"].add(item.address)
+            if item.size < entry["size"]:
+                entry.update(size=item.size, **{"from": item.source})
+        else:
+            if entry is None:
+                entry = groups[key] = {"chart": key[1], "min": minimums.get("chart"),
+                                       "parts": []}
+                out.append(entry)
+            if not any(part["part"] == item.part for part in entry["parts"]):
+                entry["parts"].append({"part": item.part, "size": item.size,
+                                       "from": item.source})
+    for entry in out:
+        if isinstance(entry.get("cells"), set):
+            entry["cells"] = len(entry["cells"])
     return out
 
 
@@ -457,6 +553,7 @@ def write_autofit(body: Element, mode: str | None, font_scale: float | None = No
     replace_choice(properties, tags, node)
 
 
-__all__ = ["DEFAULT_COLOR", "UNSTATED", "Autofit", "EffectiveParagraph", "SmallText", "autofit", "color",
-           "color_source", "describe", "list_styles", "paragraph", "paragraph_sources", "size",
-           "size_source", "text_below", "typeface", "write_autofit"]
+__all__ = ["DEFAULT_COLOR", "TEXT_KINDS", "UNSTATED", "Autofit", "EffectiveParagraph", "SmallText",
+           "autofit", "chart_text_below", "color", "color_source", "describe", "list_styles",
+           "paragraph", "paragraph_sources", "size", "size_source", "small_text_json",
+           "text_below", "text_minimums", "typeface", "write_autofit"]

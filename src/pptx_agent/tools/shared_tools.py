@@ -15,6 +15,7 @@ from ooxml_edit.tools import Result, ToolError, collect_warnings, page_list, sha
 from .common import (KIND, facts, library_errors, numbers, slide_id_of, template_key_of,
                      validate_delta)
 from ..edit.document import font_dirs_of, locale_of
+from ..edit.effective import text_minimums
 from .render import png_size, render_slides_reporting
 from . import textfacts
 from .tables import forget_cells
@@ -320,7 +321,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
     entry = call.entry
     version = entry.version
     key = ("check", tuple(ids), tuple(sorted(set(wanted))), bool(boxes), font_dirs_of(deck),
-           locale_of(deck), deck.min_text_size)
+           locale_of(deck), tuple(text_minimums(deck.min_text_size).items()))
     data = entry.check_cache.get((version, key))
     if data is None:
         target = deck

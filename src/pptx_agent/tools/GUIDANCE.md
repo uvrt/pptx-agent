@@ -171,10 +171,13 @@ system = toolbox.system_prompt(extra=HOUSE_RULES)
 
 - **A minimum text size** can be checked rather than only asked for:
   `Toolbox(TOOLS, formats=[deck_format(min_text_size=12)], groups=GROUPS)` makes `check`,
-  the checks after every change and `save_document` report `small_text` -- each shape or
-  table cell drawn smaller, with its size and where the size comes from, inherited sizes
-  included (`"from": "layout 'Title and Content' content placeholder"`). It is the
-  application's setting, not a tool argument, so the definitions do not change.
+  the checks after every change and `save_document` report `small_text` -- each shape
+  drawn smaller, with its size and where the size comes from, inherited sizes included
+  (`"from": "layout 'Title and Content' content placeholder"`); a table once (how many
+  cells, the smallest size) and a chart once per part of its text. A mapping sets it per
+  kind, `deck_format(min_text_size={"body": 12, "table": 10, "chart": 10})`; a kind left
+  out is not checked. It is the application's setting, not a tool argument, so the
+  definitions do not change.
 
 - Keep rules **checkable**: each names a fact (`ppt_design_facts`' groups and legends, empty
   regions, text sizes) and what to do about it. "Make it look professional" gives the model

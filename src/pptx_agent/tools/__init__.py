@@ -73,6 +73,7 @@ from __future__ import annotations
 import dataclasses
 import io
 import zipfile
+from collections.abc import Mapping
 
 from ooxml_edit.opc import rels_path_for
 from ooxml_edit.tools import CORE, DocumentFormat, ToolGroup, shared
@@ -205,17 +206,29 @@ FORMAT = DocumentFormat(
     configure=_configure,
     store_provenance=tables.store_provenance, read_provenance=tables.read_provenance)
 
-def deck_format(*, min_text_size: float | None = None, assets=None) -> DocumentFormat:
+def deck_format(*, min_text_size: "float | dict[str, float] | None" = None,
+                assets=None) -> DocumentFormat:
     """:data:`FORMAT` with the application's own settings -- never tool arguments, so the
     definitions the model is sent stay the same unless a setting adds a tool:
 
     ``min_text_size`` (points): ``check``, the checks after every change and
-    ``save_document`` report ``small_text``, each shape or table cell whose text is drawn
-    smaller, with its effective size and where the size comes from -- a placeholder that
-    inherits 9 pt from its layout is reported as ``"from": "layout 'Title and Content'
-    body placeholder"`` (:meth:`Slide.text_below <pptx_agent.Slide.text_below>`)::
+    ``save_document`` report ``small_text``, the text drawn smaller, with its effective
+    size and where the size comes from -- a placeholder that inherits 9 pt from its layout
+    is reported as ``"from": "layout 'Title and Content' body placeholder"``
+    (:meth:`Slide.text_below <pptx_agent.Slide.text_below>`).  One number is the minimum
+    for all text; a mapping sets it per kind -- ``body`` (shapes, text boxes and
+    placeholders), ``table`` (table cells), ``chart`` (a chart's title, axis titles, axis
+    labels, data labels and legend) -- and a kind it leaves out is not checked::
 
         toolbox = Toolbox(TOOLS, formats=[deck_format(min_text_size=12)], groups=GROUPS)
+        deck_format(min_text_size={"body": 12, "table": 10, "chart": 10})
+
+    A shape's entry is one per size and source, ``{"shape", "size", "from"}``; a table is
+    one entry, ``{"table": "257.4", "cells": 30, "size": 9.0, "min": 10, "from": ...}`` --
+    how many cells are below, the smallest size and where it comes from; a chart is one
+    entry, ``{"chart": "257.5", "min": 10, "parts": [{"part": "axis_labels", "size": 8.0,
+    "from": ...}]}`` -- each part's smallest, named as ``edit_chart``'s
+    ``set_text_style`` takes it.
 
     ``assets``: the application's asset catalogue -- brand icons, logos -- any object with
     ``search(query, limit)`` and ``get(id) -> (bytes, MIME type)``
@@ -231,8 +244,14 @@ def deck_format(*, min_text_size: float | None = None, assets=None) -> DocumentF
         icons = FolderCatalogue("brand-icons")               # brand-icons/index.json
         toolbox = Toolbox(TOOLS, formats=[deck_format(assets=icons)], groups=GROUPS)
     """
-    if min_text_size is not None and not 1 <= float(min_text_size) <= 400:
-        raise ValueError("min_text_size is points between 1 and 400, or None for no minimum")
+    from ..edit.effective import text_minimums
+
+    text_minimums(min_text_size)                 # refused here, not at the first check
+    if isinstance(min_text_size, Mapping):
+        min_text_size = {kind: float(points) for kind, points in min_text_size.items()
+                         if points is not None}
+    elif min_text_size is not None:
+        min_text_size = float(min_text_size)
     if assets is not None and not (callable(getattr(assets, "search", None))
                                    and callable(getattr(assets, "get", None))):
         raise ValueError("assets is a catalogue: an object with search(query, limit) and "
@@ -242,7 +261,8 @@ def deck_format(*, min_text_size: float | None = None, assets=None) -> DocumentF
 
     def configure(deck, session) -> None:
         _configure(deck, session)
-        deck.min_text_size = None if min_text_size is None else float(min_text_size)
+        deck.min_text_size = (dict(min_text_size) if isinstance(min_text_size, dict)
+                              else min_text_size)
 
     return dataclasses.replace(FORMAT, configure=configure, tools=tools)
 
