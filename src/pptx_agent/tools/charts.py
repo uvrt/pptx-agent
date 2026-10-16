@@ -86,7 +86,8 @@ def _point(chart, which: str) -> int:
 
 
 def chart_json(frame, chart) -> dict[str, Any]:
-    data = {"address": frame.id, "type": chart.chart_type, "title": chart.title,
+    data = {"address": frame.id, "type": "dot" if chart.is_dot else chart.chart_type,
+            "title": chart.title,
             "categories": _categories(chart),
             "series": [{"name": series.name, "values": list(series.values)}
                        for series in chart.series],

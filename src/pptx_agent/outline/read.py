@@ -340,6 +340,8 @@ def chart_summary(shape: "Shape") -> str:
     root = chart._root()
     types = []
     for name in chart.chart_types:
+        if name == "line" and chart.is_dot:
+            name = "dot"
         if name == "bar":
             direction = root.find(f".//{qn('c:barDir')}")
             name = "column" if direction is not None and direction.get("val") == "col" else "bar"

@@ -117,6 +117,9 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: definition (12,506 -> 12,590), none to the core (3,560): all three tools are deferred.
 #: The guard rises to 12,595.  The strict set is unchanged in its members; the two table
 #: tools' schemas gain one optional string each.
+#: Round 6, R10: edit_chart's chart_type enum gains ``dot`` (ooxml-edit 0.40.0): +2 to every
+#: definition (12,590 -> 12,592), none to the core; the guard stays 12,595.  edit_chart is
+#: sent non-strict, so the strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
