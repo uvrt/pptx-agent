@@ -436,3 +436,81 @@ def test_a_chart_from_a_date_column_and_set_values_matched_either_way(toolbox, l
         read = ok(call(toolbox, session, "edit_chart", doc="d1", target=target,
                        action="read"))
         assert read.data["series"][0]["values"] == order
+
+
+# -- date_format (round 6, R9) ------------------------------------------------------------------
+
+
+def _locale(language):
+    return Locale(decimal_separator=",", thousands_separator=".", date_order="dmy",
+                  language=language, list_separator=";")
+
+
+#: The checks' due dates (5 January, 10 February, 15 March 2026) in ``d mmmm yyyy``, with
+#: the month names measured in Excel for Mac, 2026-10-16.
+@pytest.mark.parametrize("language, due", [
+    ("en-US", ["5 January 2026", "10 February 2026", "15 March 2026"]),
+    ("nl-BE", ["5 januari 2026", "10 februari 2026", "15 maart 2026"]),
+    ("de-DE", ["5 Januar 2026", "10 Februar 2026", "15 März 2026"]),
+    ("fr-FR", ["5 janvier 2026", "10 février 2026", "15 mars 2026"]),
+])
+def test_a_tables_dates_in_a_date_format(toolbox, language, due):
+    session = _dated(toolbox, _locale(language))
+    result = ok(add(toolbox, session, date_format="d mmmm yyyy",
+                    **{"from": "d:dated", "from_columns": ["check", "due", "rating"]}))
+    assert [row[1] for row in result.data["cells"][1:]] == due
+    assert result.data["cells"][1][2] == "3,5"                   # a number as before
+    target = _table(toolbox, session, 4, 2)
+    edited = ok(call(toolbox, session, "ppt_edit_table", doc="d1", target=target,
+                     action="set_cells", date_format="dd/mm/yyyy",
+                     **{"from": "d:dated", "from_columns": ["check", "due"]}))
+    assert [row[1] for row in edited.data["cells"][1:]] == ["05/01/2026", "10/02/2026",
+                                                            "15/03/2026"]
+
+
+def test_a_date_format_is_checked_for_a_table(toolbox):
+    session = _dated(toolbox, _locale("en-AU"))
+    error = failed(add(toolbox, session, date_format="d mmmm yyyy",
+                       **{"from": "d:dated", "from_columns": ["due"]}), "invalid_arguments")
+    assert "no month or day names are measured for en-AU" in error.message
+    assert error.field == "date_format"
+    ok(add(toolbox, session, date_format="dd-mm-yyyy",
+           **{"from": "d:dated", "from_columns": ["due"]}))
+    error = failed(add(toolbox, session, date_format="dd/mm/yyyy",
+                       **{"from": "d:dated", "from_columns": ["check", "rating"]}),
+                   "invalid_arguments")
+    assert "date_format is for dates" in error.message
+    error = failed(add(toolbox, session, rows=2, columns=2, date_format="dd/mm/yyyy"),
+                   "invalid_arguments")
+    assert "date_format is for from" in error.message
+    error = failed(add(toolbox, session, date_format="hh:mm",
+                       **{"from": "d:dated", "from_columns": ["due"]}), "invalid_arguments")
+    assert "'h' is no date token" in error.message
+
+
+@pytest.mark.parametrize("language, code, first", [
+    ("en-US", r"[$-409]d\ mmm\ yyyy", 46027), ("nl-BE", r"[$-813]d\ mmm\ yyyy", 46027),
+    ("it-IT", r"[$-410]d\ mmm\ yyyy", 46027),
+])
+def test_a_charts_dates_are_kept_in_the_locales_code(toolbox, language, code, first):
+    from lxml import etree
+
+    session = _dated(toolbox, _locale(language))
+    made = ok(call(toolbox, session, "edit_chart", doc="d1", action="add", target="s:256",
+                   box=CHART, chart_type="line", date_format="d mmm yyyy",
+                   **{"from": "d:dated", "columns": ["due", "rating"]})).created[0]
+    read = ok(call(toolbox, session, "edit_chart", doc="d1", target=made, action="read"))
+    assert read.data["categories"] == [first, first + 36, first + 69]
+    deck = session.entry("d1").document
+    chart = deck.shape(made).chart
+    root = etree.fromstring(deck.package.read(chart.part))
+    ns = {"c": "http://schemas.openxmlformats.org/drawingml/2006/chart"}
+    assert root.xpath("string(//c:cat//c:formatCode)", namespaces=ns) == code
+    assert root.xpath("string(//c:catAx/c:numFmt/@formatCode)", namespaces=ns) == code
+    assert root.xpath("string(//c:catAx/c:auto/@val)", namespaces=ns) == "0"
+    assert chart.workbook_values()["categories"] == [first, first + 36, first + 69]
+    # set_values from the same rows matches the dates kept as serials.
+    ok(call(toolbox, session, "edit_chart", doc="d1", target=made, action="set_values",
+            series="rating", **{"from": "d:dated", "columns": ["due", "rating"]}))
+    read = ok(call(toolbox, session, "edit_chart", doc="d1", target=made, action="read"))
+    assert read.data["series"][0]["values"] == [3.5, 4, 1.25]

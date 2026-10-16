@@ -6,6 +6,28 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Date formats (round 6, R9; ooxml-edit 0.38.0, `ooxml_edit.dates`). Excel's date tokens
+  (`d dd ddd dddd m mm mmm mmmm mmmmm yy yyyy`, either case), everything else written as
+  given; month and day names measured in Excel for Mac, 2026-10-16, for en-US, en-GB,
+  nl-NL, nl-BE, de-DE, fr-FR, es-ES and it-IT; another locale refuses a name token and
+  takes the numeric ones.
+  - A reference in any text tool takes a date pattern: `{{d:events/#1/when:d mmmm yyyy}}`
+    is `2 March 2026`, `2 maart 2026` in nl-BE; `:dd/mm/yyyy` is `02/03/2026` in every
+    locale (fixed text). A date pattern on a non-date and a number format on a date are
+    refused, naming the other. The prompt says so in one clause.
+  - `ppt_add_table` and `ppt_edit_table`'s `set_cells` from take `date_format`: the dates
+    of the columns placed in that pattern; refused without `from`, or when no column placed
+    holds a date.
+  - `edit_chart` add from takes `date_format`: the category dates are kept as dates (serials)
+    in the pattern's Excel code for the session's locale (`[$-813]d\ mmm\ yyyy`), in the
+    chart and in its workbook, on a text axis (one band per date); PowerPoint shows the
+    code's `/` as the viewer's date separator and the names by the prefix (measured).
+    `set_values` and `add_series` from match a date column to such categories. Not yet
+    drawn by pptx2svg: `render` shows the serials (46083), as `edit_chart read` lists them.
+  - Without a pattern nothing changes: dates are written in the locale's day order.
+  - Definitions: +84 estimated tokens to every definition (12,506 -> 12,590), none to the
+    core (3,560); the guard rises to 12,595. The strict set is unchanged.
+
 - Slide numbers by reference (round 6, R8): `{{slide:s:262}}` -- or `{{slide:$results}}`,
   a ref to a slide -- in any text tool's text (`ppt_set_text`, `ppt_add_shape`, a table's
   `data` and `set_cells`, `replace_text`'s `replace`) writes that slide's number, kept

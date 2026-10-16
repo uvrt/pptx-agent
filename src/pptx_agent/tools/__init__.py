@@ -106,7 +106,8 @@ runs, bullets and frame. To size a box, measure first: ppt_add_shape with measur
 and the spec and preset (or like) the shape will get adds nothing and returns box_height; \
 or set fit_height when adding.
 - A figure from a dataset or table goes into text as {{d:<id>/<key>/<column>}} or \
-{{t:<table>/<key>/<column>}}, :0.0 after it to round: the tool writes the value in the \
+{{t:<table>/<key>/<column>}}, :0.0 after it to round, a date pattern such as :d mmmm yyyy \
+for a date: the tool writes the value in the \
 locale and keeps its source. {{slide:s:<id>}} writes that slide's number, kept current as \
 slides are added, moved or deleted.
 - checks name shapes: overflows, collisions, off_slide. within_allowance is not an \
