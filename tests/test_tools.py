@@ -1069,7 +1069,7 @@ def test_an_empty_paragraphs_list_beside_text_is_left_out(toolbox, session):
     assert shape.text_frame.text == "Last"
     both = call(toolbox, session, "ppt_set_text", doc="d1", items=[
         {"target": "$box1", "text": "a", "paragraphs": [{"runs": [{"text": "b"}]}]}])
-    assert both.error.message == "give text or paragraphs, not both"
+    assert both.error.message.startswith("text and paragraphs say different things")
 
 
 def test_a_key_on_set_text_says_setters_are_safe_to_repeat(toolbox, session):
@@ -1093,19 +1093,119 @@ def test_office_theme_colour_names_are_read_as_scheme_colours(toolbox, session):
     assert "tx1" in error.message and "text1" in error.message
 
 
-def test_a_ref_name_with_capitals_is_refused_with_one_that_would_do(toolbox, session):
+def test_a_ref_name_that_is_none_is_refused_with_one_that_would_do(toolbox, session):
     shapes = len(session.entry("d1").document.slides[0].shapes)
     error = call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
         {"preset": "rect", "box": {"x": 0, "y": 0, "w": 90, "h": 90}, "text": "a",
-         "ref": "catChart"}]).error
+         "ref": "cat chart"}]).error
     assert error.code == "invalid_arguments" and error.field == "ref"
     assert "lowercase letter" in error.message and "'cat_chart'" in error.message
     assert len(session.entry("d1").document.slides[0].shapes) == shapes   # rolled back
     # On a valid edit_chart add too.
     error = call(toolbox, session, "edit_chart", doc="d1", action="add", target="s:256",
                  box={"x": 40, "y": 100, "w": 300, "h": 200}, chart_type="column",
-                 categories=["A"], data=[{"name": "S", "values": [1]}], ref="catChart").error
+                 categories=["A"], data=[{"name": "S", "values": [1]}], ref="cat chart").error
     assert error.field == "ref" and "'cat_chart'" in error.message
+
+
+# -- forgiving the model's small mistakes (round 6: R2, R3, R4, R7) -------------------------------
+
+
+def test_a_camel_case_or_hyphenated_ref_is_folded_where_defined_and_used(toolbox, session):
+    made = _box_shape(toolbox, session, text="Now", ref="recNow")
+    assert made.refs == {"rec_now": made.created[0]}
+    assert "ref 'recNow' read as 'rec_now': write $rec_now" in made.warnings
+    result = ok(call(toolbox, session, "ppt_set_text", doc="d1",
+                     items=[{"target": "$recNow", "text": "Later"}]))
+    assert result.warnings == ["items[0].target '$recNow' read as '$rec_now'"]
+    assert session.entry("d1").document.shape(made.created[0]).text_frame.text == "Later"
+    chart = ok(call(toolbox, session, "edit_chart", doc="d1", action="add", target="s:256",
+                    box={"x": 40, "y": 300, "w": 300, "h": 150}, chart_type="column",
+                    categories=["A"], data=[{"name": "S", "values": [1]}], ref="scale-note"))
+    assert list(chart.refs) == ["scale_note"]
+
+
+def test_a_folded_ref_that_names_another_shape_is_refused(toolbox, session):
+    first = _box_shape(toolbox, session, text="One", ref="rec_now")
+    shapes = len(session.entry("d1").document.slides[0].shapes)
+    error = call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 90, "h": 90}, "text": "Two",
+         "ref": "recNow"}]).error
+    assert error.code == "invalid_arguments" and error.field == "ref"
+    assert f"already names {first.created[0]}" in error.message
+    assert len(session.entry("d1").document.slides[0].shapes) == shapes   # rolled back
+    assert session.entry("d1").refs == {"rec_now": first.created[0]}
+
+
+def test_a_namespaced_tool_in_a_batch_runs(toolbox, session):
+    made = _box_shape(toolbox, session, text="Plan")
+    result = ok(call(toolbox, session, "batch", ops=[
+        {"tool": "functions.ppt_set_text",
+         "arguments": {"doc": "d1", "items": [{"target": "$box1", "text": "Done"}]}}]))
+    assert result.warnings[0] == "ops[0]: tool 'functions.ppt_set_text' read as 'ppt_set_text'"
+    assert result.data["ops"][0]["tool"] == "ppt_set_text"
+    assert session.entry("d1").document.shape(made.refs["box1"]).text_frame.text == "Done"
+
+
+def test_text_and_paragraphs_that_say_the_same_use_the_paragraphs(toolbox, session):
+    paragraphs = [{"runs": [{"text": "Plan ", "bold": True}, {"text": "A"}]},
+                  {"runs": [{"text": "Next\vstep"}]}]
+    made = _box_shape(toolbox, session, text="Plan A\nNext\vstep", paragraphs=paragraphs)
+    assert made.warnings == ["items[0]: text and paragraphs say the same; paragraphs used "
+                             "-- give one of them"]
+    shape = session.entry("d1").document.shape(made.refs["box1"])
+    assert shape.text_frame.paragraph(0).run(0).bold is True
+    result = ok(call(toolbox, session, "ppt_set_text", doc="d1", items=[
+        {"target": "$box1", "text": "Go", "paragraphs": [{"runs": [{"text": "Go",
+                                                                    "italic": True}]}]}]))
+    assert result.warnings == ["items[0]: text and paragraphs say the same; paragraphs used "
+                               "-- give one of them"]
+    assert shape.text_frame.text == "Go" and shape.text_frame.paragraph(0).run(0).italic
+    measured = ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256",
+                       measure=True, items=[{"preset": "rect", "text": "Go",
+                                             "paragraphs": [{"runs": [{"text": "Go"}]}],
+                                             "box": {"x": 0, "y": 0, "w": 200, "h": 0}}]))
+    assert measured.warnings[0].startswith("items[0]: text and paragraphs say the same")
+
+
+def test_text_and_paragraphs_that_differ_are_refused_saying_how(toolbox, session):
+    _box_shape(toolbox, session, text="Plan")
+    error = call(toolbox, session, "ppt_set_text", doc="d1", items=[
+        {"target": "$box1", "text": "Plan A\nNext", "paragraphs": [
+            {"runs": [{"text": "Plan B"}]}, {"runs": [{"text": "Next"}]}]}]).error
+    assert error.field == "items[0].paragraphs"
+    assert error.message == ("text and paragraphs say different things (paragraph 1: text "
+                             "has 'Plan A', paragraphs[0] 'Plan B'): give paragraphs alone "
+                             "to state the formatting, or text alone")
+    error = call(toolbox, session, "ppt_set_text", doc="d1", items=[
+        {"target": "$box1", "text": "One\nTwo", "paragraphs": [{"runs": [{"text": "One"}]}]}]
+                 ).error
+    assert "text has 2 paragraph(s) split at \\n, paragraphs 1" in error.message
+
+
+def test_a_key_one_level_off_says_where_it_belongs(toolbox, session):
+    error = call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "other", "box": {"x": 0, "y": 0, "w": 9, "h": 9,
+                                    "preset_name": "star7"}}]).error
+    assert error.field == "items[0].box.preset_name"
+    assert error.message == ("unknown argument 'items[0].box.preset_name'; preset_name "
+                             "belongs one level up, on items[0], not in box")
+    error = call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+        {"preset": "rect", "box": {"x": 0, "y": 0, "w": 9}, "h": 9}]).error
+    assert "h belongs one level down: items[0].box.h" in error.message
+
+
+def test_format_text_reads_top_and_bottom_as_paragraph_spacing(toolbox, session):
+    made = _box_shape(toolbox, session, text="Plan")
+    result = ok(call(toolbox, session, "ppt_format_text", doc="d1", items=[
+        {"target": "$box1", "top": 6, "bottom": 3}]))
+    assert result.warnings == ["items[0].top read as space_before",
+                               "items[0].bottom read as space_after"]
+    paragraph = session.entry("d1").document.shape(made.refs["box1"]).text_frame.paragraph(0)
+    assert (paragraph.space_before, paragraph.space_after) == (6 * 12700, 3 * 12700)
+    # The aliases cost nothing: the definition is the same.
+    sent = [d for d in toolbox.definitions("anthropic") if d["name"] == "ppt_format_text"][0]
+    assert "top" not in sent["input_schema"]["properties"]["items"]["items"]["properties"]
 
 
 def test_a_preset_called_rectangle_says_did_you_mean_rect(toolbox, session):

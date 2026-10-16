@@ -6,6 +6,23 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Forgiving the model's small mistakes (round 6, R2, R3, R4, R7), each read with a line in
+  the result's `warnings` and no change to any definition:
+  - Text and paragraphs together (`ppt_set_text`, `ppt_add_shape`, measuring too): when
+    the paragraphs' text -- runs joined, paragraphs by `\n`, as they are written -- is
+    `text`, the paragraphs are used ("items[0]: text and paragraphs say the same;
+    paragraphs used -- give one of them"); when it is not, the refusal says where they part
+    ("paragraph 1: text has 'Plan A', paragraphs[0] 'Plan B'", or the paragraph counts).
+    `tools.common.one_text`, `paragraphs_text`.
+  - `ppt_format_text` reads an item's `top` as `space_before` and `bottom` as
+    `space_after` ("items[11].top read as space_before"): an item has no other top or
+    bottom (the frame's are `insets.top` and `anchor`).
+  - From ooxml-edit 0.35.0, tested here: a ref named `recNow` or `scale-note` is kept as
+    `rec_now` / `scale_note`, `$recNow` read as `$rec_now` (refused when the folded name
+    already names another shape); `functions.ppt_set_text` as an op's `tool` in a batch;
+    a key one level off says where it belongs (`items[0].box.preset_name`: "preset_name
+    belongs one level up, on items[0], not in box").
+
 - SVG recolouring as PowerPoint writes it (round 5, T20b). A second round of measurements
   on PowerPoint for Mac (2026-10-15) covered what T20 left out; `Shape.recolor` now writes
   what PowerPoint writes in each case:
