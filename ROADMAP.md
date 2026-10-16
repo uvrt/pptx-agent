@@ -94,6 +94,7 @@ inputs, plus 63 opt-in PowerPoint oracle tests.
 | Brand assets and recolouring: an application's asset catalogue (`deck_format(assets=...)`, a folder with a JSON or CSV index or its own object) searched with `ppt_find_asset` and placed by id with `ppt_add_picture` `asset`, sent only with a catalogue (ooxml-edit 0.34.0); an SVG picture recoloured as PowerPoint's Graphics Fill and Outline (`Shape.recolor`, `ppt_set_shape` `fill` and `line`): every theme slot's class, outline shapes filled, outline colour and weight, style sheets carried over, a shared picture split, transparency, gradients and `use` | Complete (round 5, T20, T20b); tints and shades of a theme colour not measured (written as their value) |
 | Figures in text keep their source: references (`{{d:by_topic/door/mean:0.0}}`, `{{t:...}}`) in the text tools, written in the session's locale, listed in the result and kept as facts in the shape's tags part (`UVRT_TEXT_FACTS`), read by `Document.provenance()` while their text is where they say (ooxml-edit 0.33.0) | Complete (round 5, T4); PowerPoint keeping a tag on a `p:sp` not measured |
 | Forgiving input: text and paragraphs that say the same use the paragraphs (refused, saying where, when they differ); `ppt_format_text` reads `top`/`bottom` as paragraph spacing; refs in camelCase or with hyphens folded to snake_case, namespaced tool names in a batch and keys one level off pointed to their level (ooxml-edit 0.35.0) | Complete (round 6, R2, R3, R4, R7) |
+| Slides by id in every `slides` list (`s:278`, `$ref`; ppt_read_slides, ppt_edit_master, ppt_comments, find_text, replace_text, as render and check), a bare id or position where the other is meant refused with the way to write it; slide ids past 2147483647 continue from 256 as PowerPoint does, none reused in the session (measured) | Complete (round 6, R6, R12) |
 | Groups: addressable children, child-space moves, grouping, PowerPoint-style refit | Complete (E1) |
 | Ungrouping, with transforms composed into the parent | Complete (E2) |
 | Delete, duplicate, z-order (front, back, one step forward or back) | Complete (steps: E5) |
@@ -451,7 +452,12 @@ typefaces, character spacing and highlight, cell margins, effects.
   workbooks, diagrams and anything unknown; it renews `p14:creationId`. New `sldId`s are one
   above the largest the `Document` has seen since it was opened -- a deleted slide's
   included, so an id is never handed out twice while the deck is open (undo and rolled-back
-  batches included) -- at least 256 and at most 2,147,483,647 (`ST_SlideId`). That differs
+  batches included) -- at least 256 and at most 2,147,483,647 (`ST_SlideId`). Near the top
+  of the range new ids continue from 256 (the lowest free, none handed out or deleted in
+  the session) after 2,147,483,647 is taken, exactly as PowerPoint does, and no existing
+  slide is renumbered (measured 2026-10-16, round 6, R12: PowerPoint takes the largest + 1
+  while that is at most 2,147,483,647, then the lowest free id from 256; 2147483641 and
+  twelve new slides give 2147483642...2147483647, 256...261). That differs
   on purpose from PowerPoint, which reuses a deleted top `sldId` in the session (measured,
   below). Sections are kept a partition of the slide list
   in order (no fixture has sections, so the tests add them).
@@ -854,6 +860,7 @@ saving each deck and reading the XML. The two id rows were measured on 2026-10-1
 | Ids | `a16:creationId` GUID on every new shape, `p14:modId` on a table | this library's stamp instead |
 | `cNvPr@id` (2026-10-15) | the lowest id from 2 not taken, where taken is every id on the slide when it was opened and every id handed out or deleted since: delete 6 of 2..6 and add, 7; of 2, 3 and 7 add four, 4, 5, 6 and 8; of 10, 20, 30 add two, 2 and 3. After a save and reopen only the ids in the file count. Nothing is stored in the file; a `pa:id` stamp is ignored (and kept) | the same, for the `Document`'s lifetime: an id undone or rolled back stays taken, a layout's and a master's shapes likewise, a scratch copy carries the deck's on; a numeric stamp is taken too |
 | `sldId` (2026-10-15) | the highest live `sldId` + 1, gaps not filled: delete 258 of 256..258 and add, 258 again; delete 257, 259. Nothing stored | one above the highest seen since the deck was opened (259 in both), so a deleted slide's id is never another's while it is open; after a reopen, PowerPoint's rule |
+| `sldId` near the top (2026-10-16, round 6) | the largest + 1 while at most 2147483647, then the lowest free id from 256; never renumbers (add, duplicate, save, reopen): 2147483641 + 12 new slides, 2147483642...2147483647, 256...261; 2147483640 and 2147483646 + 12, 2147483647, 256...266; a deleted low id is handed out again | the same order; past the top the lowest id from 256 neither in use nor seen in the session, so a deleted one is not handed out again while the deck is open |
 | Bring forward / send backward | one step past the next (previous) shape, overlapping or not | same |
 | On re-save | an attached connector's frame, `stCxn` and `endCxn` kept as written | -- |
 
