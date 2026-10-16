@@ -84,7 +84,7 @@ def save_document(call, doc, name, format):
 #: The fit, collision, empty-placeholder and small-text facts ``save_document`` reports
 #: when any are left.
 UNRESOLVED = ("overflows", "collisions", "off_slide", "empty_placeholders", "small_text",
-              "missing_slides")
+              "chart_title_font", "missing_slides")
 #: At most this many of each kind are listed.
 UNRESOLVED_LISTED = 20
 
@@ -101,6 +101,9 @@ def unresolved(deck) -> dict[str, Any]:
             left[kind] = entries[:UNRESOLVED_LISTED]
             if len(entries) > UNRESOLVED_LISTED:
                 left[f"{kind}_total"] = len(entries)
+    if left.get("chart_title_font"):
+        # Its entries are a chart and a call; the note says why the call is wanted.
+        left["chart_title_font_note"] = found["chart_title_font_note"]
     return left
 
 
@@ -402,7 +405,8 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
     if notes:
         data = {**data, "notes": notes}
     count = sum(len(data.get(k) or []) for k in ("overflows", "collisions", "off_slide",
-                                                  "small_text", "missing_slides"))
+                                                  "small_text", "chart_title_font",
+                                                  "missing_slides"))
     new = len((data.get("validate") or {}).get("new") or [])
     return Result(summary=f"{count} fit/collision fact(s), {new} new validation problem(s)",
                   data=data)

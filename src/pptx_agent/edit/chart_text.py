@@ -25,6 +25,20 @@ size here is the size a render shows:
   at 10, 12, 13 and 29 pt, bold; none at 18 pt; an unsized title ``c:txPr`` changed
   nothing.  A rich title with no size anywhere stays 18 pt, whatever the chart-wide size.
 
+**A rich chart title that states no font** -- no paragraph ``a:defRPr`` and no face on its
+runs (``ooxml_common.chart.layout.title_states_no_font``) -- is drawn by PowerPoint in
+**Arial**, regular, at the run's size or 18 pt, not in the theme's font a text box gets,
+whatever the chart-wide ``c:txPr`` names (measured on PowerPoint 16 for Mac, 2026-10-16,
+as pptx2svg draws it).  :func:`unstated_title_fonts` lists each such chart with the one
+``edit_chart`` call that states it: ``set_text_style``, part ``title``, font ``+mn-lt`` (the
+theme's body font, a reference rather than a name), ``bold`` false and, where the title
+states no size, the size ``edit_chart add`` writes for a new chart's title (ooxml-edit's
+``POWERPOINT_LOOK``, 18.62 pt).  ``bold`` false is needed: the call writes a paragraph
+``a:defRPr``, and a title with one is drawn **bold** unless ``b="0"`` is stated (measured:
+``+mn-lt`` and 18.62 pt without ``b`` came out Aptos bold).  A title that has paragraph
+defaults is drawn in the theme's face already and is not listed.  Nothing is changed by
+itself.
+
 What is checked is what PowerPoint shows: a title the chart states (its text, or the
 automatic one), axes not deleted and with tick labels, data labels that show something, a
 legend that is there.
@@ -36,10 +50,12 @@ from dataclasses import dataclass
 from xml.etree import ElementTree
 
 from lxml import etree
-from ooxml_common.chart.layout import DEFAULT_CHART_FONT_PT, powerpoint_auto_title_size
+from ooxml_common.chart.layout import (DEFAULT_CHART_FONT_PT, powerpoint_auto_title_size,
+                                       title_states_no_font)
 from ooxml_common.chart.read import AXIS_ELEMENTS, parse_chart_space
 from ooxml_common.drawingml.read_text import parse_text_body
 from ooxml_common.xmlutil import child, local_name
+from ooxml_edit.charts import POWERPOINT_LOOK
 
 from ..oxml.xml import qn
 from . import inherit
@@ -64,9 +80,15 @@ class ChartText:
     source: str
 
 
-def chart_text(shape) -> list[ChartText]:
-    """The text a chart shape shows, one :class:`ChartText` per piece, in :data:`PARTS`
-    order; ``[]`` for a shape without a readable chart."""
+#: The theme's body font, as ``edit_chart``'s ``style.font`` names it.
+THEME_FONT = "+mn-lt"
+#: The size ``edit_chart add`` writes for a new chart's title, in points (ooxml-edit's
+#: ``POWERPOINT_LOOK``: 18.62, measured on PowerPoint's new chart).
+NEW_TITLE_SIZE = POWERPOINT_LOOK.title / 100
+
+
+def _read(shape):
+    """``(chart space element, SourceChart)`` of a chart shape, or ``None``."""
     from ooxml_edit.charts.host import chart_part
 
     from .chart import graphic_host
@@ -75,12 +97,59 @@ def chart_text(shape) -> list[ChartText]:
     part = chart_part(host)
     root = host.package.tree(part) if part else None
     if root is None:
-        return []
+        return None
     # ooxml-common reads the standard library's tree; a copy keeps lxml's comments out.
     space = ElementTree.fromstring(etree.tostring(root))
     chart = parse_chart_space(space)
-    if chart is None:
+    return None if chart is None else (space, chart)
+
+
+def title_font_fix(address: str, shape) -> dict | None:
+    """The ``edit_chart`` call that states the font of a chart's shown rich title that
+    states no face (see the module's notes), or ``None``."""
+    read = _read(shape)
+    if read is None:
+        return None
+    chart = read[1]
+    if chart.auto_title_deleted or chart.title is None or not chart.title.plain:
+        return None
+    if not title_states_no_font(chart):
+        return None
+    style: dict = {"font": THEME_FONT}
+    if not _states_size(chart.title.rich):
+        style["size"] = NEW_TITLE_SIZE
+    style["bold"] = False
+    return {"action": "set_text_style", "target": address, "part": "title", "style": style}
+
+
+def _states_size(rich) -> bool:
+    """Whether a title's runs state a size (its paragraphs state no defaults: see
+    :func:`title_font_fix`)."""
+    return any(run.properties is not None and run.properties.font_size
+               for paragraph in rich.paragraphs for run in paragraph.runs)
+
+
+def unstated_title_fonts(slide) -> list[dict]:
+    """``chart_title_font``: each chart on ``slide`` whose title states no font, with the
+    ``edit_chart`` call that states it (``fix``), one entry per chart."""
+    from .fit import _flatten
+
+    out = []
+    for shape in _flatten(slide.shapes):
+        if shape.kind == "graphic_frame" and shape.has_chart:
+            fix = title_font_fix(shape.id, shape)
+            if fix is not None:
+                out.append({"chart": shape.id, "fix": fix})
+    return out
+
+
+def chart_text(shape) -> list[ChartText]:
+    """The text a chart shape shows, one :class:`ChartText` per piece, in :data:`PARTS`
+    order; ``[]`` for a shape without a readable chart."""
+    read = _read(shape)
+    if read is None:
         return []
+    space, chart = read
     chart_size = _txpr(chart.text_properties)
     styles = _master_styles(shape)
     out: list[ChartText] = []
@@ -226,4 +295,5 @@ def _title_sizes(title, txpr_node, styles, what: str) -> list[tuple[float, str]]
     return list(found)
 
 
-__all__ = ["PARTS", "TITLE_DEFAULT", "ChartText", "chart_text"]
+__all__ = ["NEW_TITLE_SIZE", "PARTS", "THEME_FONT", "TITLE_DEFAULT", "ChartText", "chart_text",
+           "title_font_fix", "unstated_title_fonts"]
