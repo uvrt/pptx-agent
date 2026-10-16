@@ -167,6 +167,20 @@ cells), each with its place -- `p`, `at`, a table's `cell` -- and `Document.prov
 lists them under the shape's address (`facts`) while their text is where they say: an edit
 drops the facts it touches and moves the rest. `\{{` writes a reference literally.
 
+A slide's number is a reference too: `{{slide:s:262}}` (or `{{slide:$results}}`, a ref to a
+slide) writes the number that slide's slide-number field shows -- its position plus
+`firstSlideNum` minus one, hidden slides counted -- and keeps it as a fact (`source`
+`slide:s:262`, `slide` 262). After every change to the slide order (adding, deleting,
+moving, duplicating slides; a batch at its end) the deck rewrites the numbers that moved,
+in the same undo step, and the checks list them (`slide_numbers`: `shape`, `slide`,
+`text`, `was`); `save_document` and `Document.save` rewrite them all first, which catches a
+deck PowerPoint reordered. A reference whose slide was deleted keeps its last number, is
+marked `gone` (a later slide with the same id is never taken for it) and is listed as
+`missing_slides` by `check` and `save_document`. `{{slide:3}}` is refused with the slide
+that is number 3. PowerPoint has no field that shows another slide's number: in a deck
+edited in PowerPoint the numbers are plain text and stay stale until this library next
+saves it (`pptx_agent.edit.slidenumbers`).
+
 ### Measuring a table before placing it
 
 `ppt_add_table` with `measure: true` builds nothing: it takes the same arguments as an add

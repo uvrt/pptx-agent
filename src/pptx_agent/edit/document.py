@@ -3236,6 +3236,12 @@ class Document(CommentOps):
         self._slide_id_high: int | None = None
         #: Every ``sldId`` seen (the file's and those handed out), for the ids past the top.
         self._slide_ids_seen: set[int] = set()
+        #: The slide order the slide-number facts were last kept for
+        #: (:func:`.slidenumbers.order`); ``None``: not known (no slide list).
+        self._numbered = self._slide_order()
+        #: What keeping them changed since the tool layer last took it
+        #: (:func:`.slidenumbers.keep_current`'s entries), oldest first.
+        self.slide_numbers_kept: list[dict] = []
 
     # -- lifecycle -------------------------------------------------------------------------
 
@@ -3307,7 +3313,8 @@ class Document(CommentOps):
         PowerPoint refuses a file whose extension and declared type disagree, so a template
         opened with :meth:`open` and saved as ``.pptx`` is saved as a presentation.  A
         macro-enabled deck saves only as ``.pptm`` or ``.potm``.  A path with another
-        extension keeps the type the deck has.
+        extension keeps the type the deck has.  Slide numbers written by reference are
+        brought up to date first (:meth:`update_slide_numbers`).
 
         For example::
 
@@ -3317,6 +3324,7 @@ class Document(CommentOps):
 
         kind = target_kind(target)
         macro, template = (None, None) if kind is None else kind
+        self.update_slide_numbers()
         self.package.save(target, self._replacements(template=template, macro=macro))
 
     def save_as_template(self, target: str | os.PathLike[str]) -> None:
@@ -3334,6 +3342,7 @@ class Document(CommentOps):
         if kind is not None and not kind[1]:
             raise ValueError(f"a template is saved as .potx (or .potm), not "
                              f"{os.path.splitext(os.fspath(target))[1]}; use save() for a deck")
+        self.update_slide_numbers()
         self.package.save(target, self._replacements(
             template=True, macro=None if kind is None else kind[0]))
 
@@ -4034,14 +4043,55 @@ class Document(CommentOps):
                 deck.shape("256.13").set_text("4,310")
                 deck.shape("256.17").set_text("520")
         """
+        outermost = not self.history.in_batch
         try:
             with self.history.batch():
                 yield
+                if outermost:
+                    self._keep_slide_numbers()
         except Exception:
             # The rollback reparsed the edited parts, so cached elements are stale.
             if not self.history.in_batch:
                 self._reset_caches()
             raise
+
+    def _slide_order(self):
+        from . import slidenumbers
+
+        try:
+            return slidenumbers.order(self)
+        except ValueError:                      # no presentation part
+            return None
+
+    def _keep_slide_numbers(self, *, always: bool = False) -> list[dict]:
+        """Rewrite the slide-number facts when the slide order changed since they were last
+        kept (``always``: whether it did or not), inside the open undo step; what changed
+        (:mod:`.slidenumbers`)."""
+        from . import slidenumbers
+
+        now = self._slide_order()
+        if now is None or (now == self._numbered and not always):
+            return []
+        changes = slidenumbers.keep_current(self)
+        self._numbered = now
+        self.slide_numbers_kept.extend(changes)
+        del self.slide_numbers_kept[:-200]          # a library caller never takes them
+        return changes
+
+    def update_slide_numbers(self) -> list[dict]:
+        """Write every slide number a text holds by reference (``{{slide:s:262}}``, kept as a
+        text fact) as its slide's number now, whatever changed it -- PowerPoint moving
+        slides included -- as one undo step; what changed, each ``{"shape", "slide",
+        "text", "was"}`` (or ``"gone": true`` for a slide that is no longer there).  The
+        deck does this by itself after every change to its slide order and on
+        :meth:`save` (:mod:`pptx_agent.edit.slidenumbers`).
+
+        For example::
+
+            deck.update_slide_numbers()          # [{'shape': '256.3', 'slide': 's:262', ...}]
+        """
+        with self.batch():
+            return self._keep_slide_numbers(always=True)
 
     def undo(self) -> bool:
         """Undo the last edit or batch; ``False`` when there is nothing to undo.

@@ -81,6 +81,7 @@ from ooxml_edit.tools import CORE, DocumentFormat, ToolGroup, shared
 from ..edit.chart import ChartDataError, ChartDataWarning
 from ..edit.deck import TemplateOpenedWarning
 from ..edit.labels import LabelError
+from ..edit import slidenumbers as _slidenumbers
 from ..edit.provenance import ProvenanceWarning
 from ..edit.text import MarkdownEscapeWarning
 from ..edit.units import UnitWarning
@@ -88,6 +89,7 @@ from ..fullstate import FullStateError
 from ..outline import OutlineWarning
 from . import charts, facts, read, review, shapes, shared_tools, slides, tables, text
 from .common import KIND, checks, pt
+from .textfacts import slide_number
 
 PROMPT = """\
 PowerPoint decks
@@ -105,7 +107,8 @@ and the spec and preset (or like) the shape will get adds nothing and returns bo
 or set fit_height when adding.
 - A figure from a dataset or table goes into text as {{d:<id>/<key>/<column>}} or \
 {{t:<table>/<key>/<column>}}, :0.0 after it to round: the tool writes the value in the \
-locale and keeps its source.
+locale and keeps its source. {{slide:s:<id>}} writes that slide's number, kept current as \
+slides are added, moved or deleted.
 - checks name shapes: overflows, collisions, off_slide. within_allowance is not an \
 overflow. A line behind an opaque shape is not a collision: send a marker line behind \
 bars rather than splitting it. checks.layout: shapes you touched that almost line up, \
@@ -204,7 +207,8 @@ FORMAT = DocumentFormat(
     undo_scope=_slide_scope, undo_shared=_template_parts,
     restored=lambda deck: deck._reset_caches(),
     configure=_configure,
-    store_provenance=tables.store_provenance, read_provenance=tables.read_provenance)
+    store_provenance=tables.store_provenance, read_provenance=tables.read_provenance,
+    own_facts={_slidenumbers.PREFIX: slide_number})
 
 def deck_format(*, min_text_size: "float | dict[str, float] | None" = None,
                 assets=None) -> DocumentFormat:

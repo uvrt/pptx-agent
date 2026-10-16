@@ -15,6 +15,8 @@ What a copy keeps and what it changes:
   and imported (once, by content) into another; charts with their embedded workbooks and
   SmartArt diagrams are per-shape state and copied, as :meth:`Document.duplicate_slide`
   copies them; a link to another slide cannot go to another deck and is refused;
+  slide numbers written by reference (``{{slide:s:262}}``) stay as text but are no longer
+  kept current there, since the ids are the source deck's (:mod:`.slidenumbers`);
 * a placeholder becomes a plain shape, with the geometry it inherited written out and each
   run's effective size stated;
 * a shape copied out of a group lands on the slide at the place it was drawn;
@@ -150,6 +152,10 @@ def copy_shapes(shapes: "Sequence[Shape]", to_slide: "Slide | None" = None, *,
                 _state_sizes(shape, copied)
         for entry in result.dropped_glue:
             entry["connector"] = target._wrap(entry["connector"]).id
+        if source.document is not document:
+            from .slidenumbers import drop
+
+            drop(result.shapes)         # their slide numbers name the other deck's slides
         target._settle()
     return result
 
