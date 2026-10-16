@@ -6,6 +6,37 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A minimum text size per kind, tables grouped, chart text checked (round 6, R1). 380 of
+  402 `small_text` entries in a 46-slide deck were table cells the brief allowed smaller.
+  - `deck_format(min_text_size=...)` also takes a mapping, `{"body": 12, "table": 10,
+    "chart": 10}`: `body` the text of shapes, text boxes and placeholders, `table` table
+    cells', `chart` a chart's title, axis titles, axis labels, data labels and legend. A
+    kind the mapping leaves out (or gives `None`) is not checked; an unknown kind, an
+    empty mapping or a size outside 1 to 400 is refused when the format is made, naming
+    the kinds. One number is every kind's minimum, as before -- charts included now.
+  - `small_text` lists a table once: `{"table": "257.4", "cells": 30, "size": 9.0,
+    "min": 10, "from": "the run"}` -- how many cells are below, the smallest size and where
+    it comes from (the smallest, since it is what has to rise). A chart once, each part's
+    smallest size, the part as `edit_chart`'s `set_text_style` takes it: `{"chart":
+    "257.5", "min": 10, "parts": [{"part": "axis_labels", "size": 8.0, "from": "the
+    chart's text properties"}]}`. A shape's entries stay one per size and source. The
+    note names each kind's minimum, `(body 12 pt, table 10 pt, chart 10 pt)`, and says how
+    a table's and a chart's entry read; `check`, the checks after every change and
+    `save_document`'s `unresolved` all list it so.
+  - Chart text sizes from the chart part (`pptx_agent.edit.chart_text`), the cascade
+    pptx2svg draws with (`ooxml_common.chart.layout`): axis labels, the legend and data
+    labels take the innermost `c:txPr` (a point's label, its series', the chart group's;
+    the axis', the legend's), then the chart space's, then 10 pt; a title or axis title
+    is DrawingML text, resolved as a text box's (run, paragraph, its `c:txPr`, its list
+    style, the master's `otherStyle`, the presentation's default, 18 pt). Only what
+    PowerPoint shows is checked: a stated title, axes not deleted and with tick labels,
+    data labels that show something, a legend. A new PowerPoint chart's labels are
+    11.97 pt, so a 12 pt chart minimum lists every new chart.
+  - `Slide.text_below(points)` takes the mapping too and lists chart text;
+    `SmallText` gains `kind`, `shape` (a cell's table) and `part` (a chart's).
+    `effective.text_minimums`, `effective.small_text_json`.
+  - Definitions unchanged: it is the application's setting.
+
 - Slides by id wherever slides are named (round 6, R6). `ppt_read_slides slides:[278]`
   said "no slide 278": slide lists took positions only, render and check ids too.
   - Every `slides` list takes a number from 1, `s:<id>` or a `$ref`: `ppt_read_slides`,

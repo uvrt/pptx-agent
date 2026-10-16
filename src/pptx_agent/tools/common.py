@@ -12,6 +12,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 from ooxml_edit.tools import Param, ToolError, array, boolean, integer, number, obj, string
 
+from ..edit.effective import TEXT_KINDS, small_text_json, text_minimums
 from ..edit.labels import LabelError
 from ..edit.textspec import ParagraphSpec, RunSpec, TextSpec
 from ..edit.units import EMU_PER_POINT, Pt
@@ -451,9 +452,35 @@ NEAR_WRAP_NOTE = ("near_wrap: a line has under 0.16 pt to spare; PowerPoint may 
                   "where this measurement does not: give it a few points")
 
 #: Said with ``small_text`` (the application's ``min_text_size``).
-SMALL_TEXT_NOTE = ("small_text: drawn below the application's minimum of {minimum} pt; "
-                   "from says where the size comes from. Set a size of at least {minimum} "
+SMALL_TEXT_NOTE = ("small_text: drawn below the application's minimum {minimum}; "
+                   "from says where the size comes from. Set a size of at least {at_least} "
                    "on the shape (ppt_format_text), or on the layout or master it inherits from")
+#: Added when a table is listed: what its one entry says.
+SMALL_TABLE_NOTE = ("A table is one entry: how many cells are below its min, the smallest "
+                    "size and where it comes from; format the cells (<table>/cell1,1).")
+#: Added when a chart is listed: what its one entry says, and the way to fix it.
+SMALL_CHART_NOTE = ("A chart is one entry, each part's smallest size: edit_chart "
+                    "set_text_style with that part and style.size.")
+
+
+def small_text_note(minimums: dict[str, float], found: list[dict]) -> str:
+    """:data:`SMALL_TEXT_NOTE` for the application's minimums -- ``of 12 pt`` for one
+    number, ``(body 12 pt, table 10 pt, chart 10 pt)`` per kind -- with the table and chart
+    notes when those are listed."""
+    sizes = set(minimums.values())
+    if len(sizes) == 1 and len(minimums) == len(TEXT_KINDS):
+        points = f"{sizes.pop():g}"
+        note = SMALL_TEXT_NOTE.format(minimum=f"of {points} pt", at_least=points)
+    else:
+        kinds = ", ".join(f"{kind} {points:g} pt" for kind, points in minimums.items())
+        note = SMALL_TEXT_NOTE.format(minimum=f"({kinds})", at_least="its kind's minimum")
+    if any("table" in entry for entry in found):
+        note += ". " + SMALL_TABLE_NOTE
+    if any("chart" in entry for entry in found):
+        note += (" " if note.endswith(".") else ". ") + SMALL_CHART_NOTE
+    return note
+
+
 EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows 'Click to add ...' in an "
                            "empty one while editing (a whitespace-only one shows a stray "
                            "bullet, in the export too); fill them or delete them "
@@ -477,8 +504,8 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
     near_wrap: list[dict] = []
     allowance: list[dict] = []
     empty: list[dict] = []
-    small: list[dict] = []
-    minimum = getattr(deck, "min_text_size", None)
+    small: list = []
+    minimums = text_minimums(getattr(deck, "min_text_size", None))
     for sid in slide_ids:
         try:
             target = deck.slide(f"s:{sid}")
@@ -487,8 +514,8 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
         if "fit" in wanted:
             empty += [{"shape": shape.id, "type": shape.placeholder.type or "content",
                        "idx": shape.placeholder.idx} for shape in target.empty_placeholders()]
-        if "fit" in wanted and minimum:
-            small += [item.to_json() for item in target.text_below(minimum)]
+        if "fit" in wanted and minimums:
+            small += target.text_below(minimums)
         problems, fits = slide_report(target, boxes=boxes)
         for problem in problems:
             if problem.kind == "text" and "fit" in wanted:
@@ -528,8 +555,8 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
             out["empty_placeholders"] = empty
             out["empty_placeholders_note"] = EMPTY_PLACEHOLDERS_NOTE
         if small:
-            out["small_text"] = small
-            out["small_text_note"] = SMALL_TEXT_NOTE.format(minimum=f"{minimum:g}")
+            out["small_text"] = small_text_json(small, minimums)
+            out["small_text_note"] = small_text_note(minimums, out["small_text"])
     if "collisions" in wanted:
         out["collisions"] = collisions
     return out
