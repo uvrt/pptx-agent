@@ -481,6 +481,12 @@ def small_text_note(minimums: dict[str, float], found: list[dict]) -> str:
     return note
 
 
+#: Said with ``chart_title_font`` (:func:`pptx_agent.edit.chart_text.unstated_title_fonts`).
+CHART_TITLE_FONT_NOTE = ("chart_title_font: chart title states no font: PowerPoint draws it in "
+                         "Arial 18 pt, not the theme's font. Run each fix (edit_chart): font "
+                         "+mn-lt is the theme's body font; size 18.62 is what edit_chart add "
+                         "writes for a new title, given where the title states none")
+
 EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows 'Click to add ...' in an "
                            "empty one while editing (a whitespace-only one shows a stray "
                            "bullet, in the export too); fill them or delete them "
@@ -498,9 +504,12 @@ ROWS_NOTE = ("rows_past: a table's rows grow to fit their text and PowerPoint cu
 def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
           include: Iterable[str] = ("fit", "collisions")) -> dict[str, Any]:
     """Fit and collision facts for some slides, in points, from one measurement each; with
-    ``fit``, the empty placeholders too (:meth:`Slide.empty_placeholders`), and the slide
-    numbers written by reference whose slide is gone (``missing_slides``,
+    ``fit``, the empty placeholders too (:meth:`Slide.empty_placeholders`), the charts
+    whose title states no font (``chart_title_font``,
+    :func:`pptx_agent.edit.chart_text.unstated_title_fonts`), and the slide numbers
+    written by reference whose slide is gone (``missing_slides``,
     :func:`pptx_agent.edit.slidenumbers.missing`)."""
+    from ..edit.chart_text import unstated_title_fonts
     from ..edit.fit import slide_report
     from ..edit.slidenumbers import missing
 
@@ -512,6 +521,7 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
     allowance: list[dict] = []
     empty: list[dict] = []
     small: list = []
+    titles: list[dict] = []
     minimums = text_minimums(getattr(deck, "min_text_size", None))
     for sid in slide_ids:
         try:
@@ -523,6 +533,8 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
                        "idx": shape.placeholder.idx} for shape in target.empty_placeholders()]
         if "fit" in wanted and minimums:
             small += target.text_below(minimums)
+        if "fit" in wanted:
+            titles += unstated_title_fonts(target)
         problems, fits = slide_report(target, boxes=boxes)
         for problem in problems:
             if problem.kind == "text" and "fit" in wanted:
@@ -565,6 +577,9 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
         if small:
             out["small_text"] = small_text_json(small, minimums)
             out["small_text_note"] = small_text_note(minimums, out["small_text"])
+        if titles:
+            out["chart_title_font"] = titles
+            out["chart_title_font_note"] = CHART_TITLE_FONT_NOTE
         if gone:
             out["missing_slides"] = gone
             out["missing_slides_note"] = MISSING_SLIDES_NOTE

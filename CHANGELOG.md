@@ -6,6 +6,23 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A chart title that states no font is a check finding (round 6, item 11; ooxml-common
+  0.18.0): `check`, the checks after a change and `save_document`'s `unresolved` list
+  `chart_title_font`, one entry per chart -- `{"chart": "259.4", "fix": {"action":
+  "set_text_style", "target": "259.4", "part": "title", "style": {"font": "+mn-lt",
+  "size": 18.62}}}` -- with a `chart_title_font_note`: "chart title states no font:
+  PowerPoint draws it in Arial 18 pt". Measured on PowerPoint 16 for Mac, 2026-10-16: a
+  rich title with no face and no size in its runs, paragraphs, list style or `c:txPr`
+  (under a chart-wide `c:txPr` naming no face) is drawn 18 pt ArialMT, whatever the
+  theme's font; pptx2svg now draws it so. The fix is the one `edit_chart` call that states
+  it: `+mn-lt`, the theme's body font as a reference, not a name, and -- where the title
+  states no size either -- 18.62 pt, the size `edit_chart add` writes for a new title
+  (ooxml-edit's `POWERPOINT_LOOK`). A title that states a size but no face is listed
+  without a size (what PowerPoint draws it in is not measured; stating the face settles
+  it). Not listed: a new chart's title (it states `+mn-lt`), an automatic title (the
+  theme's minor face, bold: measured), a title naming a face, a deleted one. Nothing is
+  changed by itself. Library: `pptx_agent.edit.chart_text.title_font_fix`,
+  `unstated_title_fonts`. Tool definitions unchanged.
 - `render` takes layouts and masters (round 6, R11; ooxml-edit 0.41.0, pptx2svg's
   `ConvertOptions(templates=...)`): `slides: ["L2", "M0", 1]`, the addresses
   ppt_edit_master and the add tools take, in the order given. A layout is drawn as a new
