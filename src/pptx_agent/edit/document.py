@@ -25,6 +25,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..outline.read import TextBlock
     from .design import DesignFacts
     from .diagram import DiagramNode
+    from .layoutchange import LayoutChange
 
 from lxml import etree
 from ooxml_edit.history import History
@@ -2628,6 +2629,29 @@ class Slide(ShapeFactory):
         from . import templates
 
         return templates.add_layout_placeholder(self, which)
+
+    def set_layout(self, layout: "Layout | str") -> "LayoutChange":
+        """Move this slide onto ``layout`` (a :class:`~pptx_agent.Layout`, its name or
+        ``"L3"``) as PowerPoint's Layout menu does (measured, round 7, A): empty
+        placeholders go and the layout's are added empty; each filled placeholder takes
+        the layout's placeholder of its kind (title; content, body or subtitle; picture),
+        the same type first, both sides in idx order, and *loses its own box* for the
+        layout's, as in PowerPoint -- its text and formatting stay; content with no place
+        on the layout stays where it was drawn (snapped to the nearer side) as an orphan,
+        idx ``4294967295``.  Other shapes and relationships are untouched.  Returns a
+        :class:`~pptx_agent.edit.layoutchange.LayoutChange`: what went where, the orphans
+        and why, the boxes dropped.  See :mod:`pptx_agent.edit.layoutchange`.  One undo
+        step.
+
+        For example::
+
+            change = slide.set_layout("Two Content")
+            change.orphans                       # [('256.4', "no content or text ...")]
+        """
+        from . import layoutchange
+
+        target = layout if isinstance(layout, Layout) else self.document.layout(layout)
+        return layoutchange.set_layout(self, target)
 
     def delete_empty_placeholders(self, *, titles: bool = False) -> list[str]:
         """Delete :meth:`empty_placeholders` that draw nothing of their own; returns the ids

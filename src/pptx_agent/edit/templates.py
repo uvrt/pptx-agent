@@ -402,6 +402,49 @@ def add_placeholder(document: "Document", layout: "Layout", kind: str,
     return sheet._wrap(sp)
 
 
+def empty_placeholder(source: Element, source_ph: Element, shape_id: int,
+                      language: str) -> Element:
+    """A slide's empty copy of layout placeholder ``source`` (its ``p:ph`` ``source_ph``),
+    as PowerPoint writes one when it applies a layout (measured, round 7, A6): the layout
+    placeholder's name, ``noGrp``, its type, orient and idx (no ``type="obj"``, no ``sz``),
+    an empty ``spPr`` (it takes the layout's place and formatting) and a text body with one
+    empty paragraph -- none for a picture or table placeholder.  PowerPoint names it
+    "<kind> N" in its interface language; the layout's name is what a new slide's
+    placeholders get here too."""
+    sp = make("p:sp")
+    nv = make("p:nvSpPr")
+    source_pr = find(source, f"{_nv_of(source)}/p:cNvPr")
+    nv.append(make("p:cNvPr", id=str(shape_id),
+                   name=(source_pr.get("name") if source_pr is not None else None)
+                   or f"Placeholder {shape_id - 1}"))
+    locks = make("p:cNvSpPr")
+    locks.append(make("a:spLocks", noGrp="1"))
+    nv.append(locks)
+    nv_pr = make("p:nvPr")
+    ph = make("p:ph")
+    for attribute in ("type", "orient", "idx"):
+        value = source_ph.get(attribute)
+        if value is not None and not (attribute == "type" and value == "obj"):
+            ph.set(attribute, value)
+    nv_pr.append(ph)
+    nv.append(nv_pr)
+    sp.append(nv)
+    sp.append(make("p:spPr"))
+    if source_ph.get("type") not in NO_TEXT_BODY:
+        body = make("p:txBody")
+        body.append(make("a:bodyPr"))
+        body.append(make("a:lstStyle"))
+        subelement(body, "a:p").append(make("a:endParaRPr", lang=language))
+        sp.append(body)
+    return sp
+
+
+def _nv_of(shape: Element) -> str:
+    from . import inherit
+
+    return inherit._NV[local_name(shape)]
+
+
 def add_layout_placeholder(slide: "Slide", which: "int | str"):
     """See :meth:`Slide.add_layout_placeholder <pptx_agent.Slide.add_layout_placeholder>`."""
     from . import inherit
@@ -431,32 +474,8 @@ def add_layout_placeholder(slide: "Slide", which: "int | str"):
             raise ValueError(f"s:{slide.slide_id} already has the placeholder {which!r}")
     with document.batch():
         document.history.checkpoint()
-        sp = make("p:sp")
-        nv = make("p:nvSpPr")
-        source_pr = find(source, f"{inherit._NV[local_name(source)]}/p:cNvPr")
-        shape_id = slide._next_shape_id()
-        nv.append(make("p:cNvPr", id=str(shape_id),
-                       name=(source_pr.get("name") if source_pr is not None else None)
-                       or f"Placeholder {shape_id - 1}"))
-        locks = make("p:cNvSpPr")
-        locks.append(make("a:spLocks", noGrp="1"))
-        nv.append(locks)
-        nv_pr = make("p:nvPr")
-        ph = make("p:ph")
-        for attribute in ("type", "orient", "idx"):
-            value = source_ph.get(attribute)
-            if value is not None and not (attribute == "type" and value == "obj"):
-                ph.set(attribute, value)
-        nv_pr.append(ph)
-        nv.append(nv_pr)
-        sp.append(nv)
-        sp.append(make("p:spPr"))
-        if source_ph.get("type") not in NO_TEXT_BODY:
-            body = make("p:txBody")
-            body.append(make("a:bodyPr"))
-            body.append(make("a:lstStyle"))
-            subelement(body, "a:p").append(make("a:endParaRPr", lang=_language(document)))
-            sp.append(body)
+        sp = empty_placeholder(source, source_ph, slide._next_shape_id(),
+                               _language(document))
         # In the layout's order among the slide's placeholders, as a re-apply orders them
         # (A7): after the last one the layout has before it, else before the first.
         # Footers, which slides of the layout hold too, count by their place on it.

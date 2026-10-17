@@ -126,6 +126,11 @@ mark, a placeholder's prompt -- lives on the slide master or a layout, not on th
   each), then add the slides on it and fill each box (`ppt_set_text`; a picture with
   `ppt_add_picture target`). They line up by construction; nothing is placed per slide.
   Slides already on the layout get the box only when listed in `slides`.
+- **A finished slide onto another layout is `ppt_manage_slides set_layout`**, PowerPoint's
+  Layout menu: placeholders move by kind and idx and take the new layout's boxes -- a box
+  set on the slide is dropped (`boxes_dropped`), its text formatting kept. Content the
+  layout has no place for comes back in `orphans`; deal with each (move its text into a
+  placeholder, or keep it) before going on.
 - **Every result says which slides an edit `affects`** (`checks.affects`: `{"M0": ["s:256",
   ...]}`) and runs its fit, collision and empty-placeholder checks on all of them -- a longer
   legal line can collide on one slide only. Render one or two of them; the layout itself has

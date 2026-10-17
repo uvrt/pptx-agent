@@ -137,21 +137,23 @@ def ppt_draft_slides(call, doc, markdown, at=None):
 
 
 @tool("ppt_manage_slides",
-      "Duplicate, move or delete a slide, find one by its title, or delete its empty "
-      "placeholders (not a title or one with a fill). Returns the slide order.",
+      "Duplicate, move or delete a slide, find one by its title, delete its empty "
+      "placeholders (not a title or one with a fill), or set_layout as PowerPoint's Layout "
+      "menu. Returns the slide order.",
       {"doc": string("Document id."),
        "action": string("What to do.", enum=["duplicate", "move", "delete", "find_by_title",
-                                             "delete_empty_placeholders"]),
+                                             "delete_empty_placeholders", "set_layout"]),
        "slide": string("The slide, s:256 or $ref.", optional=True),
        "to": integer("move, duplicate: new position from 1. Default after it.", minimum=1,
                      maximum=10000, optional=True),
        "notes": string("duplicate: the copy's notes.", optional=True),
        "title": string("find_by_title: the title.", optional=True),
-       "ref": string("duplicate: ref name for the copy.", optional=True)},
+       "ref": string("duplicate: ref name for the copy.", optional=True),
+       "layout": string("set_layout: L2 or its name.", optional=True)},
       kind=KIND, group=SLIDES, mutates=True, refs=("slide",))
 @library_errors
 def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=None,
-                      ref=None):
+                      ref=None, layout=None):
     deck = call.document
     if action == "find_by_title":
         if title is None:
@@ -199,6 +201,8 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
         if boxes:
             data["kept_drawn"] = boxes
         return Result(summary=summary, removed=deleted, data=data)
+    if action == "set_layout":
+        return _set_layout(call, deck, target, layout)
     if action == "delete":
         address = f"s:{target.slide_id}"
         deck.delete_slide(target)
@@ -236,6 +240,45 @@ def ppt_set_theme(call, doc, colors=None, fonts=None):
                         "fonts": {"major": theme.fonts.major, "minor": theme.fonts.minor},
                         "roles": {"primary": roles.primary, "secondary": roles.secondary,
                                   "neutral": roles.neutral, "highlight": roles.highlight}})
+
+
+def _set_layout(call, deck, target, layout) -> Result:
+    """ppt_manage_slides set_layout: the slide on another layout as PowerPoint's Layout menu
+    puts it (measured, round 7, A), and what had no place there."""
+    chosen = _template_layout(deck, layout, "layout")
+    change = target.set_layout(chosen)
+    call.touch(target.slide_id)
+    address = f"s:{target.slide_id}"
+    data: dict[str, Any] = {"slide": address, "layout": f"{chosen.id} ({chosen.name})",
+                            "placeholders": [{"shape": shape, "to": place}
+                                             for shape, place in change.matched]}
+    if change.added:
+        data["added"] = change.added
+    if change.removed:
+        data["removed_empty"] = change.removed
+    if change.orphans:
+        data["orphans"] = [{"shape": shape, "why": why} for shape, why in change.orphans]
+    if change.boxes_dropped:
+        data["boxes_dropped"] = [{"shape": shape, "box": box_pt(box)}
+                                 for shape, box in change.boxes_dropped]
+    notes = []
+    if change.boxes_dropped:
+        notes.append("placeholders with a box of their own now take the layout's, as in "
+                     "PowerPoint (their text and formatting stay): set a box again with "
+                     "ppt_set_shape if it was meant")
+    if change.orphans:
+        notes.append("orphans keep their content where it was drawn, snapped to the nearer "
+                     "side, as PowerPoint keeps them; move it into a placeholder "
+                     "(ppt_set_text) and delete the orphan, or keep it")
+    if notes:
+        data["note"] = "; ".join(notes)
+    summary = (f"Put {address} on {chosen.id} ({chosen.name}): {len(change.matched)} "
+               f"placeholder(s) kept, {len(change.added)} added")
+    if change.orphans:
+        summary += (f"; {len(change.orphans)} orphan(s): "
+                    + ", ".join(f"{shape} ({why})" for shape, why in change.orphans))
+    return Result(summary=summary, changed=[address], created=change.added,
+                  removed=change.removed, data=data)
 
 
 def _layouts_json(deck) -> list[dict[str, Any]]:
