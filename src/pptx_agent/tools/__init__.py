@@ -35,7 +35,8 @@ What is here (the tool layer's roadmap numbers them):
 * charts and SmartArt, through the shared ``edit_chart`` (``action: "read"`` reads one) and
   ``edit_smartart`` (:mod:`.charts`);
 * review: ``ppt_comments``, PowerPoint's comment threads on slides and shapes (:mod:`.review`);
-* design facts: ``ppt_design_facts``, measured facts of one slide (:mod:`.facts`).
+* design facts: ``ppt_design_facts``, measured facts of one slide, and ``ppt_compare_slides``,
+  a run of like slides compared shape by shape (:mod:`.facts`).
 
 Positions are the model's own, in points: the layout tools (``ppt_layout``, ``ppt_scale``,
 ``ppt_copy``, ``ppt_align``, ``place``) and the experimental ``ppt_draw`` were removed after
@@ -117,7 +118,8 @@ space or size like their neighbours but not quite, each with the exact fix; appl
 unless the difference is intended.
 - Before saving: check (fit, collisions, validate) and resolve the overflows and \
 collisions the task does not intend; save_document lists any left. For slides with \
-graphics, ppt_design_facts reports what the application's guidance may ask about.
+graphics, ppt_design_facts reports what the application's guidance may ask about. After \
+building a run of like slides, ppt_compare_slides lists where they differ.
 """
 
 #: Claude's strict mode fits only some tools (20 tools, 24 optional parameters and, measured,
@@ -279,7 +281,8 @@ GROUPS = [*shared.GROUPS,
           ToolGroup(shapes.OBJECTS, "Pictures and tables, their fill and borders."),
           ToolGroup(review.REVIEW, "Review comments on slides and shapes: threads, replies, "
                     "resolving."),
-          ToolGroup(slides.SLIDES, "Adding, drafting, moving and deleting slides; the theme.")]
+          ToolGroup(slides.SLIDES, "Adding, drafting, moving and deleting slides; the theme; "
+                    "comparing a run of like slides.")]
 
 #: Every PowerPoint tool, the shared ones included, in the order they are offered.
 TOOLS = [

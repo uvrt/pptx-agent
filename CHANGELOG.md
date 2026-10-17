@@ -6,6 +6,16 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A run of like slides compared (round 7, L3): `ppt_compare_slides` (deferred, `ppt_slides`), library
+  `Document.compare_slides` and `pptx_agent.edit.compare`, matches the slides' corresponding
+  shapes -- placeholders by type and idx, then a unique name, then kind and nearest box --
+  and lists per shape where the box, text size per level, text colour and typeface, fill
+  or outline differ from the majority: near-misses (2 pt; a colour within 8 of 255 per
+  channel) with a one-call `fix`, larger differences apart, where each value comes from
+  (`slide`, `layout`, `master`) when the sources differ, and shapes missing on some slides
+  or found on few. Measurement only. `ppt_read_slides` compact gains a `size` column, the
+  effective size most of a shape's text is drawn at. The PROMPT names the tool after a run
+  of like slides is built.
 - A finished slide onto another layout (round 7, L2): `ppt_manage_slides` action
   `set_layout` with `layout` (`L3` or its name), library `Slide.set_layout`, does what
   PowerPoint's Layout menu does (measured on 53 made-up slides, round 7, A1-A9 and B2):
