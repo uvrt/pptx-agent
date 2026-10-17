@@ -121,6 +121,11 @@ mark, a placeholder's prompt -- lives on the slide master or a layout, not on th
 - **Header & Footer is `ppt_edit_master set_footer`**, not text typed into slides: it fills
   the master's and layouts' placeholders and puts the layout's footer, number and date
   placeholders on each slide, as PowerPoint does, so a later layout change still reaches them.
+- **A run of like slides with boxes in fixed places** (a note, a score, a photo): give a
+  copy of their layout the boxes (`ppt_edit_master add_placeholder`, a `type` and `box`
+  each), then add the slides on it and fill each box (`ppt_set_text`; a picture with
+  `ppt_add_picture target`). They line up by construction; nothing is placed per slide.
+  Slides already on the layout get the box only when listed in `slides`.
 - **Every result says which slides an edit `affects`** (`checks.affects`: `{"M0": ["s:256",
   ...]}`) and runs its fit, collision and empty-placeholder checks on all of them -- a longer
   legal line can collide on one slide only. Render one or two of them; the layout itself has

@@ -6,6 +6,28 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A layout gets placeholders of its own (round 7, L1): `ppt_edit_master` action
+  `add_placeholder`, with `type` (`body`, `content`, `pic`, or `title` on a layout without
+  one), `box` (points) and `text` (the name; default `Text Placeholder <n>` and the like),
+  writes a placeholder each slide on the layout fills -- boxes in fixed places for a run of
+  like slides. Its `idx` is unique on the layout: the largest there plus one, at least 13,
+  inferred from Office's bundled layouts (date 10, footer 11, slide number 12, the ones they
+  add 13, 14, ...); PowerPoint's own choice could not be measured, and a duplicate idx,
+  which PowerPoint accepts silently, would leave slides two placeholders to inherit from.
+  The result gives its address (`L12.6`), `idx`, name and box, and the slides on the layout
+  that lack it (`slides_without`). As in PowerPoint (measured, round 7, B) slides made on
+  the layout afterwards get it empty, without a frame; slides already there do not, unless
+  listed in `slides` -- then each gets an empty copy as PowerPoint's re-apply of the layout
+  writes one (type and idx, empty `spPr`, one empty paragraph; a picture's without a text
+  body) -- or later with the placeholder as `target` and `slides`. `ppt_add_slide` lists an
+  added placeholder's `idx` and name; `ppt_add_picture` with an empty picture placeholder as
+  `target` fills it: the picture keeps its `p:ph`, id and name, cropped to fill its box
+  (drafting's form; PowerPoint's own is unprobed). Move, resize, rename, prompt or delete it
+  as any layout shape (`L12.6`); table and chart placeholders are not added. A new slide's
+  picture or table placeholder now has no text body and a content placeholder no
+  `type="obj"`, as PowerPoint writes them. Library: `Layout.add_placeholder`,
+  `Slide.add_layout_placeholder`, `Shape.insert_picture`. Every definition +132 estimated
+  tokens (guard 12,595 -> 12,725), the core unchanged; the strict set unchanged.
 - Date names for a region (round 7, L5; ooxml-edit 0.44.0, ooxml-common 0.19.0): a table's
   or a chart's `date_format` and a text fact's date pattern with month or day names
   (`d mmmm yyyy`) were refused in a locale such as en-BE or fr-BE; they now take the

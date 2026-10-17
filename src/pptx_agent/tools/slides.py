@@ -9,10 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from ooxml_edit.tools import Result, ToolError, array, boolean, integer, obj, string, tool
+from ooxml_edit.tools import (Result, ToolError, array, boolean, integer, number, obj, string,
+                               tool)
 
 from ..edit.theme import MAPPED, SLOTS
-from .common import (KIND, box_pt, id_hint, library_errors, numbers, resolve,
+from .common import (KIND, box_emu, box_pt, id_hint, library_errors, numbers, resolve,
                      slide as slide_at, template_key_of, template_options)
 
 SLIDES = "ppt_slides"
@@ -97,6 +98,9 @@ def ppt_add_slide(call, doc, layout, at=None, title=None, body=None, notes=None,
     placeholders = [{"id": shape.id, "type": shape.placeholder.type or "content",
                      "box": box_pt(shape.bounds)}
                     for shape in added.shapes if shape.placeholder is not None]
+    for entry, shape in zip(placeholders, [s for s in added.shapes if s.placeholder]):
+        if (shape.placeholder.idx or 0) > 12:   # one added to the layout: say which
+            entry.update(idx=shape.placeholder.idx, name=shape.name)
     return Result(summary=f"Added slide {address} ({layout})", created=[address],
                   data={"slide": address, "n": added.index + 1, "placeholders": placeholders,
                         "content_area": box_pt(added.content_area)})
@@ -253,31 +257,42 @@ def _template_layout(deck, address: str | None, field: str):
 
 @tool("ppt_edit_master",
       "Slide masters and layouts: a layout placeholder's prompt text, Insert > Header & "
-      "Footer, and adding, duplicating, renaming or deleting layouts. Their shapes' text, "
+      "Footer, adding, duplicating, renaming or deleting layouts and adding their "
+      "placeholders. Their shapes' text, "
       "fill and box: ppt_set_text, ppt_set_shape (L2.5, M0.7); new shapes: the add tools "
       "with slide L2 or M0. Returns the slides affected.",
       {"doc": string("Document id."),
        "action": string("What to do.", enum=["set_prompt", "set_footer", "add_layout",
                                              "duplicate_layout", "rename_layout",
-                                             "delete_layout"]),
+                                             "delete_layout", "add_placeholder"]),
        "target": string("set_prompt: the layout placeholder, L2.3. Layout actions: the "
-                        "layout, L2 or its name (add_layout: the one to follow).",
+                        "layout, L2 or its name (add_layout: the one to follow; "
+                        "add_placeholder: or L2.7 to add to slides).",
                         optional=True),
        "text": string("set_prompt: the prompt, \\n for the next level. set_footer: the "
-                      "footer; empty: none. add, duplicate, rename: the name.",
+                      "footer; empty: none. Other actions: the name.",
                       optional=True),
+       "type": string("add_placeholder.", enum=["body", "content", "pic", "title"],
+                      optional=True),
+       "box": obj({"x": number(minimum=-10000, maximum=10000),
+                   "y": number(minimum=-10000, maximum=10000),
+                   "w": number(minimum=0, maximum=10000),
+                   "h": number(minimum=0, maximum=10000)},
+                  "add_placeholder: points.", optional=True),
        "reassign_to": string("delete_layout: the layout its slides move to.", optional=True),
        "slide_number": boolean("set_footer. Default true.", optional=True),
        "date": string("set_footer: auto (updates), fixed text, or leave out for none.",
                       optional=True),
        "slides": array(string(or_integer=1), "set_footer: only these slides (Apply), numbers "
-                       "or ids (s:256). Default all (Apply to All: masters and layouts too).",
+                       "or ids (s:256). Default all (Apply to All: masters and layouts too). "
+                       "add_placeholder: also add it to these.",
                        optional=True),
        "on_title_slide": boolean("set_footer. Default false.", optional=True)},
       kind=KIND, group=SLIDES, mutates=True, refs=("target", "slides[]"))
 @library_errors
 def ppt_edit_master(call, doc, action, target=None, text=None, reassign_to=None,
-                    slide_number=None, date=None, slides=None, on_title_slide=None):
+                    slide_number=None, date=None, slides=None, on_title_slide=None,
+                    type=None, box=None):
     deck = call.document
     if action == "set_prompt":
         if text is None:
@@ -315,6 +330,9 @@ def ppt_edit_master(call, doc, action, target=None, text=None, reassign_to=None,
                           for shape in layout.shapes if shape.placeholder is not None],
                           "layouts": _layouts_json(deck)})
     layout = _template_layout(deck, target, "target")
+    if action == "add_placeholder":
+        existing = resolve(deck, target, field="target") if "." in str(target) else None
+        return _add_placeholder(call, deck, layout, type, box, text, slides, existing)
     if action == "duplicate_layout":
         copy = deck.duplicate_layout(layout, name=text)
         call.touch(copy.id)
@@ -339,6 +357,81 @@ def ppt_edit_master(call, doc, action, target=None, text=None, reassign_to=None,
         return Result(summary=f"Deleted layout {layout.id} {layout.name!r}",
                       removed=[layout.id], data=data)
     raise ToolError("invalid_arguments", f"unknown action {action!r}", field="action")
+
+
+_ADDABLE = ["body", "content", "pic", "title"]
+
+
+def _add_placeholder(call, deck, layout, kind, box, name, slides, existing=None) -> Result:
+    """ppt_edit_master add_placeholder: the layout's new placeholder, and an empty copy on
+    the ``slides`` asked for (PowerPoint gives one only to slides made afterwards); with
+    ``existing`` (a layout placeholder, ``L9.6``) only the copies."""
+    if existing is not None:
+        kind = existing.placeholder.type if existing.placeholder is not None else None
+        if existing.placeholder is None or kind in ("dt", "ftr", "sldNum", "hdr"):
+            raise ToolError("invalid_arguments", f"{existing.id} is not a layout placeholder "
+                            "a slide fills", field="target")
+        kind = {None: "content", "obj": "content", "ctrTitle": "title"}.get(kind, kind)
+        if not slides:
+            raise ToolError("invalid_arguments", f"{existing.id} is on {layout.id} already; "
+                            "give slides to add it to", field="slides",
+                            valid_options=[f"s:{s.slide_id}" for s in layout.slides][:50])
+    elif kind is None:
+        raise ToolError("invalid_arguments", "add_placeholder needs type", field="type",
+                        valid_options=_ADDABLE)
+    if kind not in _ADDABLE:
+        raise ToolError("invalid_arguments", f"a layout placeholder of type {kind!r} is not "
+                        "added here", field="type", valid_options=_ADDABLE)
+    if box is None and existing is None:
+        raise ToolError("invalid_arguments", "add_placeholder needs box, in points",
+                        field="box")
+    on_it = {slide.slide_id for slide in layout.slides}
+    chosen = [deck.slides[n - 1] for n in numbers(deck, slides)] if slides else []
+    strays = [f"s:{s.slide_id}" for s in chosen if s.slide_id not in on_it]
+    if strays:
+        raise ToolError("invalid_arguments", f"{', '.join(strays)} not on {layout.id}; a "
+                        "slide takes only its own layout's placeholders", field="slides",
+                        valid_options=[f"s:{sid}" for sid in sorted(on_it)][:50])
+    if existing is None and kind == "title" and any(shape.placeholder.type in ("title", "ctrTitle")
+                               for shape in layout.shapes if shape.placeholder):
+        raise ToolError("invalid_arguments", f"{layout.id} has a title placeholder already; "
+                        "add body or content", field="type", valid_options=_ADDABLE[:3])
+    if existing is None:
+        x, y, w, h = box_emu(box)
+        if w <= 0 or h <= 0:
+            raise ToolError("invalid_arguments", "box needs w and h over 0", field="box")
+    with deck.batch():
+        shape = existing or layout.add_placeholder(kind, x, y, w, h, name=name)
+        idx = shape.placeholder.idx
+        added = [s.add_layout_placeholder(idx if idx is not None else "title")
+                 for s in chosen]
+    call.touch(layout.id, shape.id)
+    for copy in added:
+        call.touch(copy._slide.slide_id, copy.id)
+    def has_it(slide) -> bool:
+        return any(s.placeholder is not None and (
+            s.placeholder.idx == idx if idx is not None
+            else s.placeholder.type in ("title", "ctrTitle")) for s in slide.shapes)
+
+    without = [f"s:{s.slide_id}" for s in layout.slides if not has_it(s)]
+    data: dict[str, Any] = {"placeholder": shape.id, "idx": idx, "type": kind,
+                            "name": shape.name, "box": box_pt(shape.bounds)}
+    if added:
+        data["added_to"] = [copy.id for copy in added]
+    if without:
+        data["slides_without"] = without
+    which = f"idx {idx}" if idx is not None else "the title"
+    data["note"] = (f"a slide made on {layout.id} gets it empty ({which}): ppt_add_slide lists "
+                    "its id; fill it with ppt_set_text"
+                    + (" or ppt_add_picture target" if kind == "pic" else "")
+                    + (f". Slides already on it lack it, as in PowerPoint: add_placeholder "
+                       f"with target {shape.id} and slides adds it to them" if without else ""))
+    made = [copy.id for copy in added]
+    if existing is not None:
+        return Result(summary=f"Added {shape.id} ({which}) to {len(made)} slide(s)",
+                      created=made, data=data)
+    return Result(summary=f"Added {kind} placeholder {shape.id} ({which}) to {layout.id}",
+                  created=[shape.id, *made], data=data)
 
 
 TOOLS = [ppt_add_slide, ppt_draft_slides, ppt_manage_slides, ppt_set_theme, ppt_edit_master]

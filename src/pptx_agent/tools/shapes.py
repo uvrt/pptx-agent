@@ -353,7 +353,8 @@ def picture_tool(catalogue=None):
         params["asset"] = string(f"Or an asset id from {FIND_ASSET}.", optional=True)
     params.update({
         "slide": string("Slide to insert on, s:256 or $ref.", optional=True),
-        "target": string("Or the picture to replace.", optional=True),
+        "target": string("Or the picture to replace or placeholder to fill.",
+                         optional=True),
         "box": _box("Default: native size at the content area's top left.", optional=True),
         "keep": string("Replacing: what of the frame stays. Default frame.",
                        enum=["frame", "height", "width", "none"], optional=True),
@@ -391,13 +392,19 @@ def picture_tool(catalogue=None):
         try:
             if target is not None:
                 picture = shape_at(deck, target)
-                if picture.kind != "picture":
+                holder = picture.placeholder
+                if picture.kind == "shape" and holder is not None and holder.type == "pic":
+                    filled = picture.insert_picture(data)
+                    address, verb = filled.id, "Filled placeholder with"
+                    picture = filled
+                elif picture.kind != "picture":
                     raise ToolError("invalid_arguments",
                                     f"{target} is a {picture.kind}, not a picture",
                                     field="target")
-                picture.replace_image(data, keep=keep or "frame",
-                                      anchor=anchor or "top_left")
-                address, verb = picture.id, "Replaced the image of"
+                else:
+                    picture.replace_image(data, keep=keep or "frame",
+                                          anchor=anchor or "top_left")
+                    address, verb = picture.id, "Replaced the image of"
             else:
                 host = slide_at(deck, slide)
                 if box is not None:

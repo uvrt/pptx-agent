@@ -131,10 +131,15 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: Round 7, L4: ppt_format_text's ``size`` takes 0 (remove the size set here), described
 #: "0 removes it: the layout's applies.": +15 to every definition (12,574 -> 12,589), none
 #: to the core (3,553); the guard stays 12,595.  The strict set is unchanged.
+#: Round 7, L1: ppt_edit_master's ``add_placeholder`` (``type``, ``box``; ``target`` a layout
+#: placeholder and ``slides`` to add it to slides already on the layout) and ppt_add_picture's
+#: ``target`` filling a picture placeholder add 132 to every definition (12,589 -> 12,721),
+#: none to the core (3,553): both tools are deferred.  The guard rises to 12,725.  The strict
+#: set is unchanged: ppt_edit_master and ppt_add_picture are sent non-strict.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12595
+ALL_GUARD = 12725
 
 
 def estimate_tokens(definitions) -> int:
