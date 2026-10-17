@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ooxml_edit.tools import (Result, ToolError, array, boolean, integer, number, obj, string,
-                               tool)
+from ooxml_edit.tools import (REVIEW, Result, ToolError, array, boolean, integer, number, obj,
+                               string, tool)
 
 from ..edit.theme import MAPPED, SLOTS
 from .common import (KIND, box_emu, box_pt, id_hint, library_errors, numbers, resolve,
@@ -150,7 +150,8 @@ def ppt_draft_slides(call, doc, markdown, at=None):
        "title": string("find_by_title: the title.", optional=True),
        "ref": string("duplicate: ref name for the copy.", optional=True),
        "layout": string("set_layout: L2 or its name.", optional=True)},
-      kind=KIND, group=SLIDES, mutates=True, refs=("slide",))
+      kind=KIND, group=SLIDES, mutates=True, refs=("slide",),
+      action_roles={"find_by_title": REVIEW})
 @library_errors
 def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=None,
                       ref=None, layout=None):

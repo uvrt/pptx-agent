@@ -58,7 +58,7 @@ COMPARE_PAGE = 40
        "slides": array(string(or_integer=1), "Slide numbers from 1, or ids (s:256, $ref); "
                        "at least two."),
        "cursor": string("next_cursor of the previous page.", optional=True)},
-      kind=KIND, group=SLIDES, refs=("slides[]",))
+      kind=KIND, group=SLIDES, refs=("slides[]",), review_core=True)
 @library_errors
 def ppt_compare_slides(call, doc, slides, cursor=None):
     """The library's :meth:`Document.compare_slides <pptx_agent.Document.compare_slides>`
