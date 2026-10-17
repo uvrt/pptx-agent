@@ -8,7 +8,7 @@ come back; ``list`` only reads.
 
 Roles (``ooxml_edit.tools.ROLES``): listing, adding and replying are a reviewer's
 (``review``); resolving, reopening and deleting a thread -- a reply with ``resolve: true``
-too -- need ``resolve``; editing a comment's text needs ``edit``
+too -- need ``resolve``; editing a comment's text is every role's
 (``shared.COMMENT_ACTION_ROLES``).  A role set without ``edit`` loads it in the core.
 """
 

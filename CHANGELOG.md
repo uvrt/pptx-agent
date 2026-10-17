@@ -7,20 +7,21 @@ snapshot commit; the development history before it is summarised here.
 ## Unreleased
 
 - Tool roles (round 7, item 9; ooxml-edit 0.45.0): the deck tools are tagged for the
-  additive roles `review`, `resolve` and `edit` (`Toolbox(roles=...)`,
+  additive roles `review`, `resolve`, `accept` and `edit` (`Toolbox(roles=...)`,
   `toolbox.session(roles=...)`). `ppt_comments` takes its actions' roles from
   `shared.COMMENT_ACTION_ROLES` -- list, add, reply `review`; resolve, reopen, delete (and a
-  reply with `resolve: true`) `resolve`; edit `edit` -- and joins the core of a role set
-  without `edit`, as `ppt_compare_slides` does; `ppt_manage_slides find_by_title` is
-  `review`'s; measuring with `ppt_add_shape` or `ppt_add_table` stays with the tool, `edit`.
-  The default, every role, sends the definitions byte for byte as before (core 3,556, every
-  definition 12,926 estimated). A reviewer (`["review"]`) is sent 15 tools, the core 2,202
-  estimated (about 3,259 counted by the proxy), every definition 4,450; `["review",
-  "resolve"]` 2,210 and 4,458 -- guards `REVIEW_CORE_GUARD` 2,215 and `REVIEW_ALL_GUARD`
-  4,460 (tests/test_tools_roles.py). Claude's strict set for a reviewer: `ppt_comments` and
+  reply with `resolve: true`) `resolve`; editing a comment's text every role's (the user's
+  decision: its author is not known) -- and joins the core of a role set without `edit`,
+  as `ppt_compare_slides` does; `ppt_manage_slides find_by_title` is `review`'s; measuring
+  with `ppt_add_shape` or `ppt_add_table` stays with the tool, `edit`. No deck tool settles
+  tracked changes, so `accept` adds nothing to a deck toolbox. The default, every role,
+  sends the definitions byte for byte as before (core 3,556, every definition 12,926
+  estimated). A reviewer (`["review"]`) is sent 15 tools, the core 2,204 estimated (about
+  3,262 counted by the proxy), every definition 4,452; `["review", "resolve"]` 2,212 and
+  4,460 -- guards `REVIEW_CORE_GUARD` 2,215 and `REVIEW_ALL_GUARD` 4,465
+  (tests/test_tools_roles.py). Claude's strict set for a reviewer: `ppt_comments` and
   `ppt_manage_slides` (find_by_title only); the default's and `["review", "edit"]`'s are
   unchanged. The online check counts both reviewer cores and sends their strict tools.
-
 - A run of like slides compared (round 7, L3): `ppt_compare_slides` (deferred, `ppt_slides`), library
   `Document.compare_slides` and `pptx_agent.edit.compare`, matches the slides' corresponding
   shapes -- placeholders by type and idx, then a unique name, then kind and nearest box --

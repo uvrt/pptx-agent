@@ -3,12 +3,15 @@ what it may call, and that all roles -- the default -- is the toolbox as without
 
 Offline numbers (characters / 3.5, as test_tools.py's guards; the online count is in
 test_tools_online.py).  The default is unchanged: core 3,556, every definition 12,926.
-A reviewer, ``["review"]``: the core 2,202 (about 3,259 counted by the 1.48 proxy; ten
+A reviewer, ``["review"]``: the core 2,204 (about 3,262 counted by the 1.48 proxy; ten
 tools: open_document, save_document, find_text, render, check, describe, ppt_read_slides,
 batch, and ppt_compare_slides and ppt_comments, loaded in the core of a set without edit),
-every definition 4,450 (15 tools).  ``["review", "resolve"]``: 2,210 and 4,458 (resolve,
-reopen and delete in ppt_comments' action enum).  ``["edit"]``: core 2,400, every
-definition 11,289.  Claude's strict set for a reviewer is ppt_comments and
+every definition 4,452 (15 tools).  ``["review", "resolve"]``: 2,212 and 4,460 (resolve,
+reopen and delete in ppt_comments' action enum).  Editing a comment's text is every role's
+(the user's decision, 2026-10-17), so ppt_comments offers ``edit`` in every set.  No deck
+tool settles tracked changes: ``accept`` adds nothing (``["review", "accept"]`` is
+``["review"]``'s definitions; ``["accept"]`` alone gets ppt_comments for its text edits,
+1,097).  ``["edit"]``: core 2,400, every definition 11,289.  Claude's strict set for a reviewer is ppt_comments and
 ppt_manage_slides (its find_by_title action alone); the default's and a builder's
 (``["review", "edit"]``) are unchanged.
 """
@@ -26,10 +29,11 @@ from test_tools import (CLOCK, COUNTED_PER_ESTIMATED, CORE_COUNTED_BUDGET, _deck
                         estimate_tokens)
 
 #: A reviewer's core (``["review", "resolve"]``, the larger of the two), estimated: a
-#: regression guard as ALL_GUARD is.  Measured 2,210.
+#: regression guard as ALL_GUARD is.  Measured 2,212 (2,210 before comment edits were every
+#: role's).
 REVIEW_CORE_GUARD = 2215
-#: Every definition a reviewer is sent, estimated.  Measured 4,458.
-REVIEW_ALL_GUARD = 4460
+#: Every definition a reviewer is sent, estimated.  Measured 4,460 (4,458 before).
+REVIEW_ALL_GUARD = 4465
 
 REVIEW_CORE = {"open_document", "save_document", "find_text", "render", "check", "describe",
                "ppt_read_slides", "batch", "ppt_compare_slides", "ppt_comments"}
@@ -92,7 +96,7 @@ def test_a_reviewer_is_sent_the_review_tools_and_actions(toolbox):
     core = {d["name"] for d in toolbox.definitions("anthropic", groups="core",
                                                    roles=["review"])}
     assert core == REVIEW_CORE
-    assert _enum(sent["ppt_comments"]) == ["list", "add", "reply"]
+    assert _enum(sent["ppt_comments"]) == ["list", "add", "reply", "edit"]
     assert _enum(sent["edit_chart"]) == ["read"]
     assert _enum(sent["ppt_manage_slides"]) == ["find_by_title"]
     assert {name for name, d in sent.items() if d["strict"]} == {"ppt_comments",
@@ -100,7 +104,8 @@ def test_a_reviewer_is_sent_the_review_tools_and_actions(toolbox):
     second = _sent(toolbox, ["review", "resolve"], defer=False)
     assert set(second) == REVIEW_TOOLS
     assert _enum(second["ppt_comments"]) == ["list", "add", "reply", "resolve", "reopen",
-                                             "delete"]
+                                             "edit", "delete"]
+    assert _sent(toolbox, ["review", "accept"], defer=False) == sent
 
 
 def test_a_builder_without_resolve_keeps_the_default_core_and_strict_set(toolbox):
@@ -125,7 +130,8 @@ def test_an_editor_alone_is_sent_the_changing_tools(toolbox):
 
 
 @pytest.mark.parametrize("roles", [["review"], ["review", "resolve"], ["resolve"], ["edit"],
-                                   ["review", "edit"]], ids="+".join)
+                                   ["review", "edit"], ["accept"], ["review", "accept"]],
+                         ids="+".join)
 def test_each_role_set_s_definitions_meet_each_provider_s_rules(toolbox, roles):
     for groups in ("core", None):
         assert anthropic_problems(toolbox.definitions("anthropic", groups=groups,
@@ -137,7 +143,7 @@ def test_each_role_set_s_definitions_meet_each_provider_s_rules(toolbox, roles):
 
 
 def test_a_reviewer_s_definitions_are_within_their_guards(toolbox):
-    for roles in (["review"], ["review", "resolve"]):
+    for roles in (["review"], ["review", "resolve"], ["review", "resolve", "accept"]):
         core = estimate_tokens(toolbox.definitions("anthropic", groups="core", roles=roles))
         everything = estimate_tokens(toolbox.definitions("anthropic", defer=False,
                                                          roles=roles))
@@ -209,10 +215,8 @@ def test_a_second_pass_reviewer_resolves_and_deletes_comments(toolbox):
     assert run("ppt_comments", doc="d1", action="reply", author="Rev",
                items=[{"comment": "$a", "text": "Fixed.", "resolve": True}]).ok
     assert run("ppt_comments", doc="d1", action="delete", items=[{"comment": "$b"}]).ok
-    edit = run("ppt_comments", doc="d1", action="edit", items=[{"comment": "$a",
-                                                                "text": "x"}])
-    assert edit.error.code == "refused" and "ppt_comments edit needs the edit role" in \
-        edit.error.message
+    assert run("ppt_comments", doc="d1", action="edit", items=[{"comment": "$a",
+                                                                "text": "x"}]).ok
     assert run("ppt_set_shape", doc="d1", items=[{"target": "256.2"}]).error.code == "refused"
 
 
