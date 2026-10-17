@@ -118,7 +118,8 @@ _FRAME_KEYS = ("autofit", "font_scale", "insets", "anchor", "wrap")
            "italic": boolean(optional=True),
            "underline": boolean(optional=True),
            "strike": boolean(optional=True),
-           "size": number(minimum=1, maximum=400, optional=True),
+           "size": number("0 removes it: the layout's applies.", minimum=0, maximum=400,
+                          optional=True),
            "font": string(optional=True),
            "color": string(optional=True),
            "hyperlink": string("URL; empty removes it.", optional=True),
@@ -159,11 +160,27 @@ def ppt_format_text(call, doc, items):
             raise ToolError("invalid_arguments", f"{item['target']} holds no text",
                             field=f"{field}.target")
         run_format = {key: item[key] for key in _RUN_KEYS if key in item}
+        clear_size = run_format.get("size") == 0
+        if clear_size:
+            del run_format["size"]
+        elif "size" in run_format and run_format["size"] < 1:
+            raise ToolError("invalid_arguments", f"size {run_format['size']} is below 1 pt; "
+                            "give points from 1 to 400, or 0 to remove the size set here so "
+                            "the layout's applies", field=f"{field}.size")
         if "hyperlink" in run_format and run_format["hyperlink"] == "":
             run_format["hyperlink"] = None
         for run in runs:
             if run_format:
                 run.format(**run_format)
+        if clear_size:
+            # The size set here goes: a run's own; a paragraph's runs, end mark and
+            # defaults; a shape's or cell's every paragraph and its own list style.
+            if isinstance(target, Run):
+                target.size = None
+            elif isinstance(target, Paragraph):
+                target.clear_size()
+            else:
+                frame.clear_size()
         for paragraph in paragraphs:
             if "align" in item:
                 paragraph.alignment = item["align"]

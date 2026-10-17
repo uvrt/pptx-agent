@@ -12,7 +12,7 @@ from typing import Any, Callable, Iterable, Mapping
 
 from ooxml_edit.tools import Param, ToolError, array, boolean, integer, number, obj, string
 
-from ..edit.effective import TEXT_KINDS, small_text_json, text_minimums
+from ..edit.effective import TEXT_KINDS, size_overrides_json, small_text_json, text_minimums
 from ..edit.labels import LabelError
 from ..edit.textspec import ParagraphSpec, RunSpec, TextSpec
 from ..edit.units import EMU_PER_POINT, Pt
@@ -489,6 +489,13 @@ CHART_TITLE_FONT_NOTE = ("chart_title_font: chart title states no font: PowerPoi
                          "what edit_chart add writes for a new title, given where the title "
                          "states none")
 
+#: Said with ``overrides`` (:meth:`Slide.size_overrides <pptx_agent.Slide.size_overrides>`).
+OVERRIDES_NOTE = ("overrides: a placeholder's text whose slide sets a size other than the one "
+                  "its layout (or master) gives: set is the slide's, layout the inherited, "
+                  "unscaled; levels when its levels differ. A fact, not a fault: like slides "
+                  "drift where some set it and some inherit. Each fix is a ppt_format_text "
+                  "item: size 0 removes every size the shape sets, so the layout's apply")
+
 EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows 'Click to add ...' in an "
                            "empty one while editing (a whitespace-only one shows a stray "
                            "bullet, in the export too); fill them or delete them "
@@ -508,7 +515,9 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
     """Fit and collision facts for some slides, in points, from one measurement each; with
     ``fit``, the empty placeholders too (:meth:`Slide.empty_placeholders`), the charts
     whose title states no font (``chart_title_font``,
-    :func:`pptx_agent.edit.chart_text.unstated_title_fonts`), and the slide numbers
+    :func:`pptx_agent.edit.chart_text.unstated_title_fonts`), the placeholders whose slide
+    sets a size other than their layout's (``overrides``, :meth:`Slide.size_overrides
+    <pptx_agent.Slide.size_overrides>`), and the slide numbers
     written by reference whose slide is gone (``missing_slides``,
     :func:`pptx_agent.edit.slidenumbers.missing`)."""
     from ..edit.chart_text import unstated_title_fonts
@@ -524,6 +533,7 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
     empty: list[dict] = []
     small: list = []
     titles: list[dict] = []
+    overrides: list = []
     minimums = text_minimums(getattr(deck, "min_text_size", None))
     for sid in slide_ids:
         try:
@@ -537,6 +547,7 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
             small += target.text_below(minimums)
         if "fit" in wanted:
             titles += unstated_title_fonts(target)
+            overrides += target.size_overrides()
         problems, fits = slide_report(target, boxes=boxes)
         for problem in problems:
             if problem.kind == "text" and "fit" in wanted:
@@ -582,6 +593,9 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
         if titles:
             out["chart_title_font"] = titles
             out["chart_title_font_note"] = CHART_TITLE_FONT_NOTE
+        if overrides:
+            out["overrides"] = size_overrides_json(overrides)
+            out["overrides_note"] = OVERRIDES_NOTE
         if gone:
             out["missing_slides"] = gone
             out["missing_slides_note"] = MISSING_SLIDES_NOTE

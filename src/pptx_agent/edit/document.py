@@ -2477,6 +2477,28 @@ class Slide(ShapeFactory):
                 found += effective.chart_text_below(shape.id, shape, minimums["chart"])
         return found
 
+    def size_overrides(self) -> list:
+        """The placeholders on this slide whose text states a size other than the one their
+        layout (or master, through the placeholder's cascade) gives it -- one
+        :class:`~pptx_agent.edit.effective.SizeOverride` per shape and level, with the sizes
+        the slide sets (a run's ``sz``, its paragraph's or the shape's own list style) and
+        the layout's, unscaled.  A size equal to the layout's, a shape that is not a
+        placeholder and text whose size no layout or master states are left out.
+
+        For example::
+
+            [(o.address, o.set, o.layout) for o in slide.size_overrides()]
+            # [('261.2', (26.0,), 28.0)]
+        """
+        from . import effective
+        from .fit import _flatten
+
+        found: list = []
+        for shape in _flatten(self.shapes):
+            if shape.kind == "shape":
+                found += effective.size_overrides(shape.id, shape)
+        return found
+
     def measure_table(self, data=None, *, rows: int | None = None,
                       columns: int | None = None, width: int | None = None,
                       height: int | None = None, style: str | None = None,

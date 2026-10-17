@@ -653,6 +653,25 @@ class TextFrame:
                     run._apply(formatting)
         return self
 
+    def clear_size(self) -> "TextFrame":
+        """Remove every size the frame's text sets -- each paragraph's
+        (:meth:`Paragraph.clear_size`) and its own list style's levels -- so the sizes its
+        layout or master gives (the cell's table, for a cell) apply again.
+
+        For example::
+
+            slide.shapes[0].text_frame.clear_size()     # the title draws the layout's size
+        """
+        host = self._resolve()
+        with _editing(host):
+            for paragraph in self._paragraph_elements(host):
+                _clear_sizes(paragraph)
+            body = host._text_body(False)
+            styles = None if body is None else body.find(qn("a:lstStyle"))
+            for node in [] if styles is None else styles.iter(qn("a:defRPr")):
+                set_attr(node, "sz", None)
+        return self
+
     # -- internals -------------------------------------------------------------------------
 
     def _host(self) -> TextHost:
@@ -1171,6 +1190,19 @@ class Paragraph:
                 replace_choice(properties, _BULLET_TAGS + (
                     "a:buClrTx", "a:buClr", "a:buSzTx", "a:buSzPct", "a:buSzPts",
                     "a:buFontTx", "a:buFont"), None)
+        return self
+
+    def clear_size(self) -> "Paragraph":
+        """Remove the sizes this paragraph sets -- each run's ``sz``, the end mark's and the
+        paragraph's ``a:defRPr`` -- so the size its list style, layout or master gives
+        applies again (the shape's own list style is the frame's: :meth:`TextFrame.clear_size`).
+
+        For example::
+
+            paragraph.clear_size()
+        """
+        with self._change() as element:
+            _clear_sizes(element)
         return self
 
     @staticmethod
@@ -1701,6 +1733,17 @@ class _ElementChange:
 # ------------------------------------------------------------------------------------------
 # XML helpers
 # ------------------------------------------------------------------------------------------
+
+
+def _clear_sizes(paragraph: Element) -> None:
+    """Drop ``sz`` from a paragraph's ``a:defRPr``, its runs' ``a:rPr`` and its end mark."""
+    for tag in ("a:pPr/a:defRPr", "a:r/a:rPr", "a:fld/a:rPr", "a:endParaRPr"):
+        first, _, rest = tag.partition("/")
+        holders = paragraph.findall(qn(first))
+        for holder in holders:
+            node = holder.find(qn(rest)) if rest else holder
+            if node is not None:
+                set_attr(node, "sz", None)
 
 
 def _ppr(paragraph: Element, *, create: bool) -> Element | None:
