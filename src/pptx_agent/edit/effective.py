@@ -466,7 +466,10 @@ def _points_json(value: float):
 def size_overrides_json(found: list[SizeOverride]) -> list[dict]:
     """``check``'s ``overrides``: one entry per shape -- ``{"shape", "overrides": "size",
     "set": 26, "layout": 28}``, ``set`` a list where the shape sets several sizes; where its
-    levels take different layout sizes, ``levels: [{"level", "set", "layout"}]`` instead."""
+    levels take different layout sizes, ``levels: [{"level", "set", "layout"}]`` instead --
+    with its ``fix``, the ``ppt_format_text`` item that removes the sizes the shape sets
+    (``{"target": address, "size": 0}``, :meth:`TextFrame.clear_size
+    <pptx_agent.TextFrame.clear_size>`)."""
     by_shape: dict[str, list[SizeOverride]] = {}
     for item in found:
         by_shape.setdefault(item.address, []).append(item)
@@ -484,6 +487,7 @@ def size_overrides_json(found: list[SizeOverride]) -> list[dict]:
                                 "set": _points_json(item.set[0]) if len(item.set) == 1
                                 else [_points_json(size) for size in item.set],
                                 "layout": _points_json(item.layout)} for item in items]
+        entry["fix"] = {"target": address, "size": 0}
         out.append(entry)
     return out
 

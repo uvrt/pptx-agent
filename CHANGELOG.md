@@ -19,11 +19,18 @@ snapshot commit; the development history before it is summarised here.
   to both alike, not a size the slide sets. Not listed: a size equal to the layout's (it
   draws the same; a deck written by tools that restate every size would list every
   shape), a shape that is not a placeholder, text whose size only the presentation's
-  default or PowerPoint's 18 pt gives, whitespace-only runs. No `fix`: no tool call
-  removes a set size (`ppt_format_text`'s `size` takes points; the library's `Run.size =
-  None` does), so the note says `ppt_format_text size <layout>` draws the layout's size.
+  default or PowerPoint's 18 pt gives, whitespace-only runs. Each entry carries its `fix`,
+  the `ppt_format_text` item `{"target": "261.2", "size": 0}`: `size: 0` (new) removes the size set where it is
+  given -- on a run its `sz`; on a paragraph its runs', end mark's and `a:defRPr`'s; on a
+  shape or cell every paragraph's and its own list style's levels -- so the layout's (or
+  master's, or the table's) applies; sizes from 1 to 400 as before, below 1 refused.
+  (`size: null` cannot say it: an optional `null` is read as not given, as the OpenAI
+  strict adapters send every unused option.)
   Library: `Slide.size_overrides`, `pptx_agent.edit.effective.size_overrides`,
-  `size_overrides_json`, `slide_size`, `template_size`. Tool definitions unchanged.
+  `size_overrides_json`, `slide_size`, `template_size`, `Paragraph.clear_size`,
+  `TextFrame.clear_size`. `ppt_format_text`'s `size` takes 0, described: every definition
+  +15 estimated tokens (12,574 -> 12,589, guard 12,595), the core unchanged (3,553); the
+  strict set unchanged.
 - An empty `items` list is a no-op with a warning, not a refusal (round 7, L7; ooxml-edit
   0.43.0's `Result.nothing_given`): `ppt_add_shape`, `ppt_set_text`, `ppt_format_text`,
   `ppt_set_shape`, `ppt_add_connector` and `ppt_comments` (other than `list`) given

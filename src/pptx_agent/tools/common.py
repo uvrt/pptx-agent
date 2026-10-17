@@ -493,8 +493,8 @@ CHART_TITLE_FONT_NOTE = ("chart_title_font: chart title states no font: PowerPoi
 OVERRIDES_NOTE = ("overrides: a placeholder's text whose slide sets a size other than the one "
                   "its layout (or master) gives: set is the slide's, layout the inherited, "
                   "unscaled; levels when its levels differ. A fact, not a fault: like slides "
-                  "drift where some set it and some inherit. ppt_format_text size <layout> "
-                  "draws the layout's size (no call removes a set size)")
+                  "drift where some set it and some inherit. Each fix is a ppt_format_text "
+                  "item: size 0 removes every size the shape sets, so the layout's apply")
 
 EMPTY_PLACEHOLDERS_NOTE = ("empty_placeholders: PowerPoint shows 'Click to add ...' in an "
                            "empty one while editing (a whitespace-only one shows a stray "

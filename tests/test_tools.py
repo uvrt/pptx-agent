@@ -128,6 +128,9 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: (ooxml-edit 0.43.0): -8 to the core (3,561 -> 3,553), -18 to every definition
 #: (12,592 -> 12,574); the guard stays 12,595.  Claude's strict set is unchanged (none of
 #: the five is sent strict there); on OpenAI, where they are strict, they lose that bound.
+#: Round 7, L4: ppt_format_text's ``size`` takes 0 (remove the size set here), described
+#: "0 removes it: the layout's applies.": +15 to every definition (12,574 -> 12,589), none
+#: to the core (3,553); the guard stays 12,595.  The strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
