@@ -24,6 +24,14 @@ the same:
   inherit position) or, turned off, removed; a title slide (a ``"title"`` layout's) left
   out with ``showSpecialPlsOnTitleSld="0"``.  **Apply** (some slides) changes only those
   slides.
+* **A layout's own placeholder** (round 7): a ``p:sp`` with ``p:ph`` (no ``type`` for
+  content, as PowerPoint saves it), a unique ``idx`` -- the largest on the layout plus one,
+  at least 13, inferred from Office's bundled layouts (PowerPoint's own choice could not be
+  scripted) -- its frame and a text body naming it.  PowerPoint opens it without repair and
+  gives it, empty and without a frame, to every slide made on the layout afterwards; slides
+  already there get it only when the layout is applied again (measured, round 7, B), or here
+  when asked: an empty copy as that re-apply writes one (A6) -- type and idx, empty
+  ``spPr``, a text body with one empty paragraph (none for a picture or table).
 
 Layout and master edits show on every slide built on them, so the tools report the slides
 each one ``affects`` and check them.
@@ -300,6 +308,177 @@ def delete_layout(document: "Document", layout: "Layout",
         package.release(layout.master_part, [rel_id])
         document._reset_caches()
     return moved
+
+
+# -- a layout's own placeholders ---------------------------------------------------------------
+
+#: What :func:`add_placeholder` adds -> the ``p:ph`` type it writes.  A content placeholder
+#: has none: PowerPoint normalises ``type="obj"`` away when it saves (measured, round 7, B).
+#: Body, content and picture are the kinds Office's own layouts add beyond their standard
+#: ones; a title only where the layout has none.  A table or chart placeholder is left out:
+#: no tool fills one on a slide, and a layout change gives it no content (measured, A2).
+ADDABLE_PLACEHOLDERS = {"body": "body", "content": None, "obj": None, "pic": "pic",
+                        "picture": "pic", "title": "title"}
+#: The highest idx Office's bundled layouts reserve: date 10, footer 11, slide number 12.
+_RESERVED_IDX = 12
+_DEFAULT_LABELS = {"body": "Text Placeholder", None: "Content Placeholder",
+                   "pic": "Picture Placeholder", "title": "Title"}
+#: Placeholders a slide gets without a text body (measured, round 7, A6).
+NO_TEXT_BODY = ("pic", "tbl")
+
+
+def _placeholders_in(tree: Element) -> list[tuple[Element, Element]]:
+    from . import inherit
+
+    out = []
+    for shape in tree:
+        ph = inherit.placeholder_of(shape)
+        if ph is not None:
+            out.append((shape, ph))
+    return out
+
+
+def next_placeholder_idx(tree: Element) -> int:
+    """The idx a placeholder added to a layout gets: one more than the largest on it, and
+    at least 13.  PowerPoint's own choice could not be scripted (round 7, B); this is
+    inferred from Office's 26 bundled themes, whose layouts give date 10, footer 11, slide
+    number 12 and the placeholders they add 13, 14, ..., unique per layout.  A duplicate
+    idx opens without complaint but leaves a slide's placeholder two to inherit from."""
+    used = [int(ph.get("idx")) for _, ph in _placeholders_in(tree)
+            if (ph.get("idx") or "").isdigit()]
+    return max([*used, _RESERVED_IDX]) + 1
+
+
+def add_placeholder(document: "Document", layout: "Layout", kind: str,
+                    box: tuple[int, int, int, int], name: str | None = None):
+    """See :meth:`Layout.add_placeholder <pptx_agent.Layout.add_placeholder>`."""
+    if kind not in ADDABLE_PLACEHOLDERS:
+        raise ValueError(f"a layout placeholder of type {kind!r} is not added here; one of "
+                         f"{', '.join(sorted(ADDABLE_PLACEHOLDERS))}")
+    ph_type = ADDABLE_PLACEHOLDERS[kind]
+    left, top, width, height = (int(round(value)) for value in box)
+    if width <= 0 or height <= 0:
+        raise ValueError("a placeholder needs a width and a height over 0")
+    sheet = document._template_sheet(layout.part_path)
+    tree = sheet._sp_tree()
+    if ph_type == "title" and any(ph.get("type") in ("title", "ctrTitle")
+                                  for _, ph in _placeholders_in(tree)):
+        raise ValueError(f"{layout.id} already has a title placeholder; a layout has one")
+    with document.batch():
+        document.history.checkpoint()
+        shape_id = sheet._next_shape_id()
+        label = str(name) if name else f"{_DEFAULT_LABELS[ph_type]} {shape_id - 1}"
+        sp = make("p:sp")
+        nv = make("p:nvSpPr")
+        nv.append(make("p:cNvPr", id=str(shape_id), name=label))
+        locks = make("p:cNvSpPr")
+        locks.append(make("a:spLocks", noGrp="1"))
+        nv.append(locks)
+        nv_pr = make("p:nvPr")
+        ph = make("p:ph")
+        if ph_type is not None:
+            ph.set("type", ph_type)
+        if ph_type != "title":
+            ph.set("idx", str(next_placeholder_idx(tree)))
+        nv_pr.append(ph)
+        nv.append(nv_pr)
+        sp.append(nv)
+        properties = make("p:spPr")
+        xfrm = subelement(properties, "a:xfrm")
+        xfrm.append(make("a:off", x=str(left), y=str(top)))
+        xfrm.append(make("a:ext", cx=str(width), cy=str(height)))
+        sp.append(properties)
+        # As Office's layouts and the measured ones: a text body with text, which Slide
+        # Master view shows; a slide on the layout shows PowerPoint's own prompt.
+        body = make("p:txBody")
+        body.append(make("a:bodyPr"))
+        body.append(make("a:lstStyle"))
+        run = subelement(subelement(body, "a:p"), "a:r")
+        run.append(make("a:rPr", lang=_language(document)))
+        subelement(run, "a:t").text = label
+        sp.append(body)
+        append_in_order(tree, sp)
+        sheet._invalidate()
+    return sheet._wrap(sp)
+
+
+def add_layout_placeholder(slide: "Slide", which: "int | str"):
+    """See :meth:`Slide.add_layout_placeholder <pptx_agent.Slide.add_layout_placeholder>`."""
+    from . import inherit
+
+    document = slide.document
+    layout_part = inherit.layout_of(document.package, slide.part_path)
+    if layout_part is None:
+        raise ValueError(f"s:{slide.slide_id} has no layout")
+    offered = _placeholders_in(find(document.package.tree(layout_part), "p:cSld/p:spTree"))
+    title = which in ("title", "ctrTitle")
+    wanted = next(((shape, ph) for shape, ph in offered
+                   if (ph.get("type") in ("title", "ctrTitle") if title
+                       else ph.get("idx") == str(which))), None)
+    if wanted is None or isinstance(which, bool):
+        have = [int(ph.get("idx")) if ph.get("idx") else ph.get("type") for _, ph in offered]
+        raise KeyError(f"the layout of s:{slide.slide_id} has no placeholder {which!r}; it "
+                       f"has {have}")
+    source, source_ph = wanted
+    if source_ph.get("type") in FOOTER_TYPES or source_ph.get("type") == "hdr":
+        raise ValueError("a date, footer or slide-number placeholder comes with "
+                         "Document.set_footer")
+    tree = slide._sp_tree()
+    present = _placeholders_in(tree)
+    for _, ph in present:
+        if (ph.get("type") in ("title", "ctrTitle") if title
+                else ph.get("idx") == source_ph.get("idx")):
+            raise ValueError(f"s:{slide.slide_id} already has the placeholder {which!r}")
+    with document.batch():
+        document.history.checkpoint()
+        sp = make("p:sp")
+        nv = make("p:nvSpPr")
+        source_pr = find(source, f"{inherit._NV[local_name(source)]}/p:cNvPr")
+        shape_id = slide._next_shape_id()
+        nv.append(make("p:cNvPr", id=str(shape_id),
+                       name=(source_pr.get("name") if source_pr is not None else None)
+                       or f"Placeholder {shape_id - 1}"))
+        locks = make("p:cNvSpPr")
+        locks.append(make("a:spLocks", noGrp="1"))
+        nv.append(locks)
+        nv_pr = make("p:nvPr")
+        ph = make("p:ph")
+        for attribute in ("type", "orient", "idx"):
+            value = source_ph.get(attribute)
+            if value is not None and not (attribute == "type" and value == "obj"):
+                ph.set(attribute, value)
+        nv_pr.append(ph)
+        nv.append(nv_pr)
+        sp.append(nv)
+        sp.append(make("p:spPr"))
+        if source_ph.get("type") not in NO_TEXT_BODY:
+            body = make("p:txBody")
+            body.append(make("a:bodyPr"))
+            body.append(make("a:lstStyle"))
+            subelement(body, "a:p").append(make("a:endParaRPr", lang=_language(document)))
+            sp.append(body)
+        # In the layout's order among the slide's placeholders, as a re-apply orders them
+        # (A7): after the last one the layout has before it, else before the first.
+        # Footers, which slides of the layout hold too, count by their place on it.
+        def key(ph: Element) -> str:
+            return "title" if ph.get("type") in ("title", "ctrTitle") else ph.get("idx") or ""
+
+        order = [key(ph) for _, ph in offered]
+        mine = order.index(key(source_ph))
+        before = [shape for shape, ph in present
+                  if key(ph) in order and order.index(key(ph)) < mine]
+        others = [child for child in tree
+                  if local_name(child) not in ("nvGrpSpPr", "grpSpPr", "extLst")]
+        if before:
+            before[-1].addnext(sp)
+        elif present:
+            present[0][0].addprevious(sp)
+        elif others:
+            others[0].addprevious(sp)
+        else:
+            append_in_order(tree, sp)
+        slide._invalidate()
+    return slide._wrap(sp)
 
 
 # -- Header & Footer ---------------------------------------------------------------------------
@@ -587,5 +766,7 @@ def set_footer(document: "Document", *, text: str | None, slide_number: bool,
     return changed
 
 
-__all__ = ["CT_SLIDE_LAYOUT", "FOOTER_TYPES", "add_layout", "delete_layout", "duplicate_layout",
-           "footers_for_new_slide", "rename_layout", "set_footer"]
+__all__ = ["ADDABLE_PLACEHOLDERS", "CT_SLIDE_LAYOUT", "FOOTER_TYPES", "add_layout",
+           "add_layout_placeholder", "add_placeholder", "delete_layout", "duplicate_layout",
+           "footers_for_new_slide", "next_placeholder_idx", "NO_TEXT_BODY", "rename_layout",
+           "set_footer"]

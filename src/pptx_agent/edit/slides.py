@@ -413,6 +413,37 @@ class Layout(_TemplatePart):
             out.append(LayoutPlaceholder(placeholder, name, bounds, sizes))
         return out
 
+    def add_placeholder(self, kind: str, left: int, top: int, width: int, height: int, *,
+                        name: str | None = None):
+        """Add a placeholder to this layout, as Slide Master view's Insert Placeholder does:
+        a box each slide made on the layout gets in the same place, empty, to fill.
+        ``kind`` is ``"body"`` (text), ``"content"`` (text or an object), ``"pic"`` (a
+        picture) or ``"title"`` (only on a layout without one); the frame is in EMU;
+        ``name`` defaults to ``"Text Placeholder <n>"`` and the like.  Returns the layout's
+        new :class:`~pptx_agent.Shape` (``L9.7``): its prompt, text formatting and box are
+        edited as any layout shape's.
+
+        Its ``idx`` is unique on the layout: the largest there plus one, at least 13 --
+        inferred from Office's bundled layouts (date 10, footer 11, slide number 12, the
+        placeholders they add 13, 14, ...); PowerPoint's own choice could not be measured.
+        Slides made on the layout from now on get it (:meth:`Document.add_slide`); slides
+        already on it do not, as in PowerPoint, unless given it with
+        :meth:`Slide.add_layout_placeholder <pptx_agent.Slide.add_layout_placeholder>`.
+        One undo step.
+
+        For example::
+
+            layout = deck.duplicate_layout("Title Only", name="Score")
+            score = layout.add_placeholder("body", 8229600, 1600200, 3048000, 914400,
+                                           name="Score")
+            score.placeholder.idx                         # 13
+        """
+        from . import templates
+
+        self._require_package()
+        return templates.add_placeholder(self._document, self, kind,
+                                         (left, top, width, height), name)
+
     @property
     def master(self) -> "Master":
         """The master this layout belongs to.
@@ -873,19 +904,23 @@ def slide_from_layout(package: PresentationPackage, layout_part: str,
         nv_pr = make("p:nvPr")
         copied = make("p:ph")
         for attribute in ("type", "orient", "sz", "idx"):
-            if placeholder.get(attribute) is not None:
-                copied.set(attribute, placeholder.get(attribute))
+            value = placeholder.get(attribute)
+            # PowerPoint writes a content placeholder without type="obj" (round 7, B).
+            if value is not None and not (attribute == "type" and value == "obj"):
+                copied.set(attribute, value)
         nv_pr.append(copied)
         nv.append(nv_pr)
         sp.append(nv)
         sp.append(make("p:spPr"))
-        body = make("p:txBody")
-        body.append(make("a:bodyPr"))
-        body.append(make("a:lstStyle"))
-        paragraph = make("a:p")
-        paragraph.append(make("a:endParaRPr", lang=language))
-        body.append(paragraph)
-        sp.append(body)
+        # A picture or table placeholder comes without a text body (round 7, A6 and B).
+        if placeholder.get("type") not in ("pic", "tbl"):
+            body = make("p:txBody")
+            body.append(make("a:bodyPr"))
+            body.append(make("a:lstStyle"))
+            paragraph = make("a:p")
+            paragraph.append(make("a:endParaRPr", lang=language))
+            body.append(paragraph)
+            sp.append(body)
         shapes.append(sp)
         next_id += 1
 

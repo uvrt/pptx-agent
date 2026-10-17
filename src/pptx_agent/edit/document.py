@@ -1510,6 +1510,58 @@ class Shape(ShapeFactory):
             return None
         return ImageSize(pixels[0], pixels[1], image_dpi(data))
 
+    def insert_picture(self, image: "bytes | str | os.PathLike[str]") -> "Shape":
+        """Fill this empty picture placeholder with ``image`` (bytes or a path), as clicking
+        its picture icon does: a picture that keeps the placeholder's ``p:ph``, id and name,
+        in its place in the stacking order, filling its box -- cropped to it, centred
+        (``a:srcRect``), not stretched -- with the box written on it.  The same form drafting
+        from an outline writes; PowerPoint's own is unprobed.  Returns the picture.  One undo
+        step.
+
+        For example::
+
+            slide.shape("257.5").insert_picture("team.jpg")
+        """
+        from ..oxml.package import image_size
+        from ..outline.draft import _adopt_placeholder, _crop
+
+        ph = self._ph_node()
+        if ph is None or ph.get("type") != "pic" or local_name(self._element) != "sp":
+            raise ValueError(f"{self.id} is not an empty picture placeholder; replace a "
+                             "picture's image with replace_image, or add one with add_picture")
+        if getattr(self._slide, "kind", None) is not None:
+            raise ValueError(f"{self.id} is on a {self._slide.kind}; fill the placeholder on a "
+                             "slide made on it")
+        if (self.text or "").strip():
+            raise ValueError(f"{self.id} holds text; a picture placeholder takes a picture "
+                             "only when empty")
+        frame = self.bounds
+        if frame is None:
+            raise ValueError(f"{self.id} has no box to fill, its own or its layout's")
+        slide = self._slide
+        data = image if isinstance(image, (bytes, bytearray)) else open(image, "rb").read()
+        old = self._element
+        cnv = find(old, "p:nvSpPr/p:cNvPr")
+        placeholder = (ph.get("type"), int(ph.get("idx")) if (ph.get("idx") or "").isdigit()
+                       else None)
+        with slide.document.batch():
+            picture = slide.add_picture(bytes(data), *frame)
+            element = picture._element
+            crop = _crop(frame, image_size(bytes(data)))
+            blip_fill = element.find(qn("p:blipFill"))
+            stretch = blip_fill.find(qn("a:stretch")) if blip_fill is not None else None
+            if crop and stretch is not None:
+                stretch.addprevious(make("a:srcRect", **crop))
+            _adopt_placeholder(element, "p:nvPicPr", placeholder, picture=True)
+            new_cnv = find(element, "p:nvPicPr/p:cNvPr")
+            for attribute in ("id", "name"):
+                if cnv is not None and cnv.get(attribute) is not None:
+                    new_cnv.set(attribute, cnv.get(attribute))
+            old.addprevious(element)
+            remove(old)
+            slide._invalidate()
+        return slide._wrap(element)
+
     def replace_image(self, image: "bytes | str | os.PathLike[str]", *, keep: str = "frame",
                       anchor: str = "top_left",
                       svg: "bytes | str | os.PathLike[str] | None" = None,
@@ -2557,6 +2609,25 @@ class Slide(ShapeFactory):
             [(shape.id, shape.placeholder) for shape in slide.empty_placeholders()]
         """
         return [shape for shape in self.shapes if _is_empty_placeholder(shape._element)]
+
+    def add_layout_placeholder(self, which: "int | str") -> Shape:
+        """Give this slide its layout's placeholder ``which`` -- an ``idx`` (``13``), or
+        ``"title"`` -- empty, as PowerPoint writes one when it applies the layout again
+        (measured, round 7, A6): its type and idx, an empty ``spPr`` (it takes the layout's
+        place and formatting), a text body with one empty paragraph (a picture's or table's
+        has none), among the slide's placeholders in the layout's order.  For a placeholder added to the
+        layout after the slide was made (:meth:`Layout.add_placeholder
+        <pptx_agent.Layout.add_placeholder>`); one the slide has already is refused.
+        Returns the new shape.  One undo step.
+
+        For example::
+
+            box = slide.add_layout_placeholder(13)
+            box.set_text("Ready")
+        """
+        from . import templates
+
+        return templates.add_layout_placeholder(self, which)
 
     def delete_empty_placeholders(self, *, titles: bool = False) -> list[str]:
         """Delete :meth:`empty_placeholders` that draw nothing of their own; returns the ids
