@@ -84,7 +84,8 @@ classifiers = [
 # ooxml-edit 0.41.0: render's slides description names layouts and masters (L2, M0);
 # pptx2svg: ConvertOptions(templates=...), the template view a layout renders by (R11).
 # ooxml-common 0.18.0: title_states_no_font, by which check lists chart_title_font.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.18.0", "ooxml-edit>=0.41.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.43.0: Result.nothing_given, an empty items list's no-op (round 7, L7).
+dependencies = ["lxml>=4.9", "ooxml-common>=0.18.0", "ooxml-edit>=0.43.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

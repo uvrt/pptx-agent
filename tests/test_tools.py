@@ -124,6 +124,10 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: "; layouts L2, masters M0" and ``slides``/``pages`` no longer repeat the description's
 #: "at most 4" (ooxml-edit 0.41.0): +1 to the core (3,560 -> 3,561), every definition
 #: unchanged (12,592); the guard stays 12,595.  The strict set is unchanged.
+#: Round 7, L7: an empty ``items`` list is a no-op, so five arrays lose ``minItems: 1``
+#: (ooxml-edit 0.43.0): -8 to the core (3,561 -> 3,553), -18 to every definition
+#: (12,592 -> 12,574); the guard stays 12,595.  Claude's strict set is unchanged (none of
+#: the five is sent strict there); on OpenAI, where they are strict, they lose that bound.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
@@ -1356,3 +1360,73 @@ def test_a_position_given_a_slide_id_says_which_position_that_is(toolbox, sessio
     error = _refused(call(toolbox, session, "ppt_add_slide", doc="d1", layout="Blank",
                           at=256), "invalid_arguments")
     assert "slide id 256 is slide 1" in error.message
+
+
+# -- round 7: the application's own tools in a batch (L6), empty items lists (L7) ----------
+
+from ooxml_edit.tools import Result, string, tool  # noqa: E402
+
+#: What the made-up application tool kept, outside the deck.
+KEPT: list[str] = []
+
+
+@tool("app_keep", "Keep a line for the user.", {"text": string("The line.")}, documents=())
+def app_keep(call, text):
+    KEPT.append(text)
+    return Result(summary=f"Kept {text!r}", data={"kept": len(KEPT)})
+
+
+def test_a_batch_runs_a_tool_the_application_registered(toolbox, session):
+    KEPT.clear()
+    with Toolbox(TOOLS + [app_keep], formats=[FORMAT], groups=GROUPS) as own:
+        own_session = own.session(clock=CLOCK)
+        own_session.open(_deck(), "plan.pptx")
+        result = ok(call(own, own_session, "batch", ops=[
+            {"tool": "ppt_add_shape", "arguments": {"doc": "d1", "slide": "s:256", "items": [
+                {"preset": "rect", "box": {"x": 0, "y": 0, "w": 90, "h": 90}, "text": "A",
+                 "ref": "box1"}]}},
+            {"tool": "app_keep", "arguments": {"text": "added A"}},
+            {"tool": "ppt_set_text", "arguments": {"doc": "d1", "items": [
+                {"target": "$box1", "text": "B"}]}}]))
+        assert KEPT == ["added A"]
+        assert result.data["ops"][1] == {"op": 1, "tool": "app_keep",
+                                         "summary": "Kept 'added A'", "data": {"kept": 1}}
+        shape = own_session.entry("d1").document.shape(result.refs["box1"])
+        assert shape.text_frame.text == "B"
+    # Without it registered, the op says to call it on its own; the rest still apply.
+    result = ok(call(toolbox, session, "batch", ops=[
+        {"tool": "app_keep", "arguments": {"text": "x"}},
+        {"tool": "ppt_set_text", "arguments": {"doc": "d1", "items": []}}]))
+    assert result.data["failed"] == [0]
+    assert result.data["ops"][0]["error"]["message"].endswith("call app_keep on its own")
+
+
+@pytest.mark.parametrize("name, arguments, done", [
+    ("ppt_add_shape", {"slide": "s:256"}, "added"),
+    ("ppt_add_shape", {"slide": "s:256", "measure": True}, "measured"),
+    ("ppt_set_text", {}, "written"),
+    ("ppt_format_text", {}, "formatted"),
+    ("ppt_set_shape", {}, "changed"),
+    ("ppt_add_connector", {}, "added"),
+    ("ppt_comments", {"action": "add"}, "changed"),
+])
+def test_an_empty_items_list_is_a_no_op_with_a_warning(toolbox, session, name, arguments, done):
+    entry = session.entry("d1")
+    before = entry.document.to_bytes()
+    result = ok(call(toolbox, session, name, doc="d1", items=[], **arguments))
+    assert result.warnings == [f"items is empty: nothing was {done}"]
+    assert result.summary == f"Nothing {done}: items is empty"
+    assert result.created == [] and result.changed == []
+    assert entry.document.to_bytes() == before and not entry.history.can_undo()
+    # In a batch, as a trimmed batch leaves it: applied, with the warning.
+    batch = ok(call(toolbox, session, "batch", ops=[
+        {"tool": name, "arguments": {"doc": "d1", "items": [], **arguments}}]))
+    assert batch.warnings == [f"ops[0]: items is empty: nothing was {done}"]
+
+
+def test_an_empty_items_list_still_names_a_wrong_slide_and_comments_still_need_items(
+        toolbox, session):
+    assert call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:999",
+                items=[]).error.code == "not_found"
+    error = call(toolbox, session, "ppt_comments", doc="d1", action="add").error
+    assert error.code == "invalid_arguments" and error.message == "add needs items"
