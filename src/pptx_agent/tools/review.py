@@ -79,8 +79,10 @@ def ppt_comments(call, doc, action, items=None, author=None, slides=None, open_o
         result = Result(summary=f"{total} thread(s)", data=shown, next_cursor=next_cursor)
         result.total = total
         return result
-    if not items:
+    if items is None:
         raise ToolError("invalid_arguments", f"{action} needs items", field="items")
+    if not items:
+        return Result.nothing_given("changed")
     now = call.now()
     made, changed, removed = [], [], []
     for index, item in enumerate(items):

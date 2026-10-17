@@ -62,11 +62,13 @@ def _fit_of(target) -> dict[str, Any] | None:
        "items": array(obj({"target": string("Shape 256.5, cell 256.7/cell1,2, notes "
                                             "256/notes, or $ref."),
                            **text_params(described=False)}),
-                      "Targets and their text.", min_items=1)},
+                      "Targets and their text.")},
       kind=KIND, group=CORE, mutates=True, refs=("items[].target",),
       facts=("items[].text", "items[].paragraphs[].runs[].text"))
 @library_errors
 def ppt_set_text(call, doc, items):
+    if not items:
+        return Result.nothing_given("written")
     deck = call.document
     fits = {}
     written: list[str] = []
@@ -132,13 +134,15 @@ _FRAME_KEYS = ("autofit", "font_scale", "insets", "anchor", "wrap")
            "insets": insets_param(),
            "anchor": string(enum=ANCHOR, optional=True),
            "wrap": boolean(optional=True)}),
-           "Targets and their formatting.", min_items=1)},
+           "Targets and their formatting.")},
       kind=KIND, group=TEXT_GROUP, mutates=True, refs=("items[].target",),
       aliases=SPACING_ALIASES)
 @library_errors
 def ppt_format_text(call, doc, items):
     from ..edit.units import Pt
 
+    if not items:
+        return Result.nothing_given("formatted")
     deck = call.document
     for index, item in enumerate(items):
         field = f"items[{index}]"

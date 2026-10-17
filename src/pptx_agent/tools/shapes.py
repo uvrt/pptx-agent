@@ -122,7 +122,7 @@ def _measuring(arguments) -> bool:
            "like": string("Measuring: measure as this shape (font, insets, placeholder) "
                           "instead of preset.", optional=True),
            "name": string(optional=True),
-           "ref": _REF}), "The shapes, back to front.", min_items=1),
+           "ref": _REF}), "The shapes, back to front."),
        "measure": boolean("Measure the items' text only; add nothing. Default false.",
                           optional=True),
        "key": _KEY},
@@ -133,6 +133,8 @@ def ppt_add_shape(call, doc, slide, items, measure=False, key=None):
     from ..edit.fit import _converged_height
 
     target = slide_at(call.document, slide)
+    if not items:       # a trimmed batch's leftover: nothing to do, said, not refused
+        return Result.nothing_given("measured" if measure else "added")
     if measure:
         return _measure(call, target, items)
     made = []
@@ -238,10 +240,12 @@ def _measure(call, where, items) -> Result:
            "preset": string("New geometry, e.g. roundRect.", optional=True),
            "adjustments": _adjustments_param(),
            "name": string(optional=True)}),
-           "Shapes and their changes.", min_items=1)},
+           "Shapes and their changes.")},
       kind=KIND, group=CORE, mutates=True, refs=("items[].target",))
 @library_errors
 def ppt_set_shape(call, doc, items):
+    if not items:
+        return Result.nothing_given("changed")
     deck = call.document
     changed = []
     for index, item in enumerate(items):
@@ -506,12 +510,14 @@ def _end(call, spec: dict[str, Any], field: str):
            "to": _end_param("A shape (and side) or a point."),
            "line": line_param("end=triangle draws an arrow."),
            "name": string(optional=True),
-           "ref": _REF}), "The connectors.", min_items=1),
+           "ref": _REF}), "The connectors."),
        "key": _KEY},
       kind=KIND, group=GRAPHICS, mutates=True,
       refs=("slide", "items[].from.shape", "items[].to.shape"))
 @library_errors
 def ppt_add_connector(call, doc, items, slide=None, key=None):
+    if not items:
+        return Result.nothing_given("added")
     deck = call.document
     made = []
     for index, item in enumerate(items):

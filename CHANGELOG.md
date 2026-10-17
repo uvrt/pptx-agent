@@ -6,6 +6,20 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- An empty `items` list is a no-op with a warning, not a refusal (round 7, L7; ooxml-edit
+  0.43.0's `Result.nothing_given`): `ppt_add_shape`, `ppt_set_text`, `ppt_format_text`,
+  `ppt_set_shape`, `ppt_add_connector` and `ppt_comments` (other than `list`) given
+  `items: []` change nothing, record no undo step and warn `items is empty: nothing was
+  added` (written, formatted, changed, measured for `ppt_add_shape` with `measure`) --
+  what a model sends after trimming a batch. `ppt_add_shape` still resolves its `slide`
+  first, so a wrong one is still named; `ppt_comments` without `items` still needs them.
+  The five arrays lose `minItems: 1`: the core -8 estimated tokens (3,561 -> 3,553),
+  every definition -18 (12,592 -> 12,574); the guard stays 12,595. `ppt_arrange`'s
+  `targets` keeps its `minItems: 1` (an action on no shapes is a mistake, not a leftover).
+- `batch` runs a tool the application registered in the toolbox with these (round 7, L6;
+  ooxml-edit 0.43.0), tested here with a made-up one; one the application dispatches
+  itself is refused in the op saying to call it on its own.
+
 - A chart title that states no font is a check finding (round 6, item 11; ooxml-common
   0.18.0): `check`, the checks after a change and `save_document`'s `unresolved` list
   `chart_title_font`, one entry per chart -- `{"chart": "259.4", "fix": {"action":
