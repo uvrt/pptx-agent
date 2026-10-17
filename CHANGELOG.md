@@ -13,7 +13,9 @@ snapshot commit; the development history before it is summarised here.
   English, fr-BE French, de-CH German), the locale's separators and day order unchanged.
   A chart keeps the region's id where Excel was seen storing one (`[$-80C]` for fr-BE),
   else its language's (`[$-409]` for en-BE), and the render draws those names. A language
-  with no measured names (pt-BR) is refused as before. Tool definitions unchanged.
+  with no measured names (pt-BR) is refused as before; Spanish regions are not the
+  language's (measured): es-ES, es-MX (`[$-80A]`) and es have their own, others are refused.
+  Tool definitions unchanged.
 - A size set on a slide that overrides its layout's is a check fact (round 7, L4): `check`
   and the checks after a change list `overrides`, one entry per placeholder whose slide
   states a text size -- a run's `sz`, its paragraph's `a:defRPr` or the shape's own list

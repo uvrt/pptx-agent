@@ -495,6 +495,8 @@ def test_a_date_format_is_checked_for_a_table(toolbox):
     ("fr-BE", ["5 janv. 2026", "10 févr. 2026", "15 mars 2026"]),
     ("en-BE", ["5 Jan 2026", "10 Feb 2026", "15 Mar 2026"]),
     ("de-CH", ["5 Jan 2026", "10 Feb 2026", "15 Mär 2026"]),
+    # es-MX's own names (measured, PowerPoint for Mac, 2026-10-17), kept as [$-80A].
+    ("es-MX", ["5 ene. 2026", "10 feb. 2026", "15 mar. 2026"]),
 ])
 def test_a_regions_chart_dates_are_drawn_in_its_languages_names(toolbox, language, drawn):
     import io
