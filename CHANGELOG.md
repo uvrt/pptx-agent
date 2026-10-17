@@ -6,6 +6,16 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Date names for a region (round 7, L5; ooxml-edit 0.44.0, ooxml-common 0.19.0): a table's
+  or a chart's `date_format` and a text fact's date pattern with month or day names
+  (`d mmmm yyyy`) were refused in a locale such as en-BE or fr-BE; they now take the
+  language's names, as Office shows them (measured in Excel for Mac, 2026-10-17: en-BE
+  English, fr-BE French, de-CH German), the locale's separators and day order unchanged.
+  A chart keeps the region's id where Excel was seen storing one (`[$-80C]` for fr-BE),
+  else its language's (`[$-409]` for en-BE), and the render draws those names. A language
+  with no measured names (pt-BR) is refused as before; Spanish regions are not the
+  language's (measured): es-ES, es-MX (`[$-80A]`) and es have their own, others are refused.
+  Tool definitions unchanged.
 - A size set on a slide that overrides its layout's is a check fact (round 7, L4): `check`
   and the checks after a change list `overrides`, one entry per placeholder whose slide
   states a text size -- a run's `sz`, its paragraph's `a:defRPr` or the shape's own list
