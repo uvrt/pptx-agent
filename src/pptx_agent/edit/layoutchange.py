@@ -1,45 +1,50 @@
 """A finished slide moved onto another layout, as PowerPoint's Layout menu does it.
 
-What PowerPoint writes was measured in PowerPoint 16 (Mac) on 53 made-up slides
-(agent-work/feedback-round7/oracle/results.md, A1-A9 and B2), and :func:`set_layout`
-writes the same:
+What PowerPoint writes was measured in PowerPoint 16 (Mac) on made-up slides
+(agent-work/feedback-round7/oracle/results.md, A1-A9, B2 and A2 of the follow-up on the
+sample, l2-check/), and :func:`set_layout` writes the same:
 
 1. **Empty placeholders go**; the new layout's placeholders the slide then lacks are added
    empty -- the lowest free shape ids (counted before the empty ones went), type and idx (no
    ``sz``), an empty ``spPr``, a text body with one empty paragraph (none for a picture or
-   table placeholder).  PowerPoint names each "<kind> N" in its interface language; here it
-   takes the layout placeholder's name, as a new slide's placeholders do
-   (:func:`~pptx_agent.edit.slides.slide_from_layout`).  Date, footer and slide-number
-   placeholders are not added (Header & Footer adds them).
+   table placeholder).  PowerPoint names each "<kind> N" in its interface language (and
+   gives it an ``a16:creationId``); here it takes the layout placeholder's name, as a new
+   slide's placeholders do (:func:`~pptx_agent.edit.slides.slide_from_layout`).  Date,
+   footer and slide-number placeholders are never added; the slide's own, empty or not,
+   take the layout's of their kind (``sz`` kept), and an empty one with none there goes.
 2. **Filled placeholders match by kind**, never by name or "same idx": a title takes a title
    or centred title; text content (a content, body or subtitle placeholder) takes a content,
    body or subtitle placeholder -- the same type first, then a compatible one; picture and
-   table placeholders take no text.  A picture in a picture placeholder takes a picture
-   placeholder (B2), else a content placeholder (A2).
+   table placeholders take no text.  A picture takes a picture placeholder, else a content
+   one; a table a table or content placeholder; a chart (any other frame) a content, table
+   or picture placeholder.
 3. **Within a kind** the slide's and the layout's placeholders are each sorted by idx and
    paired in that order; names, stacking order and ``sz`` play no part, and an earlier
    orphan (idx 4294967295) is matched again like any other.
 4. **A matched placeholder** takes the layout's type and idx (no ``type`` for content, no
    ``sz``) and loses its own box (``a:xfrm``), also when the layout is the one it is on: it
    moves to the layout's place.  Its text, run formatting, fill, outline, ``bodyPr``,
-   paragraph formatting, name and id stay.  A picture moving to a picture placeholder is
-   cropped to fill the new box (``a:srcRect``, empty when the shapes agree: B2 and L2b S12);
-   one already cropped keeps its crop (unmeasured) and is listed.  A picture moving into a
-   content placeholder is drawn at its own size centred in the box (A2: a 4x4 px image
-   without a stated resolution became 2x2 pt on PowerPoint for Mac, so 144 dpi there), made
-   smaller to fit when larger (unmeasured).
+   paragraph formatting, name and id stay.
+   - A picture moving to a picture placeholder (its own again too) is cropped to fill the
+     box from the whole image, centred, any crop of its own replaced (``a:srcRect``, empty
+     when the shapes agree).  Into a content placeholder it loses its crop and is drawn at
+     its own size -- its pixels at the resolution it states, else 144 dpi (measured on a
+     Retina Mac) -- made smaller to fit keeping its shape, never larger, centred; with no
+     frame of its own when it fills the box exactly.
+   - A table takes the box's place and width: its columns and its cells' left and right
+     insets (91440 when unstated) scaled by the same factor, its rows kept, the frame as
+     tall as they are.  A chart takes the box.
 5. **A filled placeholder with no match** stays, an orphan: idx ``4294967295``, its type and
    ``sz`` kept, its box written on it -- its own or the old layout's -- with ``x`` moved to
    the slide's left edge when the box's centre is in the left half (at the middle too), else
-   to its right edge (A5).
+   to its right edge (A5); a table or chart keeps its size.
 6. **Order**: the placeholders gather into one block where the first placeholder was --
    matched and new ones in the layout's order, orphans last; other shapes keep theirs.
 7. Other shapes are not touched; of the relationships only the layout's target changes.
 
-Unmeasured, decided here: a placeholder inside a group is left as it is; a table, chart or
-diagram frame (``p:graphicFrame``) matches its own kind first, then content, and as its
-frame must have a box it takes the layout placeholder's; a date, footer or slide-number
-placeholder matches its own kind; ``orient`` follows the layout, ``hasCustomPrompt`` goes.
+Unmeasured, decided here: a placeholder inside a group is left as it is; a chart does not
+take a body or subtitle placeholder; ``orient`` follows the layout, ``hasCustomPrompt``
+goes; Windows was not measured.
 """
 
 from __future__ import annotations
@@ -77,8 +82,7 @@ class LayoutChange:
     slide's empty placeholders that went.  ``orphans``: ``(shape id, why)`` for content with
     no placeholder on the layout -- kept where it was drawn, snapped to a side.
     ``boxes_dropped``: ``(shape id, (x, y, w, h) EMU)`` for each matched placeholder whose own
-    box was dropped for the layout's, as PowerPoint drops it.  ``crops_kept``: pictures moved
-    to a picture placeholder whose own crop was kept."""
+    box was dropped for the layout's, as PowerPoint drops it."""
 
     slide: str
     layout: str
@@ -87,7 +91,6 @@ class LayoutChange:
     removed: list[str] = field(default_factory=list)
     orphans: list[tuple[str, str]] = field(default_factory=list)
     boxes_dropped: list[tuple[str, tuple[int, int, int, int]]] = field(default_factory=list)
-    crops_kept: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -111,12 +114,16 @@ class _Item:
         return local_name(self.element)
 
 
+_TABLE_URI = "http://schemas.openxmlformats.org/drawingml/2006/table"
+
+
 def _kind(item: _Item) -> str:
-    """The class a slide placeholder's content matches within (A2)."""
+    """The class a slide placeholder's content matches within (A2; A2 of the follow-up)."""
     if item.tag == "pic":
         return "picture"
     if item.tag == "graphicFrame":
-        return "frame"
+        data = find(item.element, "a:graphic/a:graphicData")
+        return "table" if data is not None and data.get("uri") == _TABLE_URI else "frame"
     if item.type in _TITLES:
         return "title"
     if item.type in _FOOTERS:
@@ -132,13 +139,18 @@ def _accepts(kind: str, item: _Item, offered: _Item) -> bool:
         return offered.type in _TEXT or offered.type == item.type
     if kind == "picture":
         return offered.type in ("pic", None)
+    if kind == "table":
+        return offered.type in ("tbl", None)
     if kind == "frame":
-        return offered.type in (item.type, None)
+        # A chart takes any placeholder but a title, a text-only or a footer one (measured:
+        # table, picture and content placeholders).
+        return offered.type not in (*_TITLES, *_FOOTERS, "body", "subTitle")
     return offered.type == kind
 
 
 _WHAT = {"title": "title", "text": "content or text", "picture": "picture or content",
-         "frame": "content", "dt": "date", "ftr": "footer", "sldNum": "slide-number",
+         "table": "table or content",
+         "frame": "content, table or picture", "dt": "date", "ftr": "footer", "sldNum": "slide-number",
          "hdr": "header"}
 
 
@@ -174,7 +186,7 @@ def _pair(slide_items: list[_Item], offered: list[_Item]) -> dict[int, _Item]:
         for item in slide_items:
             if id(item) not in pairs:
                 kind = _kind(item)
-                key = (kind, item.type) if exact or kind == "frame" else (kind, None)
+                key = (kind, item.type) if exact else (kind, None)
                 groups.setdefault(key, []).append(item)
         for (kind, _), group in groups.items():
             group.sort(key=lambda item: (item.idx, item.order))
@@ -248,10 +260,11 @@ def _write_xfrm(element: Element, box: tuple[int, int, int, int],
             holder.insert(0, new)
 
 
-def _rewrite_ph(ph: Element, source: Element) -> None:
+def _rewrite_ph(ph: Element, source: Element, *, keep_size: bool = False) -> None:
     """``ph`` takes the layout placeholder's type, orient and idx (no ``type="obj"``, no
-    ``sz``; A4)."""
-    for attribute in ("type", "orient", "sz", "idx", "hasCustomPrompt"):
+    ``sz``: A4; a date, footer or slide number keeps its ``sz``)."""
+    for attribute in ("type", "orient", "idx", "hasCustomPrompt",
+                      *(() if keep_size else ("sz",))):
         if attribute in ph.attrib:
             del ph.attrib[attribute]
     for attribute in ("type", "orient", "idx"):
@@ -292,51 +305,93 @@ def _image(slide: "Slide", element: Element) -> bytes | None:
         return None
 
 
-def _picture_into_pic(slide: "Slide", element: Element, box) -> bool:
-    """A picture moved to a picture placeholder: cropped to fill ``box`` (an empty
-    ``a:srcRect`` when the shapes agree), as PowerPoint writes it (B2; L2b S12).  A crop of
-    its own is kept; returns ``True`` then."""
+def _picture_into_pic(slide: "Slide", element: Element, box) -> None:
+    """A picture moved to a picture placeholder (also its own again): its crop replaced by
+    one that fills ``box`` from the whole image, centred -- an empty ``a:srcRect`` when the
+    shapes agree -- as PowerPoint writes it (B2; L2b S12; A2 of the follow-up, c)."""
     from ..oxml.package import image_size
     from ..outline.draft import _crop
 
     blip_fill = element.find(qn("p:blipFill"))
-    if blip_fill is None:
-        return False
-    rect = blip_fill.find(qn("a:srcRect"))
-    if rect is not None and any(rect.get(side) not in (None, "0")
-                                for side in ("l", "t", "r", "b")):
-        return True
     data = _image(slide, element)
-    if box is None or data is None:
-        return False
-    crop = _crop(box, image_size(data))
-    new = make("a:srcRect", **crop)
+    if blip_fill is None or box is None or data is None:
+        return
+    rect = blip_fill.find(qn("a:srcRect"))
+    new = make("a:srcRect", **_crop(box, image_size(data)))
     if rect is not None:
         rect.addprevious(new)
         remove(rect)
     else:
         blip = blip_fill.find(qn("a:blip"))
         (blip.addnext(new) if blip is not None else blip_fill.insert(0, new))
-    return False
+
+
+def native_size(data: bytes) -> tuple[float, float] | None:
+    """An image's own size in EMU: its pixels at the resolution it states (a PNG's
+    ``pHYs``, a JPEG's density), else at 144 dpi -- measured on a Retina Mac, where
+    PowerPoint drew a PNG without ``pHYs`` at half a point per pixel (round 7, A2)."""
+    from ..oxml.package import image_dpi, image_size
+
+    pixels = image_size(data)
+    if not pixels or not all(pixels):
+        return None
+    # Whole dots per inch, as PowerPoint draws them: a pHYs of 3780 per metre (96.01 dpi)
+    # gave exactly 0.75 pt a pixel.
+    dpi = [round(value) or _DEFAULT_DPI for value in image_dpi(data) or ()] or \
+        [_DEFAULT_DPI, _DEFAULT_DPI]
+    return pixels[0] / dpi[0] * 914400, pixels[1] / dpi[1] * 914400
 
 
 def _picture_into_content(slide: "Slide", element: Element, box) -> None:
-    """A picture moved into a content placeholder: its own size, centred in ``box``, made
-    smaller to fit when larger (A2)."""
-    from ..oxml.package import image_dpi, image_size
-
+    """A picture moved into a content placeholder: the whole image (its crop removed) at
+    its own size, made smaller to fit keeping its shape -- never larger -- centred in
+    ``box``; no frame of its own when that fills the box exactly (A2 of the follow-up)."""
+    blip_fill = element.find(qn("p:blipFill"))
+    rect = blip_fill.find(qn("a:srcRect")) if blip_fill is not None else None
+    if rect is not None:
+        remove(rect)
     data = _image(slide, element)
-    pixels = image_size(data) if data else None
-    if box is None or not pixels or not all(pixels):
+    size = native_size(data) if data else None
+    if box is None or size is None:
         return
-    dpi = image_dpi(data) or (_DEFAULT_DPI, _DEFAULT_DPI)
-    width = pixels[0] / (dpi[0] or _DEFAULT_DPI) * 914400
-    height = pixels[1] / (dpi[1] or _DEFAULT_DPI) * 914400
-    scale = min(1.0, box[2] / width if width else 1.0, box[3] / height if height else 1.0)
+    width, height = size
+    scale = min(1.0, box[2] / width, box[3] / height)
     width, height = round(width * scale), round(height * scale)
+    if abs(width - box[2]) <= 1 and abs(height - box[3]) <= 1:
+        return
     left = box[0] + round((box[2] - width) / 2)
     top = box[1] + round((box[3] - height) / 2)
     _write_xfrm(element, (left, top, width, height))
+
+
+#: A table cell's left and right inset when its ``tcPr`` states none (ECMA-376, 21.1.3.17).
+_CELL_MARGIN = 91440
+
+
+def _table_into(element: Element, box) -> None:
+    """A table moved into a placeholder: at the box's place and width, its columns and the
+    cells' left and right insets scaled by the same factor, its rows kept and the frame as
+    tall as they are (measured, A2 of the follow-up, e: 91440 x 2.15 = 196596)."""
+    grid = list(element.iter(qn("a:gridCol")))
+    total = sum(int(col.get("w", "0")) for col in grid)
+    if box is None or not total:
+        return
+    factor = box[2] / total
+    for col in grid:
+        col.set("w", str(round(int(col.get("w", "0")) * factor)))
+    for cell in element.iter(qn("a:tc")):
+        properties = cell.find(qn("a:tcPr"))
+        if properties is None:
+            properties = make("a:tcPr")
+            extension = cell.find(qn("a:extLst"))
+            (extension.addprevious(properties) if extension is not None
+             else cell.append(properties))
+        for side in ("marL", "marR"):
+            value = properties.get(side)
+            margin = int(value) if value and value.lstrip("-").isdigit() else _CELL_MARGIN
+            properties.set(side, str(round(margin * factor)))
+    height = sum(int(row.get("h", "0")) for row in element.iter(qn("a:tr")))
+    _write_xfrm(element, (box[0], box[1], box[2], height))
 
 
 def _retarget(package, slide_part: str, layout_part: str) -> None:
@@ -377,9 +432,15 @@ def set_layout(slide: "Slide", layout: "Layout") -> LayoutChange:
 
     with document.batch():
         document.history.checkpoint()
-        empty = [item for item in items if not _filled(item.element)]
-        filled = [item for item in items if _filled(item.element)]
-        pairs = _pair(filled, offered)
+        # A date, footer or slide number empty or not takes its kind's place on the layout
+        # (kept, its id and name too); an empty one with none there goes (A2 follow-up, d).
+        footers = [item for item in items if not _filled(item.element)
+                   and item.type in _FOOTERS]
+        pairs = _pair([item for item in items if _filled(item.element)] + footers, offered)
+        empty = [item for item in items if not _filled(item.element)
+                 and id(item) not in pairs]
+        gone = {id(item) for item in empty}
+        filled = [item for item in items if id(item) not in gone]
         missing = [o for o in offered if id(o) not in {id(p) for p in pairs.values()}
                    and local_name(o.element) == "sp" and o.ph.get("type") not in _FOOTERS]
         # New ids before the empty placeholders go: theirs stay taken (A6).
@@ -402,8 +463,10 @@ def set_layout(slide: "Slide", layout: "Layout") -> LayoutChange:
             own = _box(_own_xfrm(item.element))
             if own is not None:
                 report.boxes_dropped.append((address(item.element), own))
-            _rewrite_ph(item.ph, place.ph)
-            if item.tag == "graphicFrame":
+            _rewrite_ph(item.ph, place.ph, keep_size=item.type in _FOOTERS)
+            if _kind(item) == "table":
+                _table_into(item.element, target_box)
+            elif item.tag == "graphicFrame":
                 if target_box is not None:
                     _write_xfrm(item.element, target_box)
             else:
@@ -412,8 +475,7 @@ def set_layout(slide: "Slide", layout: "Layout") -> LayoutChange:
                     remove(xfrm)
             if item.tag == "pic":
                 if place.type == "pic":
-                    if _picture_into_pic(slide, item.element, target_box):
-                        report.crops_kept.append(address(item.element))
+                    _picture_into_pic(slide, item.element, target_box)
                 else:
                     _picture_into_content(slide, item.element, target_box)
             block[place.order] = item.element

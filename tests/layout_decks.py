@@ -69,16 +69,61 @@ def pic(sid, name, rid, box=None, placeholder="", crop="") -> str:
             f'</p:blipFill><p:spPr>{xfrm(box) if box else ""}{geometry}</p:spPr></p:pic>')
 
 
-def png(width=4, height=4) -> bytes:
+def png(width=4, height=4, dpi=None) -> bytes:
+    """A one-colour PNG; ``dpi`` writes a ``pHYs`` chunk."""
     raw = b"".join(b"\x00" + b"\xc8\x1e\x1e" * width for _ in range(height))
 
     def chunk(tag, data):
         return (struct.pack(">I", len(data)) + tag + data
                 + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
 
+    density = b""
+    if dpi:
+        per_metre = round(dpi / 0.0254)
+        density = chunk(b"pHYs", struct.pack(">IIB", per_metre, per_metre, 1))
     return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2,
                                                             0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+            + density + chunk(b"IDAT", zlib.compress(raw))
+            + chunk(b"IEND", b""))
+
+
+def frame(sid, name, placeholder, box, *, chart=False, columns=(200, 200), rows=(40, 40),
+          margins="") -> str:
+    """A table (``columns`` and ``rows`` in points, ``margins`` the cells' ``tcPr``
+    attributes) or, with ``chart``, a chart frame (its chart ``rId3``)."""
+    if chart:
+        data = ('<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">'
+                '<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" '
+                'r:id="rId3"/></a:graphicData>')
+    else:
+        grid = "".join(f'<a:gridCol w="{w * PT}"/>' for w in columns)
+        cell = ('<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/>'
+                f'<a:t>{{}}</a:t></a:r></a:p></a:txBody><a:tcPr {margins}/></a:tc>')
+        body = "".join(f'<a:tr h="{h * PT}">' + "".join(
+            cell.format(f"{chr(65 + c)}{r + 1}") for c in range(len(columns))) + "</a:tr>"
+            for r, h in enumerate(rows))
+        data = ('<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table">'
+                f'<a:tbl><a:tblPr firstRow="1" bandRow="1"/><a:tblGrid>{grid}</a:tblGrid>{body}'
+                '</a:tbl></a:graphicData>')
+    x, y, w, h = (round(v * PT) for v in box)
+    return (f'<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="{sid}" name="{name}"/>'
+            '<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>'
+            f'<p:nvPr>{placeholder}</p:nvPr></p:nvGraphicFramePr><p:xfrm><a:off x="{x}" '
+            f'y="{y}"/><a:ext cx="{w}" cy="{h}"/></p:xfrm><a:graphic>{data}</a:graphic>'
+            '</p:graphicFrame>')
+
+
+CHART = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><c:chartSpace xmlns:c='
+         '"http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.'
+         'openxmlformats.org/drawingml/2006/main"><c:chart><c:plotArea><c:layout/><c:barChart>'
+         '<c:barDir val="col"/><c:grouping val="clustered"/><c:ser><c:idx val="0"/><c:order '
+         'val="0"/><c:val><c:numLit><c:ptCount val="2"/><c:pt idx="0"><c:v>3</c:v></c:pt><c:pt '
+         'idx="1"><c:v>5</c:v></c:pt></c:numLit></c:val></c:ser><c:axId val="1"/><c:axId '
+         'val="2"/></c:barChart><c:catAx><c:axId val="1"/><c:scaling><c:orientation val="minMax"'
+         '/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:crossAx val="2"/></c:catAx>'
+         '<c:valAx><c:axId val="2"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete'
+         ' val="0"/><c:axPos val="l"/><c:crossAx val="1"/></c:valAx></c:plotArea></c:chart>'
+         '</c:chartSpace>')
 
 
 def title(name, box=(50, 20, 860, 80)) -> str:
@@ -172,6 +217,12 @@ def build(slides, layouts=LAYOUTS, media=None) -> Document:
             '<a:masterClrMapping/></p:clrMapOvr></p:sld>').encode()
         image = (f'<Relationship Id="rId2" Type="{REL}image" Target="../media/image1.png"/>'
                  if any("r:embed" in shape for shape in shapes) else "")
+        if any("<c:chart " in shape for shape in shapes):
+            image += (f'<Relationship Id="rId3" Type="{REL}chart" '
+                      f'Target="../charts/chart{k}.xml"/>')
+            parts[f"ppt/charts/chart{k}.xml"] = CHART.encode()
+            overrides += (f'<Override PartName="/ppt/charts/chart{k}.xml" ContentType='
+                          '"application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>')
         parts[f"ppt/slides/_rels/slide{k}.xml.rels"] = (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns='
             '"http://schemas.openxmlformats.org/package/2006/relationships"><Relationship '

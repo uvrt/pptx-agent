@@ -320,14 +320,14 @@ def test_a_picture_placeholder_again_on_its_layout_is_cropped_to_fill():
     assert picture.bounds == (200 * PT, 120 * PT, 560 * PT, 380 * PT)
 
 
-def test_a_picture_with_a_crop_of_its_own_keeps_it_and_says_so():
+def test_a_picture_with_a_crop_of_its_own_gets_one_that_fills_the_new_box():
+    """A2 follow-up (c): the crop is computed afresh from the whole image."""
     shapes = [ph(2, "Title", "title", None, None, text="Photo"),
               pic(3, "Photo", "rId2", placeholder=PICTURE_PH, crop='l="10000" r="5000"')]
-    _, slide, change = moved("LD", shapes, "LS")
+    _, slide, _ = moved("LD", shapes, "LS")
     rect_ = next(slide.shape("256.3")._element.iter(
         "{http://schemas.openxmlformats.org/drawingml/2006/main}srcRect"))
-    assert dict(rect_.attrib) == {"l": "10000", "r": "5000"}
-    assert change.crops_kept == ["256.3"]
+    assert dict(rect_.attrib) == {"t": "16071", "b": "16071"}
 
 
 def test_a_large_picture_into_content_is_made_to_fit():
@@ -409,3 +409,244 @@ def test_the_tool_reports_orphans_and_dropped_boxes(toolbox):
                                {"doc": doc, "action": "set_layout", "slide": "s:256",
                                 "layout": "Nope"})
     assert not missing.ok and missing.error.code == "not_found"
+
+
+# -- the follow-up measurements: pictures, footers, tables, charts (A2, l2-check/) -----------
+
+from layout_decks import frame  # noqa: E402
+
+TB = (50, 20, 860, 80)
+
+
+def _layout(name, *specs):
+    return [ph(k, f"{name} {kind or 'Body'}", kind, idx, box, extra=extra, layout=True)
+            for k, (kind, idx, extra, box) in enumerate(specs, 2)]
+
+
+FOOTERS = [("dt", 10, ' sz="half"', (20, 440, 200, 30)),
+           ("ftr", 11, ' sz="quarter"', (300, 440, 360, 30)),
+           ("sldNum", 12, ' sz="quarter"', (740, 440, 200, 30))]
+FOLLOW = {
+    "CT": _layout("CT", ("title", None, "", TB), (None, 1, "", (50, 120, 860, 380))),
+    "PIC": _layout("PIC", ("title", None, "", TB), ("pic", 13, "", (200, 120, 560, 380))),
+    "PICTALL": _layout("PICTALL", ("title", None, "", TB), ("pic", 1, "", (380, 110, 200, 400))),
+    "PICWIDE": _layout("PICWIDE", ("title", None, "", TB), ("pic", 1, "", (80, 200, 800, 150))),
+    "CTSMALL": _layout("CTSMALL", ("title", None, "", TB), (None, 1, "", (330, 200, 300, 150))),
+    "FTR": _layout("FTR", ("title", None, "", TB), (None, 1, "", (50, 120, 860, 300)), *FOOTERS),
+    "NOFTR": _layout("NOFTR", ("title", None, "", TB), (None, 1, "", (100, 140, 760, 360))),
+    "FTR2": _layout("FTR2", ("title", None, "", TB), (None, 1, "", (50, 120, 860, 300)),
+                    ("dt", 20, ' sz="half"', (700, 500, 240, 30)),
+                    ("ftr", 21, ' sz="quarter"', (20, 500, 300, 30)),
+                    ("sldNum", 22, ' sz="quarter"', (400, 500, 100, 30))),
+    "TBL": _layout("TBL", ("title", None, "", TB), ("tbl", 1, "", (100, 150, 760, 300))),
+    "TITLE": _layout("TITLE", ("title", None, "", TB)),
+}
+CONTENT_PH = '<p:ph idx="1"/>'
+CROP = 'l="10000" t="20000"'
+HEAD = "sp id=2 'Title 1' ph(type=title) tx=Y 'T'"
+
+
+def follow(start, shapes, target, media=None):
+    deck = build([(start, [ph(2, "Title 1", "title", None, None, text="T"), *shapes])],
+                 FOLLOW, media=media)
+    change = deck.slides[0].set_layout(target)
+    return deck, deck.slides[0], change
+
+
+def crop_of(shape):
+    rect_ = next(shape._element.iter(
+        "{http://schemas.openxmlformats.org/drawingml/2006/main}srcRect"), None)
+    return None if rect_ is None else dict(rect_.attrib)
+
+
+# (image, target, the picture PowerPoint wrote) -- extra.pptx slides 1-12, follow 3-4
+NATIVE = [
+    ((3000, 2000, None), "CT", "xfrm(195,120,570,380)"),        # shrunk to fit
+    ((3000, 2000, None), "CTSMALL", "xfrm(367.5,200,225,150)"),
+    ((4000, 1000, None), "CT", "xfrm(50,202.5,860,215)"),
+    ((4000, 1000, None), "CTSMALL", "xfrm(330,237.5,300,75)"),
+    ((400, 200, None), "CT", "xfrm(380,260,200,100)"),          # 144 dpi without pHYs
+    ((400, 200, None), "CTSMALL", "xfrm(380,225,200,100)"),
+    ((400, 200, 72), "CT", "xfrm(280,210,400,200)"),
+    ((400, 200, 72), "CTSMALL", ""),                            # fills the box: no frame
+    ((400, 200, 300), "CT", "xfrm(432,286,96,48)"),
+    ((400, 200, 300), "CTSMALL", "xfrm(432,251,96,48)"),
+    ((3000, 2000, 300), "CT", "xfrm(195,120,570,380)"),
+    ((3000, 2000, 300), "CTSMALL", "xfrm(367.5,200,225,150)"),
+    ((400, 200, 96), "CT", "xfrm(330,235,300,150)"),
+    ((400, 200, 144), "CT", "xfrm(380,260,200,100)"),
+]
+
+
+@pytest.mark.parametrize("image,target,box", NATIVE, ids=[f"{i}-{t}" for i, t, _ in NATIVE])
+def test_a_picture_into_content_at_its_own_size_never_larger(image, target, box):
+    _, slide, _ = follow("PIC", [pic(3, "Picture 2", "rId2", placeholder=PICTURE_PH)], target,
+                         media=png(image[0], image[1], image[2]))
+    frame_ = f" {box}" if box else ""
+    assert dump(slide) == [HEAD, f"pic id=3 'Picture 2' ph(idx=1){frame_} tx=N ''"]
+
+
+# (start, placeholder, crop, target, the crop and frame PowerPoint wrote) -- slides 13-20
+CROPS = [
+    ("PIC", PICTURE_PH, CROP, "PICTALL", {"l": "37500", "r": "37500"}, ""),
+    ("PIC", PICTURE_PH, CROP, "PICWIDE", {"t": "31250", "b": "31250"}, ""),
+    ("PIC", PICTURE_PH, CROP, "CT", None, " xfrm(280,210,400,200)"),
+    ("PIC", PICTURE_PH, CROP, "PIC", {"l": "13158", "r": "13158"}, ""),
+    ("PIC", PICTURE_PH, CROP, "CTSMALL", None, ""),
+    ("CT", CONTENT_PH, CROP, "PICTALL", {"l": "37500", "r": "37500"}, ""),
+    ("CT", CONTENT_PH, "", "PICTALL", {"l": "37500", "r": "37500"}, ""),
+]
+
+
+@pytest.mark.parametrize("start,where,crop,target,expected,box", CROPS,
+                         ids=[f"{c[0]}-{c[3]}-{bool(c[2])}" for c in CROPS])
+def test_a_crop_is_replaced_by_one_that_fills_the_new_box(start, where, crop, target,
+                                                          expected, box):
+    _, slide, _ = follow(start, [pic(3, "Picture 2", "rId2", placeholder=where, crop=crop)],
+                         target, media=png(800, 400))
+    picture = slide.shape("256.3")
+    assert crop_of(picture) == expected
+    kind = "type=pic," if expected is not None else ""
+    assert dump(slide)[1] == f"pic id=3 'Picture 2' ph({kind}idx={picture.placeholder.idx})" \
+        f"{box} tx=N ''"
+
+
+def test_a_picture_with_its_own_box_into_a_picture_placeholder():
+    _, slide, change = follow("PIC", [pic(3, "Picture 2", "rId2", (100, 150, 300, 300),
+                                          placeholder=PICTURE_PH)], "PICTALL",
+                              media=png(800, 400))
+    assert crop_of(slide.shape("256.3")) == {"l": "37500", "r": "37500"}
+    assert dump(slide)[1] == "pic id=3 'Picture 2' ph(type=pic,idx=1) tx=N ''"
+    assert change.boxes_dropped == [("256.3", (100 * PT, 150 * PT, 300 * PT, 300 * PT))]
+
+
+def _footers(filled=True, dt_box=None, number=True):
+    out = [ph(3, "Content 2", None, 1, None, text="Body text"),
+           ph(4, "Date 3", "dt", 10, dt_box, text="17 Oct 2026" if filled else None,
+              extra=' sz="half"'),
+           ph(5, "Footer 4", "ftr", 11, None, text="Footer text" if filled else None,
+              extra=' sz="quarter"')]
+    if number:
+        out.append('<p:sp><p:nvSpPr><p:cNvPr id="6" name="Slide Number 5"/><p:cNvSpPr><a:spLocks'
+                   ' noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="12"/>'
+                   '</p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld '
+                   'id="{B6F15528-21DE-4FAA-801E-634DDDAF4B2B}" type="slidenum"><a:rPr '
+                   'lang="en-US"/><a:t>1</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p>'
+                   '</p:txBody></p:sp>')
+    return out
+
+
+BODY = "sp id=3 'Content 2' ph(idx=1) tx=Y 'Body text'"
+
+
+@pytest.mark.parametrize("target", ["NOFTR", "CT"])
+def test_footers_with_no_place_are_orphans_snapped_to_a_side(target):
+    _, slide, change = follow("FTR", _footers(), target)
+    assert dump(slide) == [
+        HEAD, BODY,
+        f"sp id=4 'Date 3' ph(type=dt,sz=half,idx={ORPHAN_IDX}) xfrm(0,440,200,30) tx=Y "
+        "'17 Oct 2026'",
+        f"sp id=5 'Footer 4' ph(type=ftr,sz=quarter,idx={ORPHAN_IDX}) xfrm(0,440,360,30) "
+        "tx=Y 'Footer text'",
+        f"sp id=6 'Slide Number 5' ph(type=sldNum,sz=quarter,idx={ORPHAN_IDX}) "
+        "xfrm(760,440,200,30) tx=Y '1'"]
+    assert [why for _, why in change.orphans][0].startswith("no date placeholder")
+
+
+def test_footers_take_the_layouts_of_their_kind_keeping_sz():
+    _, slide, _ = follow("FTR", _footers(), "FTR2")
+    assert dump(slide)[2:] == [
+        "sp id=4 'Date 3' ph(type=dt,sz=half,idx=20) tx=Y '17 Oct 2026'",
+        "sp id=5 'Footer 4' ph(type=ftr,sz=quarter,idx=21) tx=Y 'Footer text'",
+        "sp id=6 'Slide Number 5' ph(type=sldNum,sz=quarter,idx=22) tx=Y '1'"]
+
+
+def test_a_footers_own_box_goes_on_the_same_layout_again():
+    _, slide, change = follow("FTR", _footers(dt_box=(500, 300, 200, 40)), "FTR")
+    assert dump(slide)[2] == "sp id=4 'Date 3' ph(type=dt,sz=half,idx=10) tx=Y '17 Oct 2026'"
+    assert change.boxes_dropped == [("256.4", (500 * PT, 300 * PT, 200 * PT, 40 * PT))]
+
+
+def test_footers_are_never_added():
+    _, slide, change = follow("NOFTR", [ph(3, "Content 2", None, 1, None, text="Body text")],
+                              "FTR")
+    assert dump(slide) == [HEAD, BODY] and change.added == []
+
+
+def test_empty_footers_are_kept_where_the_layout_has_them_else_removed():
+    _, slide, change = follow("FTR", _footers(filled=False, number=False), "FTR2")
+    assert dump(slide)[2:] == ["sp id=4 'Date 3' ph(type=dt,sz=half,idx=20) tx=Y ''",
+                               "sp id=5 'Footer 4' ph(type=ftr,sz=quarter,idx=21) tx=Y ''"]
+    assert change.removed == []
+    for target in ("NOFTR", "CT"):
+        _, slide, change = follow("FTR", _footers(filled=False, number=False), target)
+        assert dump(slide) == [HEAD, BODY] and change.removed == ["256.4", "256.5"]
+
+
+TABLE = "'A1B1A2B2'"
+# (start placeholder, target, the frame PowerPoint wrote, scaled margin) -- tables.pptx
+TABLES = [
+    ('<p:ph type="tbl" idx="1"/>', "CT", "ph(idx=1) xfrm(50,120,860,80)", 196596),
+    ('<p:ph type="tbl" idx="1"/>', "TBL", "ph(type=tbl,idx=1) xfrm(100,150,760,80)", 173736),
+    ('<p:ph type="tbl" idx="1"/>', "CTSMALL", "ph(idx=1) xfrm(330,200,300,80)", 68580),
+    (CONTENT_PH, "TBL", "ph(type=tbl,idx=1) xfrm(100,150,760,80)", 173736),
+    (CONTENT_PH, "CTSMALL", "ph(idx=1) xfrm(330,200,300,80)", 68580),
+    (CONTENT_PH, "CT", "ph(idx=1) xfrm(50,120,860,80)", 196596),
+]
+
+
+@pytest.mark.parametrize("where,target,expected,margin", TABLES,
+                         ids=[f"{'tbl' if 'tbl' in w else 'content'}-{t}" for w, t, _, _ in TABLES])
+def test_a_table_takes_the_box_width_columns_and_insets_scaled(where, target, expected,
+                                                               margin):
+    _, slide, _ = follow("TBL" if "tbl" in where else "CT",
+                         [frame(3, "Table 2", where, (120, 160, 400, 80))], target)
+    assert dump(slide)[1] == f"graphicFrame id=3 'Table 2' {expected} tx=N {TABLE}"
+    element = slide.shape("256.3")._element
+    widths = [int(col.get("w")) for col in element.iter(
+        "{http://schemas.openxmlformats.org/drawingml/2006/main}gridCol")]
+    box_w = int(expected.split("xfrm(")[1].split(",")[2]) * PT
+    assert widths == [box_w // 2] * 2
+    for properties in element.iter(
+            "{http://schemas.openxmlformats.org/drawingml/2006/main}tcPr"):
+        assert (properties.get("marL"), properties.get("marR")) == (str(margin), str(margin))
+    rows = [int(row.get("h")) for row in element.iter(
+        "{http://schemas.openxmlformats.org/drawingml/2006/main}tr")]
+    assert rows == [40 * PT] * 2
+
+
+@pytest.mark.parametrize("where,kind", [('<p:ph type="tbl" idx="1"/>', "type=tbl,"),
+                                        (CONTENT_PH, "")])
+def test_a_table_with_no_place_is_an_orphan_its_size_kept(where, kind):
+    _, slide, change = follow("TBL" if "tbl" in where else "CT",
+                              [frame(3, "Table 2", where, (120, 160, 400, 80))], "TITLE")
+    assert dump(slide)[1] == (f"graphicFrame id=3 'Table 2' ph({kind}idx={ORPHAN_IDX}) "
+                              f"xfrm(0,160,400,80) tx=N {TABLE}")
+    margins = {p.get("marL") for p in slide.shape("256.3")._element.iter(
+        "{http://schemas.openxmlformats.org/drawingml/2006/main}tcPr")}
+    assert margins == {None}
+    assert change.orphans[0][1].startswith("no table or content placeholder")
+
+
+def test_stated_insets_are_scaled_too():
+    _, slide, _ = follow("CT", [frame(3, "Table 2", CONTENT_PH, (120, 160, 400, 80),
+                                      margins='marL="45720" marR="0"')], "CT")
+    properties = next(slide.shape("256.3")._element.iter(
+        "{http://schemas.openxmlformats.org/drawingml/2006/main}tcPr"))
+    assert (properties.get("marL"), properties.get("marR")) == ("98298", "0")
+
+
+# chart.pptx: a chart in a content placeholder takes any placeholder but a title
+CHARTS = [("TBL", "ph(type=tbl,idx=1) xfrm(100,150,760,300)"),
+          ("TITLE", f"ph(idx={ORPHAN_IDX}) xfrm(0,160,400,240)"),
+          ("CTSMALL", "ph(idx=1) xfrm(330,200,300,150)"),
+          ("PICTALL", "ph(type=pic,idx=1) xfrm(380,110,200,400)"),
+          ("CT", "ph(idx=1) xfrm(50,120,860,380)")]
+
+
+@pytest.mark.parametrize("target,expected", CHARTS, ids=[t for t, _ in CHARTS])
+def test_a_chart_takes_any_placeholder_and_its_box(target, expected):
+    deck, slide, _ = follow("CT", [frame(3, "Chart 2", CONTENT_PH, (120, 160, 400, 240),
+                                         chart=True)], target)
+    assert dump(slide)[1] == f"graphicFrame id=3 'Chart 2' {expected} tx=N ''"
+    assert check(Document.open(deck.to_bytes()).package) == []

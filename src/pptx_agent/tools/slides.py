@@ -261,8 +261,6 @@ def _set_layout(call, deck, target, layout) -> Result:
     if change.boxes_dropped:
         data["boxes_dropped"] = [{"shape": shape, "box": box_pt(box)}
                                  for shape, box in change.boxes_dropped]
-    if change.crops_kept:
-        data["crops_kept"] = change.crops_kept
     notes = []
     if change.boxes_dropped:
         notes.append("placeholders with a box of their own now take the layout's, as in "
@@ -272,8 +270,6 @@ def _set_layout(call, deck, target, layout) -> Result:
         notes.append("orphans keep their content where it was drawn, snapped to the nearer "
                      "side, as PowerPoint keeps them; move it into a placeholder "
                      "(ppt_set_text) and delete the orphan, or keep it")
-    if change.crops_kept:
-        notes.append("a picture kept its own crop (PowerPoint's here is unmeasured)")
     if notes:
         data["note"] = "; ".join(notes)
     summary = (f"Put {address} on {chosen.id} ({chosen.name}): {len(change.matched)} "
