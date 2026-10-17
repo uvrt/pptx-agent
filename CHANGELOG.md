@@ -6,6 +6,24 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A size set on a slide that overrides its layout's is a check fact (round 7, L4): `check`
+  and the checks after a change list `overrides`, one entry per placeholder whose slide
+  states a text size -- a run's `sz`, its paragraph's `a:defRPr` or the shape's own list
+  style -- other than the one its layout gives it (the layout placeholder's list style,
+  the master placeholder's or the master's text style, by the cascade `effective_size`
+  reads): `{"shape": "261.2", "overrides": "size", "set": 26, "layout": 28}`, `set` a
+  list (largest first) where the shape sets several sizes, and `levels: [{"level", "set",
+  "layout"}]` where its levels take different layout sizes; with an `overrides_note`.
+  Measurement, not a fault: `save_document` does not call it unresolved. Sizes are
+  compared unscaled -- a stored `normAutofit fontScale` is PowerPoint's shrink, applied
+  to both alike, not a size the slide sets. Not listed: a size equal to the layout's (it
+  draws the same; a deck written by tools that restate every size would list every
+  shape), a shape that is not a placeholder, text whose size only the presentation's
+  default or PowerPoint's 18 pt gives, whitespace-only runs. No `fix`: no tool call
+  removes a set size (`ppt_format_text`'s `size` takes points; the library's `Run.size =
+  None` does), so the note says `ppt_format_text size <layout>` draws the layout's size.
+  Library: `Slide.size_overrides`, `pptx_agent.edit.effective.size_overrides`,
+  `size_overrides_json`, `slide_size`, `template_size`. Tool definitions unchanged.
 - An empty `items` list is a no-op with a warning, not a refusal (round 7, L7; ooxml-edit
   0.43.0's `Result.nothing_given`): `ppt_add_shape`, `ppt_set_text`, `ppt_format_text`,
   `ppt_set_shape`, `ppt_add_connector` and `ppt_comments` (other than `list`) given

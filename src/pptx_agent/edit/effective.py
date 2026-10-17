@@ -375,6 +375,119 @@ def small_text_json(found: list[SmallText], minimums: dict[str, float]) -> list[
     return out
 
 
+def _stated_size(nodes) -> float | None:
+    """The first ``sz`` among run-properties elements, in points."""
+    for node in nodes:
+        if node is not None and node.get("sz"):
+            return int(node.get("sz")) / 100
+    return None
+
+
+def slide_size(host, paragraph: Element, run: Element | None) -> float | None:
+    """The size a run's slide states for it, unscaled: the run's ``a:rPr``, its paragraph's
+    ``a:defRPr`` or the shape's own list style at the paragraph's level -- ``None`` when
+    the slide states none (and the run takes what its layout or master gives)."""
+    nodes = []
+    if run is not None:
+        nodes.append(run.find(qn("a:rPr")) if local_name(run) != "endParaRPr" else run)
+    own = paragraph.find(qn("a:pPr"))
+    if own is not None:
+        nodes.append(own.find(qn("a:defRPr")))
+    styles = list_styles(host)[:1]
+    for level in inherit.level_properties(styles, _level(paragraph)):
+        nodes.append(level.find(qn("a:defRPr")))
+    return _stated_size(nodes)
+
+
+_TEMPLATE_PARTS = ("sldLayout", "sldMaster")
+
+
+def template_size(host, paragraph: Element) -> float | None:
+    """The size a placeholder's layout or master gives a paragraph's level, unscaled --
+    the layout placeholder's list style, the master placeholder's, the master's text style,
+    nearest first (:func:`.inherit.list_styles`); ``None`` when neither states one (the
+    presentation's default or PowerPoint's 18 pt is no layout's size)."""
+    for level in inherit.level_properties(list_styles(host)[1:], _level(paragraph)):
+        node = level.find(qn("a:defRPr"))
+        if node is not None and node.get("sz"):
+            if local_name(node.getroottree().getroot()) not in _TEMPLATE_PARTS:
+                return None
+            return int(node.get("sz")) / 100
+    return None
+
+
+@dataclass(frozen=True)
+class SizeOverride:
+    """A placeholder's text whose slide states a size other than the one its layout (or
+    master) gives (:meth:`Slide.size_overrides <pptx_agent.Slide.size_overrides>`): the
+    shape's ``address``, the paragraph ``level`` (0-based, as ``ppt_format_text`` takes
+    it), the sizes the slide sets there (``set``, largest first, points, unscaled) and the
+    ``layout``'s.  A stored autofit scale shrinks both alike and is left out."""
+
+    address: str
+    level: int
+    set: tuple[float, ...]
+    layout: float
+
+
+def size_overrides(address: str, shape) -> list[SizeOverride]:
+    """``shape``'s :class:`SizeOverride`, one per level: only a placeholder whose layout
+    or master gives its text a size; only text that is drawn (a run with more than
+    whitespace).  A slide stating the layout's own size again is not one: it draws the
+    same."""
+    if getattr(shape, "placeholder", None) is None or shape.text_frame is None:
+        return []
+    host = shape.text_frame._host()
+    found: dict[tuple[int, float], set[float]] = {}
+    for paragraph in shape.text_frame.paragraphs:
+        element = paragraph._element()
+        layout = None
+        for run in paragraph.runs:
+            if not run.text.strip():
+                continue
+            node = run._element()
+            stated = slide_size(host, element, node)
+            if stated is None:
+                continue
+            if layout is None:
+                layout = template_size(host, element)
+                if layout is None:
+                    break
+            if round(stated, 2) != round(layout, 2):
+                found.setdefault((_level(element), layout), set()).add(round(stated, 2))
+    return [SizeOverride(address, level, tuple(sorted(sizes, reverse=True)), layout)
+            for (level, layout), sizes in sorted(found.items())]
+
+
+def _points_json(value: float):
+    return int(value) if float(value).is_integer() else value
+
+
+def size_overrides_json(found: list[SizeOverride]) -> list[dict]:
+    """``check``'s ``overrides``: one entry per shape -- ``{"shape", "overrides": "size",
+    "set": 26, "layout": 28}``, ``set`` a list where the shape sets several sizes; where its
+    levels take different layout sizes, ``levels: [{"level", "set", "layout"}]`` instead."""
+    by_shape: dict[str, list[SizeOverride]] = {}
+    for item in found:
+        by_shape.setdefault(item.address, []).append(item)
+    out: list[dict] = []
+    for address, items in by_shape.items():
+        entry: dict = {"shape": address, "overrides": "size"}
+        layouts = {item.layout for item in items}
+        if len(layouts) == 1:
+            sizes = sorted({size for item in items for size in item.set}, reverse=True)
+            entry["set"] = _points_json(sizes[0]) if len(sizes) == 1 \
+                else [_points_json(size) for size in sizes]
+            entry["layout"] = _points_json(layouts.pop())
+        else:
+            entry["levels"] = [{"level": item.level,
+                                "set": _points_json(item.set[0]) if len(item.set) == 1
+                                else [_points_json(size) for size in item.set],
+                                "layout": _points_json(item.layout)} for item in items]
+        out.append(entry)
+    return out
+
+
 _STYLES = ("titleStyle", "bodyStyle", "otherStyle", "notesStyle")
 _SHEETS = {"sld": "slide", "sldLayout": "layout", "sldMaster": "master",
            "notes": "notes page", "notesMaster": "notes master"}
@@ -553,7 +666,9 @@ def write_autofit(body: Element, mode: str | None, font_scale: float | None = No
     replace_choice(properties, tags, node)
 
 
-__all__ = ["DEFAULT_COLOR", "TEXT_KINDS", "UNSTATED", "Autofit", "EffectiveParagraph", "SmallText",
-           "autofit", "chart_text_below", "color", "color_source", "describe", "list_styles",
-           "paragraph", "paragraph_sources", "size", "size_source", "small_text_json",
-           "text_below", "text_minimums", "typeface", "write_autofit"]
+__all__ = ["DEFAULT_COLOR", "TEXT_KINDS", "UNSTATED", "Autofit", "EffectiveParagraph",
+           "SizeOverride", "SmallText", "autofit", "chart_text_below", "color", "color_source",
+           "describe", "list_styles", "paragraph", "paragraph_sources", "size",
+           "size_overrides", "size_overrides_json", "size_source", "slide_size",
+           "small_text_json", "template_size", "text_below", "text_minimums", "typeface",
+           "write_autofit"]
