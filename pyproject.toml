@@ -87,7 +87,9 @@ classifiers = [
 # ooxml-edit 0.43.0: Result.nothing_given, an empty items list's no-op (round 7, L7).
 # ooxml-edit 0.44.0: a region's date names are its language's (round 7, L5); ooxml-common
 # 0.19.0 draws its codes ([$-80C]) in those names.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.19.0", "ooxml-edit>=0.44.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.45.0: tool roles (Tool.action_roles, call_role, review_core;
+# shared.COMMENT_ACTION_ROLES), by which ppt_comments and the reviewer's core are tagged.
+dependencies = ["lxml>=4.9", "ooxml-common>=0.19.0", "ooxml-edit>=0.45.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

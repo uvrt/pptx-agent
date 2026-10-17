@@ -5,13 +5,18 @@ shape, with replies, resolved or open.  The actions are ``word_comments``' -- li
 reply, resolve, reopen, edit, delete -- many at once in ``items``; a comment's address is
 ``c:`` and eight hex digits.  Comments never change what a slide shows, so no layout facts
 come back; ``list`` only reads.
+
+Roles (``ooxml_edit.tools.ROLES``): listing, adding and replying are a reviewer's
+(``review``); resolving, reopening and deleting a thread -- a reply with ``resolve: true``
+too -- need ``resolve``; editing a comment's text needs ``edit``
+(``shared.COMMENT_ACTION_ROLES``).  A role set without ``edit`` loads it in the core.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from ooxml_edit.tools import Result, ToolError, array, boolean, obj, string, tool
+from ooxml_edit.tools import Result, ToolError, array, boolean, obj, shared, string, tool
 from ooxml_edit.tools.results import page_list
 
 from .common import KIND, library_errors, numbers, slide_id_of
@@ -62,7 +67,9 @@ def _need(value, field: str):
        "cursor": string("next_cursor of the previous page.", optional=True)},
       kind=KIND, group=REVIEW, mutates=True,
       refs=("items[].target", "items[].comment", "slides[]"),
-      reads=lambda arguments: arguments.get("action") == "list")
+      reads=lambda arguments: arguments.get("action") == "list",
+      action_roles=shared.COMMENT_ACTION_ROLES, call_role=shared.comment_role,
+      review_core=True)
 @library_errors
 def ppt_comments(call, doc, action, items=None, author=None, slides=None, open_only=False,
                  cursor=None):
