@@ -115,6 +115,27 @@ An inserted SVG icon is recoloured with `ppt_set_shape`'s `fill` (`"accent2"`, `
 Graphics Fill and Outline do it (`Shape.recolor`); on a bitmap picture `fill` and `line` stay
 its background fill and border, as in PowerPoint.
 
+**Roles: a reviewer's tools.** A toolbox or session loads roles, additive toolsets
+(ooxml-edit 0.45.0, [TOOLS.md, "Roles"](https://github.com/uvrt/ooxml-edit/blob/main/docs/TOOLS.md)):
+`review` reads, checks, compares, renders and adds and replies to comments; `resolve`
+resolves, reopens and deletes them; `edit` makes every other change. The default is all
+three, the toolbox as without roles.
+
+```python
+reviewer = Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS, roles=["review"])
+tools = reviewer.definitions("anthropic")       # 15 tools; ppt_comments list/add/reply
+system = reviewer.system_prompt(extra=HOUSE_RULES)
+session = reviewer.session()                    # ppt_set_text here is refused
+second_pass = toolbox.session(roles=["review", "resolve"])   # per session, same toolbox
+```
+
+A reviewer's core is open, save, `describe`, `ppt_read_slides`, `find_text`, `render`,
+`check`, `batch`, `ppt_compare_slides` and `ppt_comments` (2,202 estimated tokens against
+the full core's 3,556); edit_chart offers only `read`, `ppt_manage_slides` only
+`find_by_title`. A call outside the session's roles -- in a `batch` too, op by op -- is
+refused naming the role it needs; a reviewer reports each finding with the call that would
+fix it, for a builder (`roles=["review", "edit"]`, or the default) to apply in one batch.
+
 ### Tables from data
 
 `ppt_add_table` and `ppt_edit_table`'s `set_cells` take a table's text from a source, as
