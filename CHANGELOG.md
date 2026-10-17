@@ -6,6 +6,9 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- The loaded core's budget is now 6,500 tokens as count-tokens counts them (raised from 6,000
+  by the user on 2026-10-17); the offline proxy and the online check use it.
+
 - A finished slide onto another layout (round 7, L2): `ppt_manage_slides` action
   `set_layout` with `layout` (`L3` or its name), library `Slide.set_layout`, does what
   PowerPoint's Layout menu does (measured on 53 made-up slides, round 7, A1-A9 and B2):

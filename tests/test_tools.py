@@ -23,7 +23,7 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
                / "halden-proposal-plan.pptx")
 
 #: The budgets (tool roadmap, "Budgets", after T5's rationalisation).  What binds is what a
-#: request loads: the core, at most 6,000 tokens as Anthropic's count-tokens counts them
+#: request loads: the core, at most 6,500 tokens as Anthropic's count-tokens counts them
 #: (test_tools_online.py, marked provider).  Offline, characters / 3.5 of the compact JSON
 #: stands in for it, times 1.48: the ratio of the counted to the estimated size T5 and T5b
 #: measured on Sonnet 5.5 (the deck core: 3,352 estimated, 5,097 counted; every definition:
@@ -61,6 +61,7 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: core 3,440 (about 5,091 counted); the guard rises to 11,800.  The strict set is unchanged:
 #: ``stories`` was already an optional parameter of replace_text, only its enum grew.  On
 #: 2026-10-11 the user raised the core budget from 5,500 to 6,000 counted tokens per format.
+#: On 2026-10-17 the user raised it to 6,500.
 #: ooxml-edit 0.18's workbook kind in the shared tools (``describe``'s and ``find_text``'s
 #: descriptions, find_text's ``range``, ``xlsx`` in new_document's ``kind``, ``xlsx``,
 #: ``xlsm`` and ``xltx`` in save_document's ``format``) added 64 to the core (3,440 -> 3,504,
@@ -144,7 +145,7 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: edit_smartart, with one optional parameter, takes the place left.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
-CORE_COUNTED_BUDGET = 6000
+CORE_COUNTED_BUDGET = 6500
 ALL_GUARD = 12760
 
 
