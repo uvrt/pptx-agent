@@ -203,7 +203,7 @@ def _shape_json(shape, z: int) -> dict[str, Any]:
 
 
 #: The columns of ``detail: "compact"``, one row per shape.
-COMPACT_COLUMNS = ["id", "kind", "box", "fill", "text", "group"]
+COMPACT_COLUMNS = ["id", "kind", "box", "fill", "size", "text", "group"]
 #: Words of a text the compact view shows before it cuts.
 COMPACT_WORDS = 8
 
@@ -220,9 +220,10 @@ def _compact_row(shape) -> list[Any]:
     """One shape in brief, the columns of :data:`COMPACT_COLUMNS`: the kind as geometry
     has it (a graphic frame as ``table``, ``chart`` or ``smartart``), the box in whole
     points, the fill drawn (hex where it resolves; a gradient or picture fill by its
-    kind) and the text's first words -- a table's size and first cell, a chart's type
-    and series, a group's member count."""
-    kind, fill, text = shape.kind, None, None
+    kind), the text's size (the effective size most of its characters are drawn at,
+    inherited and autofit-scaled, as ``geometry``'s ``sizes``) and its first words -- a
+    table's size and first cell, a chart's type and series, a group's member count."""
+    kind, fill, text, size = shape.kind, None, None, None
     if kind == "shape":
         drawn = shape.effective_fill
         if drawn is not None and drawn.kind == "solid" and drawn.color is not None:
@@ -232,6 +233,8 @@ def _compact_row(shape) -> list[Any]:
             fill = drawn.kind
         frame = shape.text_frame
         text = _words(frame.text) if frame is not None else None
+        if text:
+            size = _dominant_size(frame)
     elif kind == "group":
         text = f"{len(shape.children)} shapes"
     elif kind == "graphic_frame":
@@ -248,15 +251,32 @@ def _compact_row(shape) -> list[Any]:
     box = (None if bounds is None
            else [round(float(v) / EMU_PER_POINT) for v in bounds])
     parent = shape.parent_group
-    return [shape.id, kind, box, fill, text or None,
+    return [shape.id, kind, box, fill, size, text or None,
             parent.id if parent is not None else None]
+
+
+def _dominant_size(frame) -> float | None:
+    """The effective size most of a text's characters are drawn at; the first of those
+    tied."""
+    weights: dict[float, int] = {}
+    for paragraph in frame.paragraphs:
+        for run in paragraph.runs:
+            weight = len(run.text.strip())
+            if weight:
+                size = run.effective_size
+                weights[size] = weights.get(size, 0) + weight
+    if not weights:
+        return None
+    best = max(weights.values())
+    size = next(size for size, weight in weights.items() if weight == best)
+    return int(size) if float(size).is_integer() else size
 
 
 @tool("ppt_read_slides",
       "Read slides with shape ids. outline: Markdown, each block under its shape id "
       "(escaped; never paste it back as text). geometry: each shape's kind, box, z-order, "
-      "fill, line, text and font sizes. compact: id, kind, box, fill, first words per "
-      "shape. svg: an SVG per slide, data-id per shape.",
+      "fill, line, text and font sizes. compact: id, kind, box, fill, text size, first "
+      "words per shape. svg: an SVG per slide, data-id per shape.",
       {"doc": string("Document id."),
        "slides": array(string(or_integer=1), "Slide numbers from 1, or ids (s:256, $ref). "
                        "Default all.", optional=True),

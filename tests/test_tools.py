@@ -143,10 +143,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: and early in the order, takes a sixth optional parameter, so ppt_set_theme no longer
 #: fits Claude's 24 and is sent non-strict (the dispatcher still validates it);
 #: edit_smartart, with one optional parameter, takes the place left.
+#: Round 7, L3: the deferred ppt_compare_slides (a run of like slides compared shape by
+#: shape: ``slides`` and ``cursor``) adds 166 to every definition, none to the core; the
+#: compact read's text size ("text size" in ppt_read_slides' description) adds 3 to the core
+#: (3,553 -> 3,556, about 5,263 counted by the proxy) and to every definition (12,757 ->
+#: 12,926).  The guard rises to 12,930.  The strict set is unchanged: ppt_compare_slides is
+#: a reading tool, never strict, and ppt_read_slides gains no parameter.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 12760
+ALL_GUARD = 12930
 
 
 def estimate_tokens(definitions) -> int:
@@ -289,7 +295,8 @@ def test_read_slides_outline_and_geometry_page(toolbox, session):
 
 
 def test_read_slides_compact_is_a_row_per_shape(toolbox, session):
-    """Round 5, T10: id, kind, box, fill, first words; groups' members under their group."""
+    """Round 5, T10: id, kind, box, fill, first words; groups' members under their group.
+    Round 7, L3: the text's effective size too."""
     emu = 12700
     deck = session.entry("d1").document
     slide = deck.slides[0]
@@ -306,21 +313,21 @@ def test_read_slides_compact_is_a_row_per_shape(toolbox, session):
     line = slide.add_connector("straight", (20 * emu, 400 * emu), (200 * emu, 400 * emu))
     result = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
                      slides=[1]))
-    assert result.data["columns"] == ["id", "kind", "box", "fill", "text", "group"]
+    assert result.data["columns"] == ["id", "kind", "box", "fill", "size", "text", "group"]
     order = [row[0] for row in result.data["shapes"]]
     rows = {row[0]: row for row in result.data["shapes"]}
     assert order == [shape.id for shape in slide.shapes]     # back to front, as geometry
     assert result.total == len(order) and result.next_cursor is None
-    assert rows[group.id][1:] == ["group", [20, 100, 145, 90], None, "3 shapes", None]
+    assert rows[group.id][1:] == ["group", [20, 100, 145, 90], None, None, "3 shapes", None]
     assert rows[tile.id][3] == tile.effective_fill.color.resolve(tile)
-    assert rows[tile.id][4:] == [None, group.id]
+    assert rows[tile.id][4:] == [None, None, group.id]
     assert rows[label.id][2] == [25, 105, 135, 20]           # whole points
-    assert rows[label.id][3:] == [None, "North ridge", group.id]
-    assert rows[body.id][4] == "one two three four five six seven eight… (11 words)"
-    assert rows[table.id][1] == "table" and rows[table.id][4] == "3×4: Crew and route"
-    assert rows[chart.id][1] == "chart" and rows[chart.id][4] == "bar, 2 series"
-    assert rows[line.id][1:] == ["connector", [20, 400, 180, 0], None, None, None]
-    assert rows[order[0]][1:] == ["shape", [66, 29, 828, 104], None, "Plan", None]
+    assert rows[label.id][3:] == [None, 18, "North ridge", group.id]
+    assert rows[body.id][5] == "one two three four five six seven eight… (11 words)"
+    assert rows[table.id][1] == "table" and rows[table.id][5] == "3×4: Crew and route"
+    assert rows[chart.id][1] == "chart" and rows[chart.id][5] == "bar, 2 series"
+    assert rows[line.id][1:] == ["connector", [20, 400, 180, 0], None, None, None, None]
+    assert rows[order[0]][1:] == ["shape", [66, 29, 828, 104], None, 44, "Plan", None]
 
 
 def test_read_slides_compact_pages_past_three_hundred_shapes(toolbox, session):

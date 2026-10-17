@@ -730,11 +730,11 @@ with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS) as toolbox:
     session = toolbox.session()
     session.open(deck.to_bytes(), "stations.pptx")
     brief = toolbox.dispatch(session, "ppt_read_slides", {"doc": "d1", "detail": "compact"})
-    print(brief.data["columns"])     # -> ['id', 'kind', 'box', 'fill', 'text', 'group']
+    print(brief.data["columns"])     # -> ['id', 'kind', 'box', 'fill', 'size', 'text', 'group']
     rows = brief.data["shapes"]
-    print(rows[1])                   # -> ['256.5', 'group', [50, 160, 180, 90], None, '2 shapes', None]
-    print(rows[2])                   # -> ['256.3', 'shape', [50, 160, 180, 90], '#156082', None, '256.5']
-    print(rows[3][4])                # -> Station 1: plan the river crossing with the… (10 words)
+    print(rows[1])                   # -> ['256.5', 'group', [50, 160, 180, 90], None, None, '2 shapes', None]
+    print(rows[2])                   # -> ['256.3', 'shape', [50, 160, 180, 90], '#156082', None, None, '256.5']
+    print(rows[3][4:6])              # -> [18, 'Station 1: plan the river crossing with the… (10 words)']
 ```
 
 `geometry` gives every shape in full -- its text whole, font sizes, frame, outline, cell
@@ -742,7 +742,8 @@ colours -- which on a slide of a hundred shapes runs to pages. `compact` gives e
 one row under a header of `columns`, back to front as geometry orders them: the id; the
 kind (geometry's, with a graphic frame named `table`, `chart` or `smartart`); the box
 `[x, y, w, h]` in whole points; the fill as drawn (the resolved hex, or `gradient`,
-`image`, `pattern`); and the text's first eight words, with the count when there are more.
+`image`, `pattern`); the text's size (the effective size most of its characters are
+drawn at, inherited and autofit-scaled); and its first eight words, with the count when there are more.
 A table says its size and first cell (`3×4: Crew and route`), a chart its type and series
 (`bar, 2 series`), a group how many shapes it holds; each group member names its group
 in the last column, so a grid of tiles reads as one. `null` is "none". On a made-up
