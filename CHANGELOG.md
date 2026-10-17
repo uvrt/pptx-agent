@@ -6,6 +6,27 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A finished slide onto another layout (round 7, L2): `ppt_manage_slides` action
+  `set_layout` with `layout` (`L3` or its name), library `Slide.set_layout`, does what
+  PowerPoint's Layout menu does (measured on 53 made-up slides, round 7, A1-A9 and B2):
+  empty placeholders go and the layout's are added empty (A6's form, the layout
+  placeholder's name as on a new slide; PowerPoint writes "<kind> N" in its interface
+  language); filled ones match by kind -- title or centred title; content, body or
+  subtitle, the same type first; pic and tbl placeholders take no text; a picture a picture
+  placeholder, else a content one -- with both sides sorted by idx and paired in order,
+  never by name; a matched one takes the layout's type and idx (no `sz`) and *loses its own
+  box*, also on the same layout again, its text, fill, outline and formatting kept; a
+  picture moved to a picture placeholder is cropped to fill it (an empty `a:srcRect` when
+  the shapes agree; a crop of its own is kept and listed, unmeasured), one moved into a
+  content placeholder drawn at its own size centred there (144 dpi without a stated
+  resolution, as measured on Mac; made smaller to fit when larger, unmeasured); content
+  with no place stays, idx 4294967295, its box written on it with x snapped to the nearer
+  side; the placeholders gather into one block where the first was, in the layout's order,
+  orphans last; other shapes and every relationship but the layout's untouched. The result
+  lists where each placeholder went, the ones added and removed, the orphans and why
+  (`no title placeholder left on L8 'Body'`) and the boxes dropped. One undo step. Every
+  definition +36 estimated tokens (guard 12,725 -> 12,760), the core unchanged; the strict
+  set changes on Claude: ppt_set_theme is sent non-strict, edit_smartart strict.
 - A layout gets placeholders of its own (round 7, L1): `ppt_edit_master` action
   `add_placeholder`, with `type` (`body`, `content`, `pic`, or `title` on a layout without
   one), `box` (points) and `text` (the name; default `Text Placeholder <n>` and the like),

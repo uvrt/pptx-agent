@@ -136,10 +136,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: ``target`` filling a picture placeholder add 132 to every definition (12,589 -> 12,721),
 #: none to the core (3,553): both tools are deferred.  The guard rises to 12,725.  The strict
 #: set is unchanged: ppt_edit_master and ppt_add_picture are sent non-strict.
+#: Round 7, L2: ppt_manage_slides' ``set_layout`` (PowerPoint's Layout menu) with ``layout``
+#: adds 36 to every definition (12,721 -> 12,757), none to the core (3,553): the tool is
+#: deferred.  The guard rises to 12,760.  The strict set changes: ppt_manage_slides, strict
+#: and early in the order, takes a sixth optional parameter, so ppt_set_theme no longer
+#: fits Claude's 24 and is sent non-strict (the dispatcher still validates it);
+#: edit_smartart, with one optional parameter, takes the place left.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6000
-ALL_GUARD = 12725
+ALL_GUARD = 12760
 
 
 def estimate_tokens(definitions) -> int:
