@@ -453,6 +453,9 @@ def _locale(language):
     ("nl-BE", ["5 januari 2026", "10 februari 2026", "15 maart 2026"]),
     ("de-DE", ["5 Januar 2026", "10 Februar 2026", "15 März 2026"]),
     ("fr-FR", ["5 janvier 2026", "10 février 2026", "15 mars 2026"]),
+    # A region shows its language's names (measured, Excel for Mac, 2026-10-17).
+    ("fr-BE", ["5 janvier 2026", "10 février 2026", "15 mars 2026"]),
+    ("en-BE", ["5 January 2026", "10 February 2026", "15 March 2026"]),
 ])
 def test_a_tables_dates_in_a_date_format(toolbox, language, due):
     session = _dated(toolbox, _locale(language))
@@ -469,10 +472,10 @@ def test_a_tables_dates_in_a_date_format(toolbox, language, due):
 
 
 def test_a_date_format_is_checked_for_a_table(toolbox):
-    session = _dated(toolbox, _locale("en-AU"))
+    session = _dated(toolbox, _locale("pt-BR"))
     error = failed(add(toolbox, session, date_format="d mmmm yyyy",
                        **{"from": "d:dated", "from_columns": ["due"]}), "invalid_arguments")
-    assert "no month or day names are measured for en-AU" in error.message
+    assert "no month or day names are measured for pt-BR" in error.message
     assert error.field == "date_format"
     ok(add(toolbox, session, date_format="dd-mm-yyyy",
            **{"from": "d:dated", "from_columns": ["due"]}))
@@ -488,9 +491,31 @@ def test_a_date_format_is_checked_for_a_table(toolbox):
     assert "'h' is no date token" in error.message
 
 
+@pytest.mark.parametrize("language, drawn", [
+    ("fr-BE", ["5 janv. 2026", "10 févr. 2026", "15 mars 2026"]),
+    ("en-BE", ["5 Jan 2026", "10 Feb 2026", "15 Mar 2026"]),
+    ("de-CH", ["5 Jan 2026", "10 Feb 2026", "15 Mär 2026"]),
+])
+def test_a_regions_chart_dates_are_drawn_in_its_languages_names(toolbox, language, drawn):
+    import io
+
+    from pptx2svg import ConvertOptions, convert_pptx_to_svg
+
+    session = _dated(toolbox, _locale(language))
+    made = ok(call(toolbox, session, "edit_chart", doc="d1", action="add", target="s:256",
+                   box=CHART, chart_type="line", date_format="d mmm yyyy",
+                   **{"from": "d:dated", "columns": ["due", "rating"]})).created[0]
+    deck = session.entry("d1").document
+    # Drawn in another locale: the code's prefix names the dates, not the viewer.
+    svg = convert_pptx_to_svg(io.BytesIO(deck.to_bytes()), ConvertOptions())[0]
+    assert all(f">{text}<" in svg for text in drawn), (made, drawn)
+
+
 @pytest.mark.parametrize("language, code, first", [
     ("en-US", r"[$-409]d\ mmm\ yyyy", 46027), ("nl-BE", r"[$-813]d\ mmm\ yyyy", 46027),
     ("it-IT", r"[$-410]d\ mmm\ yyyy", 46027),
+    # A region: the id Excel stores for it ([$-fr-BE] -> [$-80C]), else its language's.
+    ("fr-BE", r"[$-80C]d\ mmm\ yyyy", 46027), ("en-BE", r"[$-409]d\ mmm\ yyyy", 46027),
 ])
 def test_a_charts_dates_are_kept_in_the_locales_code(toolbox, language, code, first):
     from lxml import etree
