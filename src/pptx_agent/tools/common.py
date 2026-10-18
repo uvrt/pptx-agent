@@ -179,6 +179,34 @@ def numbers(deck, slides: Iterable[int | str] | None, *, field: str = "slides") 
     return out
 
 
+def targets(deck, slides) -> "list[int | str]":
+    """What a render draws (and ``ppt_read_slides`` reads), in order and once each: slide
+    numbers, and layouts' and masters' keys (``L2``, ``M0``) -- the addresses
+    ppt_edit_master and the add tools take.  An unknown key is ``not_found``, naming the
+    layouts and masters there are."""
+    out: list = []
+    for index, item in enumerate(slides):
+        text = item.strip() if isinstance(item, str) else None
+        if text and template_key_of(text) == text:
+            try:
+                found = deck._template_by_key(text).id
+            except KeyError:
+                known = [t.id for t in [*deck.masters, *deck.layouts]]
+                raise ToolError("not_found", f"no layout or master {text!r}; the deck has "
+                                f"{', '.join(known[:50])}", field=f"slides[{index}]",
+                                valid_options=template_options(deck)) from None
+        else:
+            try:
+                found = numbers(deck, [item])[0]
+            except ToolError as exc:
+                if exc.field == "slides[0]":            # the item's place in the list
+                    exc.field = f"slides[{index}]"
+                raise
+        if found not in out:
+            out.append(found)
+    return out
+
+
 def _position(deck, item: str, field: str) -> int:
     """The position of the slide ``item`` names: ``"2"`` is the second, ``"s:257"`` the
     slide with that id wherever it is now."""

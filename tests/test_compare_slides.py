@@ -247,3 +247,101 @@ def test_the_library_refuses_one_slide_and_a_slide_given_twice():
         deck.compare_slides(deck.slides[:1])
     with pytest.raises(ValueError, match="given twice"):
         deck.compare_slides([deck.slides[0], f"s:{deck.slides[0].slide_id}"])
+
+
+# -- renamed shapes (round 8, M4) -----------------------------------------------------------
+
+
+def _caption(deck, index):
+    return next(shape for shape in deck.slides[index].shapes if shape.name == "Caption")
+
+
+def test_a_shape_renamed_on_a_rebuilt_slide_is_matched_in_place_and_the_name_differs():
+    deck = _run(4)
+    renamed = _caption(deck, 3)
+    renamed.name = "Source line"
+    data = deck.compare_slides(deck.slides).to_json()
+    assert data["only"] == [] and data["matched"] == 5
+    entry = _entry(data, "Caption")
+    assert entry == {"shape": _caption(deck, 0).id, "name": "Caption", "differ": [
+        {"property": "name", "value": "Caption", "on": 3,
+         "other": [{"value": "Source line", "shapes": [renamed.id]}]}]}
+    # Its other properties are compared as before: a drift on the renamed one is a near-miss.
+    renamed.top = 451 * EMU
+    differ = _entry(deck.compare_slides(deck.slides).to_json(), "Caption")["differ"]
+    assert [d["property"] for d in differ] == ["name", "y"]
+    assert differ[1]["near"] == [{"value": 451, "shapes": [renamed.id]}]
+
+
+def test_a_renamed_first_slide_still_reports_the_majoritys_name():
+    deck = _run(4)
+    _caption(deck, 0).name = "Source line"
+    data = deck.compare_slides(deck.slides).to_json()
+    (entry,) = data["shapes"]
+    assert entry["shape"] == deck.slides[0].shapes[2].id
+    assert entry["differ"] == [{"property": "name", "value": "Caption", "on": 3, "other": [
+        {"value": "Source line", "shapes": [deck.slides[0].shapes[2].id]}]}]
+
+
+def test_half_the_run_under_another_name_is_one_group():
+    deck = _run(4)
+    renamed = [_caption(deck, 2), _caption(deck, 3)]
+    for shape in renamed:
+        shape.name = "Source line"
+    groups = match(deck.slides)
+    assert [group.by for group in groups] == ["placeholder", "placeholder", "name",
+                                              "position", "position"]
+    assert list(groups[2].shapes) == [slide.slide_id for slide in deck.slides]
+    entry = _entry(deck.compare_slides(deck.slides).to_json(), "Caption")
+    # A tie: the first slide's name is the majority's.
+    assert entry["differ"][0] == {"property": "name", "value": "Caption", "on": 2, "other": [
+        {"value": "Source line", "shapes": [shape.id for shape in renamed]}]}
+
+
+def test_a_renamed_shape_far_away_is_still_missing_and_only():
+    deck = _run(4)
+    far = _caption(deck, 3)
+    far.name, far.left, far.top = "Source line", 500 * EMU, 40 * EMU
+    data = deck.compare_slides(deck.slides).to_json()
+    assert _entry(data, "Caption")["missing_on"] == [f"s:{deck.slides[3].slide_id}"]
+    assert "differ" not in _entry(data, "Caption")
+    assert data["only"] == [{"shape": far.id, "name": "Source line", "by": "position",
+                             "shapes": [far.id]}]
+
+
+def test_two_renamed_shapes_each_join_the_nearest_name_group_once():
+    deck = Document.new(size="16:9")
+    for number in range(4):
+        slide = deck.add_slide("Blank")
+        left = slide.add_shape("rect", 100 * EMU, 100 * EMU, 200 * EMU, 60 * EMU)
+        right = slide.add_shape("rect", 130 * EMU, 110 * EMU, 200 * EMU, 60 * EMU)
+        if number == 2:            # rebuilt: other names, added in the other order
+            left, right = right, left
+            left.left, right.left = 100 * EMU, 130 * EMU
+            left.top, right.top = 100 * EMU, 110 * EMU
+            left.name, right.name = "Valve 1", "Valve 2"
+        else:
+            left.name, right.name = "Inlet", "Outlet"
+    for _ in range(2):             # the same answer each time
+        groups = match(deck.slides)
+        assert [group.by for group in groups] == ["name", "name"]
+        inlet, outlet = groups
+        third = deck.slides[2].slide_id
+        assert inlet.shapes[third].name == "Valve 1" and outlet.shapes[third].name == "Valve 2"
+        assert len({id(shape) for group in groups for shape in group.shapes.values()}) == 8
+    data = deck.compare_slides(deck.slides).to_json()
+    assert [entry["differ"][0]["other"][0]["value"] for entry in data["shapes"]] == \
+        ["Valve 1", "Valve 2"]
+    assert data["only"] == []
+
+
+def test_the_tool_reports_the_renamed_shape():
+    deck = _run(4)
+    renamed = _caption(deck, 1)
+    renamed.name = "Source line"
+    toolbox, session, doc = _session(deck)
+    result = toolbox.dispatch(session, "ppt_compare_slides", {"doc": doc, "slides": _ids(deck)})
+    assert result.ok, json.dumps(result.to_json())
+    assert result.total == 1 and result.data["only"] == []
+    assert result.data["shapes"][0]["differ"][0]["other"] == [
+        {"value": "Source line", "shapes": [renamed.id]}]

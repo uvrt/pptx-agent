@@ -25,7 +25,7 @@ the deck as PowerPoint will show it, with shape addresses:
 | `validate` | every changing call, `check` | validation problems the call added (`new`) or removed (`fixed`) against the deck as opened |
 | `missing_glyphs` | `render` | text the image leaves out because the renderer has no font for it (`face`, `script`, `sample`); the deck is unchanged and PowerPoint draws it (`missing_glyphs_note`): install `pptx2svg-fonts` where the tools run |
 | `unresolved` | `save_document` | the overflows, collisions, off-slide shapes and empty placeholders still in the deck when it was saved (the save goes ahead) |
-| like slides compared | `ppt_compare_slides` | per corresponding shape on a run of slides: box, text size, colour, font, fill and outline against the majority; near-misses with a fix, larger differences, shapes missing or only on some |
+| like slides compared | `ppt_compare_slides` | per corresponding shape on a run of slides: name, box, text size, colour, font, fill and outline against the majority; near-misses with a fix, larger differences, shapes missing or only on some (a shape renamed on one slide is matched by kind and place, its name listed as a difference) |
 | design facts | `ppt_design_facts`, `check` with `design` | palette and theme roles, sets of like shapes with their colours and whether a legend covers them, the largest empty regions, alignment lines and near-misses, shape vocabulary, text sizes, lines over text |
 | problem facts | `check` with `facts` | colours that are not theme colours; wrap margins of titles and text boxes |
 
@@ -126,10 +126,13 @@ mark, a placeholder's prompt -- lives on the slide master or a layout, not on th
   copy of their layout the boxes (`ppt_edit_master add_placeholder`, a `type` and `box`
   each), then add the slides on it and fill each box (`ppt_set_text`; a picture with
   `ppt_add_picture target`). They line up by construction; nothing is placed per slide.
-  Slides already on the layout get the box only when listed in `slides`.
+  Slides already on the layout get the box only when listed in `slides`.  Read the layout
+  back as a slide: `ppt_read_slides` with `slides: ["L2"]` (`compact` or `geometry`) lists
+  its shapes, `L2.6` and so on, each placeholder with its type and idx.
 - **After a run of like slides is built** (by one agent or several), `ppt_compare_slides` with
-  their ids matches their shapes and lists where box, text size, colour, font, fill or
-  outline differ from the majority -- 1 pt drifts and a size set on one slide against the
+  their ids matches their shapes and lists where name, box, text size, colour, font, fill
+  or outline differ from the majority (a slide rebuilt with other shape names is matched by
+  kind and place, the names listed) -- 1 pt drifts and a size set on one slide against the
   layout's as near-misses with the one call that fixes them. It only measures: a slide
   that is meant to differ stays as it is.
 - **A finished slide onto another layout is `ppt_manage_slides set_layout`**, PowerPoint's

@@ -131,8 +131,8 @@ second_pass = toolbox.session(roles=["review", "resolve"])   # per session, same
 ```
 
 A reviewer's core is open, save, `describe`, `ppt_read_slides`, `find_text`, `render`,
-`check`, `batch`, `ppt_compare_slides` and `ppt_comments` (2,204 estimated tokens against
-the full core's 3,556); edit_chart offers only `read`, `ppt_manage_slides` only
+`check`, `batch`, `ppt_compare_slides` and `ppt_comments` (2,212 estimated tokens against
+the full core's 3,563); edit_chart offers only `read`, `ppt_manage_slides` only
 `find_by_title`. A call outside the session's roles -- in a `batch` too, op by op -- is
 refused naming the role it needs; a reviewer reports each finding with the call that would
 fix it, for a builder (`roles=["review", "edit"]`, or the default) to apply in one batch.

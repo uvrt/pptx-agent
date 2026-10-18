@@ -12,8 +12,8 @@ from typing import Any
 
 from ooxml_edit.tools import Result, ToolError, collect_warnings, page_list, shared
 
-from .common import (KIND, facts, library_errors, numbers, slide_id_of, template_key_of,
-                     template_options, validate_delta)
+from .common import (KIND, facts, library_errors, numbers, slide_id_of, targets,
+                     template_key_of, template_options, validate_delta)
 from ..edit.document import font_dirs_of, locale_of
 from ..edit.effective import text_minimums
 from .render import png_size, render_slides_reporting
@@ -268,7 +268,7 @@ def render(call, doc, slides=None, pages=None, width=None):
                                        or template_options(deck))[:50])
     if len(slides) > MAX_RENDER:
         raise ToolError("limit", f"at most {MAX_RENDER} slides per render", field="slides")
-    wanted = _render_targets(deck, slides)
+    wanted = targets(deck, slides)
     width = width or DEFAULT_WIDTH
     entry = call.entry
     version = entry.version
@@ -311,27 +311,6 @@ def render(call, doc, slides=None, pages=None, width=None):
     shown += [f"{n} ({'layout' if n.startswith('L') else 'master'})"
               for n in wanted if isinstance(n, str)]
     return Result(summary=f"Rendered {', '.join(shown)}", data=data)
-
-
-def _render_targets(deck, slides) -> "list[int | str]":
-    """What a render draws, in order and once each: slide numbers, and layouts' and
-    masters' keys (``L2``, ``M0``) -- the addresses ppt_edit_master and the add tools
-    take."""
-    out: list = []
-    for index, item in enumerate(slides):
-        text = item.strip() if isinstance(item, str) else None
-        if text and template_key_of(text) == text:
-            try:
-                found = deck._template_by_key(text).id
-            except KeyError:
-                raise ToolError("not_found", f"no layout or master {text!r}",
-                                field=f"slides[{index}]",
-                                valid_options=template_options(deck)) from None
-        else:
-            found = numbers(deck, [item])[0]
-        if found not in out:
-            out.append(found)
-    return out
 
 
 def _render_name(deck, item) -> str:

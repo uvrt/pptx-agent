@@ -13,13 +13,20 @@ any of it is intended is the caller's to decide.
 1. *Placeholders* by their layout placeholder: type and idx (a centred title as a title,
    an untyped one as ``obj``).
 2. *Names*: the shapes left whose name is unique on its slide and found on at least two of
-   the slides, of the same kind.
+   the slides, of the same kind.  Name groups that are each on some of the slides only --
+   a slide rebuilt with other names -- are then joined by kind and position as in 3, the
+   closest pair first, when no slide has a shape in both (round 8, M4).
 3. *Kind and position*: the rest, slide by slide in the order given, each joining the
    nearest group of its kind (the box of that group's first shape) that has no shape on the
-   slide yet -- nearest by the sum of the differences of x, y, w and h, the closest pair
-   first -- when the boxes overlap or are at most :data:`POSITION_REACH` apart; else it
-   starts a group of its own.  The kind is as ``ppt_read_slides`` "compact" gives it (a
-   graphic frame as ``table``, ``chart`` or ``smartart``).
+   slide yet -- a name group too -- nearest by the sum of the differences of x, y, w and h,
+   the closest pair first, when the boxes overlap or are at most :data:`POSITION_REACH`
+   apart; else it starts a group of its own.  The kind is as ``ppt_read_slides`` "compact"
+   gives it (a graphic frame as ``table``, ``chart`` or ``smartart``).
+
+A name group whose shapes have different names -- one joined it by position -- reports
+the name as its first difference: ``name``, the majority's, and the others' under
+``other``.  A position group's names (PowerPoint's ``Rectangle 3``, ``Rectangle 7``) are not
+compared.
 
 A group on fewer slides than all is reported: ``missing_on`` the slides without it when it
 is on more than half of them, ``only`` its shapes when it is on half or fewer.
@@ -326,17 +333,45 @@ def match(slides: list["Slide"]) -> list[ShapeGroup]:
                 add(group, index, z)
             group.shapes[slide.slide_id] = shape
         left[slide.slide_id] = rest
-    # 3. kind and nearest box
+    # 2b. name groups on some slides each, joined by kind and position (renamed shapes)
+    total = len(slides)
+    partial = [group for group in by_name.values() if len(group.shapes) < total]
+    joins = []
+    for a_number, a in enumerate(partial):
+        for b_number in range(a_number + 1, len(partial)):
+            b = partial[b_number]
+            box, other = a.first.bounds, b.first.bounds
+            if a.kind != b.kind or box is None or other is None:
+                continue
+            distance = _distance(box, other)
+            if _overlap(box, other) or distance <= POSITION_REACH:
+                joins.append((distance, a_number, b_number))
+    joins.sort()
+    gone: set[int] = set()
+    for distance, a_number, b_number in joins:
+        a, b = partial[a_number], partial[b_number]
+        if a_number in gone or b_number in gone or set(a.shapes) & set(b.shapes):
+            continue
+        # The group first met keeps its place (its shapes go back in slide order below).
+        keep, drop = (a, b) if order[id(a)] <= order[id(b)] else (b, a)
+        keep.shapes.update(drop.shapes)
+        gone.add(b_number if drop is b else a_number)
+        groups.remove(drop)
+        del order[id(drop)]
+    # 3. kind and nearest box; a name group without a shape on the slide takes one too
+    named_groups = [group for group in groups if group.by == "name"]
     placed: list[ShapeGroup] = []
     for index, slide in enumerate(slides):
         pairs = []
+        pool = [*named_groups, *placed]
         for z, shape in left[slide.slide_id]:
             box = shape.bounds
             if box is None:
                 continue
-            for number, group in enumerate(placed):
+            for number, group in enumerate(pool):
                 other = group.first.bounds
-                if group.kind != kind_of(shape) or other is None:
+                if group.kind != kind_of(shape) or other is None \
+                        or slide.slide_id in group.shapes:
                     continue
                 distance = _distance(box, other)
                 if _overlap(box, other) or distance <= POSITION_REACH:
@@ -348,12 +383,15 @@ def match(slides: list["Slide"]) -> list[ShapeGroup]:
                 continue
             used_shapes.add(z)
             used_groups.add(number)
-            placed[number].shapes[slide.slide_id] = shape
+            pool[number].shapes[slide.slide_id] = shape
         for z, shape in left[slide.slide_id]:
             if z not in used_shapes:
                 group = ShapeGroup("position", kind_of(shape), {slide.slide_id: shape})
                 placed.append(group)
                 add(group, index, z)
+    position = {slide.slide_id: index for index, slide in enumerate(slides)}
+    for group in named_groups:          # a shape joined by position: back in slide order
+        group.shapes = dict(sorted(group.shapes.items(), key=lambda item: position[item[0]]))
     groups.sort(key=lambda group: order[id(group)])
     return groups
 
@@ -422,7 +460,8 @@ class Comparison:
         ``{"property", "level" (sizes past level 0), "value": the majority's, "on": how many
         have it, "from", "near": [{"value", "from", "shapes"}], "other": [...], "fix":
         {"tool", "items"}}`` -- ``fix`` for the near-misses only; ``from`` given where the
-        sources differ."""
+        sources differ.  A name group whose names differ has ``{"property": "name",
+        "value", "on", "other"}`` first."""
         entries, only = self.entries()
         return {"slides": [f"s:{sid}" for sid in self.slides], "matched": len(self.groups),
                 "agree": len(self.groups) - len(entries) - len(only),
@@ -462,6 +501,8 @@ class Comparison:
                     keys.append(key)
         keys.sort(key=lambda key: (PROPERTIES.index(key[0]), key[1]))
         out = []
+        if group.by == "name":
+            out += _name_difference(group)
         for name, level in keys:
             holders = [(sid, values[(name, level)]) for sid, values in measured.items()
                        if (name, level) in values]
@@ -510,6 +551,23 @@ class Comparison:
                 entry["fix"] = {"tool": _FIX_TOOL.get(name, "ppt_set_shape"), "items": fixes}
             out.append(entry)
         return out
+
+
+def _name_difference(group: ShapeGroup) -> list[dict]:
+    """A name group's names when they differ: ``{"property": "name", "value": the
+    majority's, "on", "other": [{"value", "shapes"}]}`` -- no fix, a name being no
+    near-miss."""
+    names = [(shape.name, shape.id) for shape in group.shapes.values()]
+    counts = Counter(name for name, _ in names)
+    if len(counts) < 2:
+        return []
+    top = _dominant(counts)
+    other: dict[str, list[str]] = {}
+    for name, address in names:
+        if name != top:
+            other.setdefault(name, []).append(address)
+    return [{"property": "name", "value": top, "on": counts[top],
+             "other": [{"value": name, "shapes": shapes} for name, shapes in other.items()]}]
 
 
 def compare_slides(slides: list["Slide"], *, within: float = WITHIN) -> Comparison:

@@ -4361,8 +4361,9 @@ class Document(CommentOps):
     def compare_slides(self, slides, *, within: float = 2.0):
         """A run of like slides compared shape by shape
         (:class:`~pptx_agent.edit.compare.Comparison`): their corresponding shapes matched
-        -- placeholders by type and idx, then unique names, then kind and nearest box --
-        and, per property (box, text size per level, colour and typeface, fill, outline),
+        -- placeholders by type and idx, then unique names, then kind and nearest box, a
+        renamed shape too -- and, per property (a name group's names, box, text size per
+        level, colour and typeface, fill, outline),
         the majority's value and the shapes that differ from it, near-misses within
         ``within`` points apart.  ``slides``: :class:`Slide` objects, ids (``257``,
         ``"s:257"``), at least two.  Measures only; see :mod:`pptx_agent.edit.compare`.
