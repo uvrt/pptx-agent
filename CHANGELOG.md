@@ -6,6 +6,23 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Layouts and masters read as slides (round 8, M3): `ppt_read_slides` takes `L2` and `M0`
+  in `slides`, as `render` does, beside slide numbers and ids. `compact` lists their shapes
+  under their addresses (`L2.6`) with a `placeholder` column (type and idx: `title`,
+  `content 1`, `dt 10`; slides' placeholders in the same read labelled too), sizes inherited
+  from the master; `geometry` gives each placeholder's `idx` in such a read. `outline` and
+  `svg` are of slides and refuse a layout, naming `describe` and `render`; an unknown key
+  is `not_found` and names the layouts and masters there are (render's too).
+- Renamed shapes in a compared run (round 8, M4): `ppt_compare_slides` joins name groups
+  that are each on some slides only, and gives a name group a shape left on a slide without
+  it, by kind and nearest box (overlapping or within 36 pt, closest pair first, each once);
+  a group whose names differ lists `name` as its first difference (the majority's,
+  `other` the rest). A renamed shape far from its place is still `missing_on` and `only`.
+- Definitions: `ppt_read_slides`' `slides` description adds "; layouts L2, masters M0"
+  (core 3,556 -> 3,563 estimated, about 5,274 counted by the proxy) and
+  `ppt_compare_slides`' description "name," (deferred): every definition 12,926 -> 12,935,
+  the guard 12,930 -> 12,940; a reviewer's core 2,212 -> 2,220 (guard 2,215 -> 2,225),
+  every definition 4,460 -> 4,469 (guard 4,465 -> 4,475). The strict set is unchanged.
 - Several agents on one deck (round 8, M1 and M2; ooxml-edit 0.46.0): a reviewer's and a
   builder's views of one shared session at once (`session.view(roles=..., context=...)`),
   each held to its own roles, in a batch too; a reviewer's prompt with the role line

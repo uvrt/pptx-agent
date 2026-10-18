@@ -10,7 +10,7 @@ from ooxml_edit.tools import (CORE, Result, ToolError, array, integer, page_list
                               shared, string, tool)
 
 from ..edit.units import EMU_PER_POINT
-from .common import (KIND, box_pt, color_json, color_text, library_errors, numbers, pt)
+from .common import (KIND, box_pt, color_json, color_text, library_errors, place, pt, targets)
 
 
 @shared.handler("describe", kind=KIND)
@@ -117,7 +117,9 @@ def _run_colors(paragraphs) -> list[str]:
     return seen
 
 
-def _shape_json(shape, z: int) -> dict[str, Any]:
+def _shape_json(shape, z: int, *, idx: bool = False) -> dict[str, Any]:
+    """A shape's geometry entry; with ``idx`` (a read with a layout or master in it) a
+    placeholder's ``idx`` too, the number a slide's placeholder inherits by."""
     data: dict[str, Any] = {"id": shape.id, "kind": shape.kind, "z": z}
     if shape.name:
         data["name"] = shape.name
@@ -132,6 +134,8 @@ def _shape_json(shape, z: int) -> dict[str, Any]:
         data["group"] = parent.id
     if shape.placeholder is not None:
         data["placeholder"] = shape.placeholder.type or "content"
+        if idx and shape.placeholder.idx is not None:
+            data["idx"] = shape.placeholder.idx
     if shape.kind == "shape":
         data["preset"] = shape.preset
         fill = shape.effective_fill
@@ -204,6 +208,10 @@ def _shape_json(shape, z: int) -> dict[str, Any]:
 
 #: The columns of ``detail: "compact"``, one row per shape.
 COMPACT_COLUMNS = ["id", "kind", "box", "fill", "size", "text", "group"]
+#: The compact columns when a layout or master is read: a placeholder's type and idx too
+#: (``"title"``, ``"content 1"``, ``"dt 10"``) -- a slide's read with it as well, so its
+#: placeholders show which of the layout's they inherit from.
+TEMPLATE_COLUMNS = [*COMPACT_COLUMNS, "placeholder"]
 #: Words of a text the compact view shows before it cuts.
 COMPACT_WORDS = 8
 
@@ -255,6 +263,16 @@ def _compact_row(shape) -> list[Any]:
             parent.id if parent is not None else None]
 
 
+def _placeholder_label(shape) -> str | None:
+    """A layout's or master's placeholder as the compact view labels it: its type
+    (``content`` when it has none) and its idx, ``"content 1"``."""
+    placeholder = shape.placeholder
+    if placeholder is None:
+        return None
+    kind = placeholder.type or "content"
+    return kind if placeholder.idx is None else f"{kind} {placeholder.idx}"
+
+
 def _dominant_size(frame) -> float | None:
     """The effective size most of a text's characters are drawn at; the first of those
     tied."""
@@ -278,15 +296,26 @@ def _dominant_size(frame) -> float | None:
       "fill, line, text and font sizes. compact: id, kind, box, fill, text size, first "
       "words per shape. svg: an SVG per slide, data-id per shape.",
       {"doc": string("Document id."),
-       "slides": array(string(or_integer=1), "Slide numbers from 1, or ids (s:256, $ref). "
-                       "Default all.", optional=True),
+       "slides": array(string(or_integer=1), "Slide numbers from 1, or ids (s:256, $ref); "
+                       "layouts L2, masters M0. Default all.", optional=True),
        "detail": string("What to show.", enum=["outline", "geometry", "compact", "svg"]),
        "cursor": string("next_cursor of the previous page.", optional=True)},
       kind=KIND, group=CORE, refs=("slides[]",))
 @library_errors
 def ppt_read_slides(call, doc, detail, slides=None, cursor=None):
+    """Slides -- and layouts and masters by their keys (``L2``, ``M0``, round 8, M3), read
+    as slides are: their shapes' rows under the addresses the other tools take
+    (``L2.3``), a placeholder's type and idx with them, inherited sizes resolved.  Not in
+    ``outline`` (Markdown of slides) or ``svg`` (the agent view is of slides);
+    ``describe`` lists a layout's placeholders and text, ``render`` draws it."""
     deck = call.document
-    chosen = numbers(deck, slides)
+    chosen = list(range(1, len(deck.slides) + 1)) if slides is None else targets(deck, slides)
+    templates = [item for item in chosen if isinstance(item, str)]
+    if templates and detail in ("outline", "svg"):
+        raise ToolError("refused", f"{detail} reads slides only, not {', '.join(templates)}: "
+                        "read a layout or master with detail compact or geometry, describe "
+                        "(its placeholders and text) or render (its picture)",
+                        field="detail", valid_options=["compact", "geometry"])
     if detail == "outline":
         text = deck.to_outline(slides=chosen)
         page, next_cursor = page_text(text, cursor=cursor, limit=call.limits.max_result_chars - 2000)
@@ -294,25 +323,32 @@ def ppt_read_slides(call, doc, detail, slides=None, cursor=None):
                       next_cursor=next_cursor)
     if detail == "svg":
         return _svg(call, deck, chosen, cursor)
+    sheets = [_sheet_of(deck, item) for item in chosen]
     if detail == "compact":
-        rows = [_compact_row(shape) for number in chosen
-                for shape in deck.slides[number - 1].shapes]
+        columns = TEMPLATE_COLUMNS if templates else COMPACT_COLUMNS
+        rows = [_compact_row(shape) + ([_placeholder_label(shape)] if templates else [])
+                for sheet in sheets for shape in sheet.shapes]
         page, total, next_cursor = page_list(rows, cursor=cursor, limit=300)
         if len(json.dumps(page, ensure_ascii=False)) > call.limits.max_result_chars - 2000:
             page, total, next_cursor = page_list(rows, cursor=cursor, limit=120)
         return Result(summary=f"Shapes of slide(s) {_span(chosen)} in brief: {total}",
-                      data={"columns": COMPACT_COLUMNS, "shapes": page},
+                      data={"columns": columns, "shapes": page},
                       total=total, next_cursor=next_cursor)
     shapes = []
-    for number in chosen:
-        target = deck.slides[number - 1]
-        for z, shape in enumerate(target.shapes):
-            shapes.append({"slide": f"s:{target.slide_id}", **_shape_json(shape, z)})
+    for item, sheet in zip(chosen, sheets):
+        where = item if isinstance(item, str) else place(sheet)
+        for z, shape in enumerate(sheet.shapes):
+            shapes.append({"slide": where, **_shape_json(shape, z, idx=bool(templates))})
     page, total, next_cursor = page_list(shapes, cursor=cursor, limit=60)
     if len(json.dumps(page)) > call.limits.max_result_chars - 2000:
         page, total, next_cursor = page_list(shapes, cursor=cursor, limit=25)
     return Result(summary=f"Geometry of slide(s) {_span(chosen)}: {total} shape(s)", data=page,
                   total=total, next_cursor=next_cursor)
+
+
+def _sheet_of(deck, item):
+    """The slide a number names, or the layout or master a key (``L2``, ``M0``) names."""
+    return deck._template_by_key(item) if isinstance(item, str) else deck.slides[item - 1]
 
 
 def _svg(call, deck, chosen: list[int], cursor: str | None) -> Result:
@@ -343,8 +379,9 @@ def _svg(call, deck, chosen: list[int], cursor: str | None) -> Result:
                   total=len(chosen), next_cursor=next_cursor)
 
 
-def _span(chosen: list[int]) -> str:
-    if len(chosen) > 3 and chosen == list(range(chosen[0], chosen[-1] + 1)):
+def _span(chosen: "list[int | str]") -> str:
+    if len(chosen) > 3 and all(isinstance(item, int) for item in chosen) \
+            and chosen == list(range(chosen[0], chosen[-1] + 1)):
         return f"{chosen[0]}-{chosen[-1]}"
     return ", ".join(map(str, chosen))
 

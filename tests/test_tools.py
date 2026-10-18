@@ -149,10 +149,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: (3,553 -> 3,556, about 5,263 counted by the proxy) and to every definition (12,757 ->
 #: 12,926).  The guard rises to 12,930.  The strict set is unchanged: ppt_compare_slides is
 #: a reading tool, never strict, and ppt_read_slides gains no parameter.
+#: Round 8, M3: ppt_read_slides reads layouts and masters too, its ``slides`` described
+#: "; layouts L2, masters M0" as render's: +7 to the core (3,556 -> 3,563, about 5,274
+#: counted by the proxy) and to every definition.  M4: ppt_compare_slides' description
+#: names the name among what may differ (+2, deferred).  Every definition 12,926 -> 12,935;
+#: the guard rises to 12,940.  The strict set is unchanged: neither tool is strict and
+#: neither gains a parameter.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 12930
+ALL_GUARD = 12940
 
 
 def estimate_tokens(definitions) -> int:
@@ -892,6 +898,67 @@ def test_render_refuses_a_layout_it_does_not_have_listing_those_it_has(toolbox, 
     assert "L2 (Title and Content)" in error.valid_options and "M0 (Office Theme)" in error.valid_options
     # A layout's shape is no layout.
     assert call(toolbox, session, "render", doc="d1", slides=["L2.3"]).error.code == "invalid_arguments"
+
+
+def test_read_slides_reads_a_layout_and_a_master_as_slides(toolbox, session):
+    # Production feedback round 8, M3: render took L2, ppt_read_slides refused it.  A layout
+    # an agent added a placeholder to is read as a slide is: its shapes' rows under the
+    # addresses the other tools take, the placeholders' type and idx, inherited sizes.
+    added = ok(call(toolbox, session, "ppt_edit_master", doc="d1", action="add_placeholder",
+                    target="L2", type="body", text="Source",
+                    box={"x": 72, "y": 440, "w": 300, "h": 40}))
+    (note,) = added.created
+    compact = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
+                      slides=["L2"]))
+    columns = compact.data["columns"]
+    assert columns == ["id", "kind", "box", "fill", "size", "text", "group", "placeholder"]
+    rows = {row[0]: dict(zip(columns, row)) for row in compact.data["shapes"]}
+    assert all(address.startswith("L2.") for address in rows)
+    labels = [row["placeholder"] for row in rows.values()]
+    assert labels[:2] == ["title", "content 1"] and "dt 10" in labels
+    assert rows["L2.2"]["size"] == 44                    # the master's title size, inherited
+    assert rows[note]["placeholder"] == f"body {added.data['idx']}"
+    assert rows[note]["box"] == [72, 440, 300, 40]
+    # A slide and a master in one call: the slide's placeholders are labelled as well.
+    mixed = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
+                    slides=[1, "M0"]))
+    assert mixed.summary.startswith("Shapes of slide(s) 1, M0 in brief")
+    by_place = {}
+    for row in mixed.data["shapes"]:
+        by_place.setdefault(row[0].split(".")[0], []).append(row[-1])
+    assert set(by_place) == {"256", "M0"} and by_place["256"] == ["title"]
+    assert "title" in by_place["M0"] and "ftr 3" in by_place["M0"]
+    # Without a layout or master, the columns are as before.
+    assert ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
+                   slides=[1])).data["columns"] == ["id", "kind", "box", "fill", "size",
+                                                    "text", "group"]
+    geometry = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="geometry",
+                       slides=["L2", 2])).data
+    entry = next(e for e in geometry if e["id"] == note)
+    assert entry["slide"] == "L2" and entry["placeholder"] == "body"
+    assert entry["idx"] == added.data["idx"] and entry["text"] == "Source"
+    assert {e["slide"] for e in geometry} == {"L2", "s:257"}
+    # The slide's content placeholder with the idx it inherits by, as the layout's.
+    body = next(e for e in geometry if e["slide"] == "s:257" and e.get("placeholder") == "content")
+    assert body["idx"] == 1
+
+
+def test_read_slides_refuses_an_unknown_layout_and_an_outline_or_svg_of_one(toolbox, session):
+    error = call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
+                 slides=[1, "L99"]).error
+    assert error.code == "not_found" and error.field == "slides[1]"
+    assert "the deck has M0, L1, L2" in error.message
+    assert "L2 (Title and Content)" in error.valid_options
+    for detail in ("outline", "svg"):
+        error = call(toolbox, session, "ppt_read_slides", doc="d1", detail=detail,
+                     slides=[1, "L2"]).error
+        assert error.code == "refused" and error.field == "detail"
+        assert error.message.startswith(f"{detail} reads slides only, not L2")
+        assert "describe" in error.message and "render" in error.message
+        assert error.valid_options == ["compact", "geometry"]
+    error = call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
+                 slides=[1, "slide two"]).error
+    assert error.code == "invalid_arguments" and error.field == "slides[1]"
 
 
 def test_render_with_no_slides_named_offers_the_layouts_of_an_empty_deck(toolbox):
