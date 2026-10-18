@@ -250,3 +250,70 @@ def test_every_role_by_default_runs_every_tool(toolbox):
                 items=[{"target": "s:256", "text": "a", "ref": "a"}])
     assert run("ppt_comments", doc="d1", action="delete", items=[{"comment": "$a"}]).ok
     assert added.ok and run("undo", doc="d1").ok
+
+
+# -- several agents on one deck (ooxml-edit 0.46.0, round 8, M1 and M2) ------------------------
+
+
+def test_a_reviewer_view_and_a_builder_view_share_one_deck_at_once(toolbox):
+    """One session, every role; each agent a view of it with its own roles and context."""
+    import threading
+
+    session = _session(toolbox, None)
+    reviewer = session.view(roles=["review"], context={"agent": "reviewer-1"})
+    builder = session.view(roles=["review", "edit"], context={"agent": "builder-1"})
+    assert reviewer.entry("d1") is builder.entry("d1") is session.entry("d1")
+    results = {}
+
+    def review():
+        results["comment"] = toolbox.dispatch(reviewer, "ppt_comments", {
+            "doc": "d1", "action": "add", "author": "Rev",
+            "items": [{"target": "s:256", "text": "Shorter title?", "ref": "c1"}]})
+        results["refused"] = toolbox.dispatch(reviewer, "ppt_set_text", {
+            "doc": "d1", "items": [{"target": "256.2", "text": "Mine"}]})
+
+    def build():
+        results["text"] = toolbox.dispatch(builder, "ppt_set_text", {
+            "doc": "d1", "items": [{"target": "256.2", "text": "Shorter"}]})
+
+    threads = [threading.Thread(target=review), threading.Thread(target=build)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+    assert results["comment"].ok and results["text"].ok
+    refused = results["refused"]
+    assert refused.error.code == "refused" and refused.error.details == {
+        "role": "edit", "roles": ["review"]}
+    # Both agents' work is in the one deck; the reviewer reads the builder's text.
+    read = toolbox.dispatch(reviewer, "ppt_read_slides", {"doc": "d1", "detail": "outline",
+                                                         "slides": ["s:256"]})
+    assert read.ok and "Shorter" in str(read.data)
+    assert toolbox.dispatch(builder, "ppt_comments", {"doc": "d1", "action": "list"}).total == 1
+    # The builder may not resolve the reviewer's thread; the session's log names who did what.
+    resolve = toolbox.dispatch(builder, "ppt_comments", {
+        "doc": "d1", "action": "resolve", "items": [{"comment": "$c1"}]})
+    assert resolve.error.code == "refused" and "resolve role" in resolve.error.message
+    agents = {(record.tool, record.context["agent"]) for record in session.log
+              if record.context and record.ok}
+    assert {("ppt_comments", "reviewer-1"), ("ppt_set_text", "builder-1")} <= agents
+    # A reviewer's batch is held to its view's roles.
+    batch = toolbox.dispatch(reviewer, "batch", {"ops": [
+        {"tool": "check", "arguments": {"doc": "d1"}},
+        {"tool": "ppt_set_text", "arguments": {
+            "doc": "d1", "items": [{"target": "256.2", "text": "Again"}]}}]})
+    assert batch.ok and batch.data["failed"] == [1]
+    with pytest.raises(ValueError, match="never widens"):
+        reviewer.view(roles=["review", "edit"])
+
+
+def test_a_reviewer_s_prompt_follows_the_tools_sent(toolbox):
+    sent = toolbox.definitions("anthropic", groups="core", roles=["review"])
+    # The reviewer's core has ppt_comments: the line says it may comment.
+    assert toolbox.system_prompt(roles=["review"], tools=sent) == \
+        toolbox.system_prompt(roles=["review"])
+    reading = toolbox.system_prompt(roles=["review"], tools=[
+        d for d in sent if d.get("name") != "ppt_comments"])
+    assert "Role: review." in reading and "comment" not in reading.split("Role: review.")[1]
+    assert toolbox.system_prompt(roles=["review"], groups="core") == \
+        toolbox.system_prompt(roles=["review"])

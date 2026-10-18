@@ -6,6 +6,11 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Several agents on one deck (round 8, M1 and M2; ooxml-edit 0.46.0): a reviewer's and a
+  builder's views of one shared session at once (`session.view(roles=..., context=...)`),
+  each held to its own roles, in a batch too; a reviewer's prompt with the role line
+  decided over the tools sent (`system_prompt(tools=...)`). Tests and the tools README
+  only: no deck tool or definition changed.
 - Tool roles (round 7, item 9; ooxml-edit 0.45.0): the deck tools are tagged for the
   additive roles `review`, `resolve`, `accept` and `edit` (`Toolbox(roles=...)`,
   `toolbox.session(roles=...)`). `ppt_comments` takes its actions' roles from
