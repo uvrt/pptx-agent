@@ -137,6 +137,20 @@ the full core's 3,556); edit_chart offers only `read`, `ppt_manage_slides` only
 refused naming the role it needs; a reviewer reports each finding with the call that would
 fix it, for a builder (`roles=["review", "edit"]`, or the default) to apply in one batch.
 
+Several agents on one deck at once share one session -- the deck, its undo history, refs
+and outputs -- each through a view with roles of its own (ooxml-edit 0.46.0); a view
+narrows the session's roles, never widens them, and its `context` reaches the handlers of
+the application's own tools as `call.caller`:
+
+```python
+session = toolbox.session()                     # every role
+reviewer = session.view(roles=["review"], context={"agent": "reviewer-1"})
+builder = session.view(roles=["review", "edit"], context={"agent": "builder-1"})
+toolbox.dispatch(reviewer, "ppt_set_text", args)   # refused: needs the edit role
+sent = toolbox.definitions("anthropic", roles=["review"])
+system = toolbox.system_prompt(roles=["review"], tools=sent)   # the line follows `sent`
+```
+
 ### Tables from data
 
 `ppt_add_table` and `ppt_edit_table`'s `set_cells` take a table's text from a source, as
