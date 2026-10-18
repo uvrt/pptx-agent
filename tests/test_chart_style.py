@@ -171,13 +171,55 @@ def test_edit_chart_reverses_categories_and_labels_points(session):
     ({"action": "set_axis_scale", "axis": "category", "scale": {"max": 3}}, "no numeric"),
     ({"action": "set_point_labels", "series": "Score", "labels": ["a", "b", "c"],
       "position": "right"}, "center, inside_end"),
-    ({"action": "set_gridlines", "gridlines": "both"}, "needs axis"),
+    ({"action": "set_gridlines", "gridlines": "both"}, "needs axis: category or value"),
+    ({"action": "set_axis_scale", "scale": {"reverse": True}}, "needs axis: category or value"),
+    ({"action": "set_value", "series": "Score", "value": 2},
+     "set_value needs category: 'A', 'B' or 'C' (or a number from 0 to 2)"),
+    ({"action": "rename_series", "text": "Now"}, "rename_series needs series: 'Score' (or 0)"),
+    ({"action": "rename_series", "series": "Score"}, "rename_series needs text: the new name"),
+    ({"action": "set_values", "series": "Score"}, "needs values: one number per category (3)"),
+    ({"action": "set_axis_title", "text": "x"}, "set_axis_title needs axis: category or value"),
+    ({"action": "format_point", "series": "Score", "style": {"fill": "tx2"}},
+     "format_point needs category: 'A', 'B' or 'C'"),
 ])
 def test_edit_chart_refuses_what_cannot_be_written(session, arguments, words):
     run(session, target="s:256", action="add", chart_type="bar", categories=["A", "B", "C"],
         data=[{"name": "Score", "values": [1, 2, 3]}], box=BOX, ref="r")
     error = refused(session, target="$r", **arguments)
     assert error.code == "invalid_arguments" and words in error.message, error.message
+
+
+def test_a_scale_without_an_axis_is_the_value_axis_s(session):
+    run(session, target="s:256", action="add", chart_type="column", categories=["A", "B"],
+        data=[{"name": "Score", "values": [1, 2]}], box=BOX, scale={"min": 0, "max": 4},
+        ref="c")
+    assert run(session, target="$c", action="read").data["scales"]["value"]["maximum"] == 4
+    run(session, target="$c", action="set_axis_scale", scale={"major_unit": 1})
+    assert run(session, target="$c", action="read").data["scales"]["value"]["major_unit"] == 1
+
+
+def test_a_scale_two_axes_could_take_is_refused_and_nothing_is_made(session):
+    box, current = session
+    before = len(current.entry("d1").document.slides[0].shapes)
+    error = refused(session, target="s:256", action="add", chart_type="scatter",
+                    values=[1, 2], data=[{"name": "Y", "values": [3, 4]}], box=BOX,
+                    scale={"max": 5})
+    assert error.message.startswith("add with scale needs axis: x or y"), error.message
+    assert len(current.entry("d1").document.slides[0].shapes) == before
+
+
+@pytest.mark.parametrize("arguments, words", [
+    ({"categories": ["A"], "data": [{"name": "S", "values": [1]}], "box": BOX},
+     "add needs chart_type: one of column, stacked_column"),
+    ({"chart_type": "column", "categories": ["A"], "box": BOX}, "add needs data: each series"),
+    ({"chart_type": "column", "categories": ["A"], "data": [{"name": "S", "values": [1]}]},
+     "add needs box: the frame as {x, y, w, h} in pt"),
+    ({"chart_type": "column", "data": [{"name": "S", "values": [1]}], "box": BOX},
+     "add needs categories: the category labels"),
+])
+def test_what_add_needs_is_named(session, arguments, words):
+    error = refused(session, target="s:256", action="add", **arguments)
+    assert words in error.message, error.message
 
 
 def test_a_label_position_is_not_a_legend_position(session):

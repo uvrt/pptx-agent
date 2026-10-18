@@ -4,6 +4,7 @@ Measuring text before building is ``ppt_add_shape`` with ``measure: true`` (:mod
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from ooxml_edit.tools import (CORE, Result, ToolError, array, boolean, integer, number, obj,
@@ -113,7 +114,8 @@ _FRAME_KEYS = ("autofit", "font_scale", "insets", "anchor", "wrap")
       "256.5/p1 one paragraph, 256.5/p1/r0 one run.",
       {"doc": string("Document id."),
        "items": array(obj({
-           "target": string("Shape, cell, notes, paragraph (/p1), run (/p1/r0) or $ref."),
+           "target": string("Shape, table (all cells; /row0, /col1), cell, notes, "
+                            "paragraph (/p1), run (/p1/r0) or $ref."),
            "bold": boolean(optional=True),
            "italic": boolean(optional=True),
            "underline": boolean(optional=True),
@@ -140,84 +142,112 @@ _FRAME_KEYS = ("autofit", "font_scale", "insets", "anchor", "wrap")
       aliases=SPACING_ALIASES)
 @library_errors
 def ppt_format_text(call, doc, items):
-    from ..edit.units import Pt
-
     if not items:
         return Result.nothing_given("formatted")
     deck = call.document
     for index, item in enumerate(items):
         field = f"items[{index}]"
-        target = resolve(deck, item["target"], field=f"{field}.target")
-        frame = target if isinstance(target, TextFrame) else getattr(target, "text_frame", None)
-        if isinstance(target, Run):
-            paragraphs, runs = [], [target]
-        elif isinstance(target, Paragraph):
-            paragraphs, runs = [target], list(target.runs)
-        elif frame is not None:
-            paragraphs = list(frame.paragraphs)
-            runs = [run for paragraph in paragraphs for run in paragraph.runs]
-        else:
-            raise ToolError("invalid_arguments", f"{item['target']} holds no text",
-                            field=f"{field}.target")
-        run_format = {key: item[key] for key in _RUN_KEYS if key in item}
-        clear_size = run_format.get("size") == 0
-        if clear_size:
-            del run_format["size"]
-        elif "size" in run_format and run_format["size"] < 1:
-            raise ToolError("invalid_arguments", f"size {run_format['size']} is below 1 pt; "
-                            "give points from 1 to 400, or 0 to remove the size set here so "
-                            "the layout's applies", field=f"{field}.size")
-        if "hyperlink" in run_format and run_format["hyperlink"] == "":
-            run_format["hyperlink"] = None
-        for run in runs:
-            if run_format:
-                run.format(**run_format)
-        if clear_size:
-            # The size set here goes: a run's own; a paragraph's runs, end mark and
-            # defaults; a shape's or cell's every paragraph and its own list style.
-            if isinstance(target, Run):
-                target.size = None
-            elif isinstance(target, Paragraph):
-                target.clear_size()
-            else:
-                frame.clear_size()
-        for paragraph in paragraphs:
-            if "align" in item:
-                paragraph.alignment = item["align"]
-            if "level" in item:
-                paragraph.level = item["level"]
-            if "space_before" in item:
-                paragraph.space_before = Pt(item["space_before"])
-            if "space_after" in item:
-                paragraph.space_after = Pt(item["space_after"])
-            if "line_spacing" in item:
-                paragraph.line_spacing = item["line_spacing"]
-            if item.get("bullet") == "bullet":
-                paragraph.set_bullet()
-            elif item.get("bullet") == "number":
-                paragraph.set_numbering()
-            elif item.get("bullet") == "none":
-                paragraph.set_no_bullet()
-        frame_keys = [key for key in _FRAME_KEYS if key in item]
-        if frame_keys:
-            if isinstance(target, (Run, Paragraph)) or frame is None:
-                raise ToolError("invalid_arguments", "frame properties (insets, anchor, "
-                                "autofit, font_scale, wrap) go on a shape or cell",
-                                field=f"{field}.{frame_keys[0]}")
-            if "insets" in item:
-                frame.insets = tuple(emu(item["insets"][s])
-                                     for s in ("left", "top", "right", "bottom"))
-            if "anchor" in item:
-                frame.anchor = item["anchor"]
-            if "wrap" in item:
-                frame.wrap = item["wrap"]
-            if "autofit" in item:
-                frame.autofit = item["autofit"]
-            if "font_scale" in item:
-                frame.font_scale = item["font_scale"]
+        for target in _text_targets(deck, item["target"], f"{field}.target"):
+            _format(target, item, field)
         touch_address(call, item["target"])
     return Result(summary=f"Formatted {len(items)} target(s)",
                   changed=[item["target"] for item in items])
+
+
+def _text_targets(deck, address: str, field: str) -> list:
+    """What one item formats: the shape, cell, notes, paragraph or run ``address`` names; a
+    table's every cell, as ``ppt_edit_table``'s ``format_cells`` takes them by default; or
+    one row's or column's (``256.7/row0``, ``256.7/col1``)."""
+    line = re.fullmatch(r"(.+)/(row|col)(\d+)", str(address))
+    target = resolve(deck, line.group(1) if line else address, field=field)
+    table = target.table if getattr(target, "kind", None) and target.has_table else None
+    if line is None:
+        return list(table.iter_cells()) if table is not None else [target]
+    if table is None:
+        raise ToolError("invalid_arguments", f"{line.group(1)} is not a table: /row and /col "
+                        "name a table's row or column; a cell is <table>/cell1,2", field=field)
+    which, at = line.group(2), int(line.group(3))
+    count = table.rows if which == "row" else table.columns
+    if at >= count:
+        raise ToolError("not_found", f"no {which}{at}: {line.group(1)} has {count} "
+                        f"{'rows' if which == 'row' else 'columns'}, {which}0-{which}{count - 1}",
+                        field=field)
+    if which == "row":
+        return [table.cell(at, column) for column in range(table.columns)]
+    return [table.cell(row, at) for row in range(table.rows)]
+
+
+def _format(target, item, field: str) -> None:
+    """One item's formatting on one target (see ``ppt_format_text``)."""
+    from ..edit.units import Pt
+
+    frame = target if isinstance(target, TextFrame) else getattr(target, "text_frame", None)
+    if isinstance(target, Run):
+        paragraphs, runs = [], [target]
+    elif isinstance(target, Paragraph):
+        paragraphs, runs = [target], list(target.runs)
+    elif frame is not None:
+        paragraphs = list(frame.paragraphs)
+        runs = [run for paragraph in paragraphs for run in paragraph.runs]
+    else:
+        raise ToolError("invalid_arguments", f"{item['target']} holds no text",
+                        field=f"{field}.target")
+    run_format = {key: item[key] for key in _RUN_KEYS if key in item}
+    clear_size = run_format.get("size") == 0
+    if clear_size:
+        del run_format["size"]
+    elif "size" in run_format and run_format["size"] < 1:
+        raise ToolError("invalid_arguments", f"size {run_format['size']} is below 1 pt; "
+                        "give points from 1 to 400, or 0 to remove the size set here so "
+                        "the layout's applies", field=f"{field}.size")
+    if "hyperlink" in run_format and run_format["hyperlink"] == "":
+        run_format["hyperlink"] = None
+    for run in runs:
+        if run_format:
+            run.format(**run_format)
+    if clear_size:
+        # The size set here goes: a run's own; a paragraph's runs, end mark and
+        # defaults; a shape's or cell's every paragraph and its own list style.
+        if isinstance(target, Run):
+            target.size = None
+        elif isinstance(target, Paragraph):
+            target.clear_size()
+        else:
+            frame.clear_size()
+    for paragraph in paragraphs:
+        if "align" in item:
+            paragraph.alignment = item["align"]
+        if "level" in item:
+            paragraph.level = item["level"]
+        if "space_before" in item:
+            paragraph.space_before = Pt(item["space_before"])
+        if "space_after" in item:
+            paragraph.space_after = Pt(item["space_after"])
+        if "line_spacing" in item:
+            paragraph.line_spacing = item["line_spacing"]
+        if item.get("bullet") == "bullet":
+            paragraph.set_bullet()
+        elif item.get("bullet") == "number":
+            paragraph.set_numbering()
+        elif item.get("bullet") == "none":
+            paragraph.set_no_bullet()
+    frame_keys = [key for key in _FRAME_KEYS if key in item]
+    if frame_keys:
+        if isinstance(target, (Run, Paragraph)) or frame is None:
+            raise ToolError("invalid_arguments", "frame properties (insets, anchor, "
+                            "autofit, font_scale, wrap) go on a shape or cell",
+                            field=f"{field}.{frame_keys[0]}")
+        if "insets" in item:
+            frame.insets = tuple(emu(item["insets"][s])
+                                 for s in ("left", "top", "right", "bottom"))
+        if "anchor" in item:
+            frame.anchor = item["anchor"]
+        if "wrap" in item:
+            frame.wrap = item["wrap"]
+        if "autofit" in item:
+            frame.autofit = item["autofit"]
+        if "font_scale" in item:
+            frame.font_scale = item["font_scale"]
 
 
 TOOLS = [ppt_set_text, ppt_format_text]

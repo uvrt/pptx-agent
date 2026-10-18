@@ -31,7 +31,7 @@ ooxml-edit's Responses round-trip test). Chat Completions has not been run live.
 | --- | --- |
 | `core` (always loaded) | `open_document`, `new_document`, `save_document`, `undo`, `find_text`, `replace_text`, `render`, `check`, `describe`, `ppt_read_slides`, `ppt_set_text`, `ppt_set_shape`, `batch` |
 | `shared_misc` | `close_document`, `read_blob`, `set_properties`, `edit_chart`, `edit_smartart` |
-| `ppt_text` | `ppt_format_text`: runs, paragraphs, frames, table cells |
+| `ppt_text` | `ppt_format_text`: runs, paragraphs, frames, table cells, a whole table or a row or column |
 | `ppt_graphics` | `ppt_add_shape`, `ppt_add_connector`, `ppt_arrange`, `ppt_design_facts` |
 | `ppt_objects` | `ppt_add_picture`, `ppt_add_table`, `ppt_edit_table`; `ppt_find_asset` with an asset catalogue configured |
 | `ppt_review` | `ppt_comments` |

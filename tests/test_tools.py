@@ -155,10 +155,14 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: names the name among what may differ (+2, deferred).  Every definition 12,926 -> 12,935;
 #: the guard rises to 12,940.  The strict set is unchanged: neither tool is strict and
 #: neither gains a parameter.
+#: Round 9, N3: ppt_format_text formats a table's every cell, or a row's or column's
+#: (``256.7/row0``, ``/col1``), its ``target`` described "table (all cells; /row0, /col1)":
+#: +9 to every definition (12,935 -> 12,944), none to the core: the tool is deferred.  The
+#: guard rises to 12,945.  The strict set is unchanged: no parameter is added.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 12940
+ALL_GUARD = 12945
 
 
 def estimate_tokens(definitions) -> int:
@@ -727,6 +731,38 @@ def test_tables(toolbox, session):
     empty = call(toolbox, session, "ppt_edit_table", doc="d1", target="$t",
                  action="format_cells")
     assert empty.error.code == "invalid_arguments"
+
+
+def _bold(table, row, column):
+    return table.cell(row, column).text_frame.paragraph(0).run(0).bold
+
+
+def test_format_text_on_a_table_formats_every_cell_or_a_row_or_column(toolbox, session):
+    made = ok(call(toolbox, session, "ppt_add_table", doc="d1", slide="s:256",
+                   box={"x": 40, "y": 160, "w": 400, "h": 90}, rows=3, columns=3,
+                   data=[["Item", "Q1", "Q2"], ["Revenue", "10", "12"], ["Margin", "3", "4"]],
+                   ref="t"))
+    table = session.entry("d1").document.shape(made.created[0]).table
+    ok(call(toolbox, session, "ppt_format_text", doc="d1",
+            items=[{"target": "$t", "size": 11, "align": "center"}]))
+    assert all(cell.text_frame.paragraph(0).run(0).size == 11
+               and cell.text_frame.paragraph(0).alignment == "center"
+               for cell in table.iter_cells())
+    ok(call(toolbox, session, "ppt_format_text", doc="d1",
+            items=[{"target": "$t/row0", "bold": True}, {"target": "$t/col2", "italic": True}]))
+    assert [_bold(table, 0, c) for c in range(3)] == [True] * 3
+    assert not _bold(table, 1, 0)
+    assert [table.cell(r, 2).text_frame.paragraph(0).run(0).italic for r in range(3)] == [True] * 3
+    ok(call(toolbox, session, "undo", doc="d1"))           # one call, one undo step
+    assert not any(_bold(table, 0, c) for c in range(3))
+    far = call(toolbox, session, "ppt_format_text", doc="d1",
+               items=[{"target": "$t/row3", "bold": True}])
+    assert far.error.code == "not_found" and "has 3 rows, row0-row2" in far.error.message
+    shape = _box_shape(toolbox, session, text="Plan")
+    not_table = call(toolbox, session, "ppt_format_text", doc="d1",
+                     items=[{"target": f"{shape.refs['box1']}/col0", "bold": True}])
+    assert "is not a table" in not_table.error.message
+    assert "<table>/cell1,2" in not_table.error.message
 
 
 def test_slides_notes_and_theme(toolbox, session):

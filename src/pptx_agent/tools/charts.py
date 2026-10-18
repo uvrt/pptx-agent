@@ -6,12 +6,20 @@ from __future__ import annotations
 from typing import Any
 
 from ooxml_edit.charts.actions import (STYLE_ACTIONS, add_style_actions, apply_add_style,
-                                       apply_style_action, chart_style_json)
+                                       apply_style_action, category_labels, chart_style_json,
+                                       choices, scale_axis)
 from ooxml_edit.tools import Result, ToolError, shared
+from ooxml_edit.tools.shared import CHART_TYPES
 
 from .common import KIND, box_emu, library_errors, shape as shape_at, slide as slide_at
 
 _LEGEND = {"right": "r", "left": "l", "top": "t", "bottom": "b"}
+
+#: What ``add`` needs, said when it is missing.
+_ADD_NEEDS = {"chart_type": "one of " + ", ".join(CHART_TYPES),
+              "data": "each series as {name, values}, one value per category",
+              "box": "the frame as {x, y, w, h} in pt",
+              "categories": "the category labels, in order"}
 
 
 def _chart(deck, target: str):
@@ -23,11 +31,11 @@ def _chart(deck, target: str):
     return frame, chart
 
 
-def _series(chart, which: str | None):
-    if which is None:
-        raise ToolError("invalid_arguments", "this action needs series", field="series",
-                        valid_options=[str(n) for n in chart.series_names])
+def _series(chart, which: str | None, action: str = "this action"):
     names = [str(n) for n in chart.series_names]
+    if which is None:
+        raise ToolError("invalid_arguments", f"{action} needs series: {choices(names)}",
+                        field="series", valid_options=names[:50])
     if which not in names and which.isdigit():
         index = int(which)
         if index >= len(names):
@@ -37,26 +45,16 @@ def _series(chart, which: str | None):
     return chart.series_named(which)
 
 
-def _labels(chart) -> list[str]:
-    """The categories as a model reads and names them: ISO dates for dates kept as serials
-    (``chart.category_dates``), else each label as text."""
-    dates = chart.category_dates
-    raw = chart.categories
-    if dates is None:
-        return [str(c) for c in raw]
-    return [str(c) if day is None else day for day, c in zip(dates, raw)]
-
-
 def _categories(chart) -> list:
     """The categories a read lists: ISO dates for dates, else the labels as they are."""
-    return _labels(chart) if chart.category_dates is not None else list(chart.categories)
+    return category_labels(chart) if chart.category_dates is not None else list(chart.categories)
 
 
-def _category(chart, which: str | None):
-    labels = _labels(chart)
+def _category(chart, which: str | None, action: str = "this action"):
+    labels = category_labels(chart)
     if which is None:
-        raise ToolError("invalid_arguments", "this action needs category", field="category",
-                        valid_options=labels[:50])
+        raise ToolError("invalid_arguments", f"{action} needs category: {choices(labels)}",
+                        field="category", valid_options=labels[:50])
     if which not in labels and which.isdigit():
         index = int(which)
         if index >= len(labels):
@@ -75,7 +73,7 @@ def _category(chart, which: str | None):
 def _point(chart, which: str) -> int:
     """A point by category label, or position from 0 (a scatter chart's x values are
     labels too)."""
-    labels = _labels(chart)
+    labels = category_labels(chart)
     if which in labels:
         hits = [k for k, label in enumerate(labels) if label == which]
         if len(hits) == 1:
@@ -110,7 +108,8 @@ def _add(call, target, chart_type, categories, data, box, width, values, number_
                         field="width")
     for name, given in (("chart_type", chart_type), ("data", data), ("box", box)):
         if given is None:
-            raise ToolError("invalid_arguments", f"add needs {name}", field=name)
+            raise ToolError("invalid_arguments", f"add needs {name}: {_ADD_NEEDS[name]}",
+                            field=name)
     if chart_type in ("scatter", "bubble"):
         if values is None or categories is not None:
             raise ToolError("invalid_arguments", f"a {chart_type} chart takes its x values in "
@@ -118,7 +117,8 @@ def _add(call, target, chart_type, categories, data, box, width, values, number_
         labels = list(values)
     else:
         if categories is None:
-            raise ToolError("invalid_arguments", "add needs categories", field="categories")
+            raise ToolError("invalid_arguments", "add needs categories: "
+                            + _ADD_NEEDS["categories"], field="categories")
         if values is not None:
             raise ToolError("invalid_arguments", "values are a scatter or bubble chart's x "
                             "values; give each series' values in data", field="values")
@@ -130,8 +130,6 @@ def _add(call, target, chart_type, categories, data, box, width, values, number_
     if position not in (None, "none", "right", "left", "top", "bottom"):
         raise ToolError("invalid_arguments", f"{position} is a label position; a legend is "
                         "right, left, top, bottom or none", field="position")
-    if scale is not None and axis is None:
-        raise ToolError("invalid_arguments", "add with scale needs axis", field="axis")
     look = add_style_actions(chart_type, data, data_labels=data_labels, colors=colors,
                              style=style, part=part)
     legend = None if position == "none" else (position or "default")
@@ -143,8 +141,9 @@ def _add(call, target, chart_type, categories, data, box, width, values, number_
                                category_order="reversed" if reverse else "normal",
                                gridlines=gridlines != "none")
         chart = call.document.shape(frame.id).chart
-        if rest:
-            apply_style_action(chart, "set_axis_scale", axis=axis, scale=rest)
+        if rest:  # no axis: the chart's one value axis (refused, and undone, if it has more)
+            apply_style_action(chart, "set_axis_scale", scale=rest,
+                               axis=axis or scale_axis(chart, rest, action="add with scale"))
         if gridlines not in (None, "major", "none"):
             apply_style_action(chart, "set_gridlines", axis="value" if chart_type not in
                                ("scatter", "bubble") else "y", gridlines=gridlines)
@@ -181,7 +180,7 @@ def edit_chart(call, doc, target, action, chart_type=None, categories=None, data
     if action == "read":
         return _read(frame, chart)
     if action in STYLE_ACTIONS:
-        chosen = None if series is None else _series(chart, series).index
+        chosen = None if series is None else _series(chart, series, action).index
         point = None if category is None or chosen is None else _point(chart, category)
         apply_style_action(chart, action, series=chosen, category=point, axis=axis,
                            scale=scale, gridlines=gridlines, style=style, part=part,
@@ -195,25 +194,27 @@ def edit_chart(call, doc, target, action, chart_type=None, categories=None, data
 
     def need(name, given):
         if given is None:
-            raise ToolError("invalid_arguments", f"{action} needs {name}", field=name)
+            raise ToolError("invalid_arguments", f"{action} needs {name}: "
+                            + _expected(chart, action, name), field=name)
         return given
 
     if action == "set_values":
-        _series(chart, series).set_values(need("values", values))
+        _series(chart, series, action).set_values(need("values", values))
     elif action == "set_value":
-        _series(chart, series).set_value(_category(chart, category), need("value", value))
+        _series(chart, series, action).set_value(_category(chart, category, action),
+                                                 need("value", value))
     elif action == "add_category":
         chart.add_category(need("text", text), list(values) if values is not None else None)
     elif action == "remove_category":
-        chart.remove_category(_category(chart, category))
+        chart.remove_category(_category(chart, category, action))
     elif action == "rename_category":
-        chart.set_category(_category(chart, category), need("text", text))
+        chart.set_category(_category(chart, category, action), need("text", text))
     elif action == "add_series":
         chart.add_series(need("text", text), list(values) if values is not None else None)
     elif action == "remove_series":
-        chart.remove_series(_series(chart, series).index)
+        chart.remove_series(_series(chart, series, action).index)
     elif action == "rename_series":
-        _series(chart, series).set_name(need("text", text))
+        _series(chart, series, action).set_name(need("text", text))
     elif action == "set_title":
         chart.set_title(text)
     elif action == "set_axis_title":
@@ -225,10 +226,10 @@ def edit_chart(call, doc, target, action, chart_type=None, categories=None, data
         else:
             chart.set_legend(True, _LEGEND[where])
     elif action == "show_data_labels":
-        chosen = None if series is None else [_series(chart, series).index]
+        chosen = None if series is None else [_series(chart, series, action).index]
         chart.set_data_labels(True, number_format=number_format, series=chosen)
     elif action == "hide_data_labels":
-        chosen = None if series is None else [_series(chart, series).index]
+        chosen = None if series is None else [_series(chart, series, action).index]
         chart.set_data_labels(False, series=chosen)
     elif action == "set_gap_width":
         given = need("value", value)
@@ -240,6 +241,19 @@ def edit_chart(call, doc, target, action, chart_type=None, categories=None, data
     fresh = call.document.shape(frame.id).chart
     return Result(summary=f"{action} on chart {frame.id}", changed=[frame.id],
                   data=chart_json(frame, fresh))
+
+
+def _expected(chart, action: str, name: str) -> str:
+    """What a missing ``name`` of ``action`` could be, on this chart."""
+    if name == "axis":
+        return " or ".join(chart.axes) or "the chart has no axes"
+    if name == "values":
+        return f"one number per category ({len(chart.categories)})"
+    if name == "value":
+        return ("the gap as a whole % of a bar's width, 0-500" if action == "set_gap_width"
+                else "the number")
+    return {"add_category": "the new category's label", "rename_category": "the new label",
+            "add_series": "the new series' name"}.get(action, "the new name")
 
 
 @shared.handler("edit_smartart", kind=KIND)
