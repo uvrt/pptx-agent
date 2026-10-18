@@ -6,6 +6,19 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- `edit_chart` (round 9, N2; ooxml-edit 0.48.0): a `scale` without `axis` -- in
+  `set_axis_scale` or `add` -- is the value axis where it is the chart's one axis that takes
+  bounds and units (column, bar, line, radar, dot); a scatter's x and y, a date axis or a
+  secondary value axis must still be named, and the refusal names them, as it does for a
+  scale of only `reverse` or `number_format`. Every "needs" refusal names what to give:
+  `set_value needs category: 'A', 'B' or 'C' (or a number from 0 to 2)` (the first 12 and
+  how many more), the series, the chart's axes, what `add` needs (`chart_type`'s kinds,
+  `data`'s and `box`'s shape). Definitions unchanged.
+- `ppt_format_text` on a table (round 9, N3): a table formats every cell, as `ppt_edit_table
+  format_cells` does by default, where it was refused "holds no text"; `256.7/row0` and
+  `256.7/col1` format one row's or column's cells (one undo step a call). The `target`
+  description says so: +9 to every definition (12,935 -> 12,944; guard 12,940 -> 12,945),
+  none to the core (the tool is deferred); strict set unchanged.
 - What a name that is no deck tool means (round 9, N5; ooxml-edit 0.47.0): "no tool
   'ppt_add_chart': use edit_chart with action add", in a batch's op too, with the best few
   tools in `valid_options` instead of every one. ooxml-edit reads the tools' names and
