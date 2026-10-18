@@ -6,6 +6,16 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- What a name that is no deck tool means (round 9, N5; ooxml-edit 0.47.0): "no tool
+  'ppt_add_chart': use edit_chart with action add", in a batch's op too, with the best few
+  tools in `valid_options` instead of every one. ooxml-edit reads the tools' names and
+  actions; `TOOL_HINTS` (`FORMAT.tool_hints`) adds the deck's names it misses or settles
+  wrongly: deleting a shape, chart, picture or table is `ppt_arrange delete`, moving or
+  resizing one `ppt_set_shape` (not `ppt_manage_slides move`), a slide's title or notes
+  `ppt_set_text` (not `edit_chart set_title`), a text box `ppt_add_shape`, an image
+  `ppt_add_picture`, a line `ppt_add_connector`, a slide number `ppt_edit_master
+  set_footer`. A batch op may carry `comment`/`note` (N4), kept in the call log. Data and
+  tests only: definitions and the strict set unchanged.
 - Layouts and masters read as slides (round 8, M3): `ppt_read_slides` takes `L2` and `M0`
   in `slides`, as `render` does, beside slide numbers and ids. `compact` lists their shapes
   under their addresses (`L2.6`) with a `placeholder` column (type and idx: `title`,
