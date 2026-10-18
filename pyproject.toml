@@ -91,7 +91,8 @@ classifiers = [
 # shared.COMMENT_ACTION_ROLES), by which ppt_comments and the reviewer's core are tagged.
 # ooxml-edit 0.46.0: session views (Session.view), several agents on one deck, which the
 # tools README shows.
-dependencies = ["lxml>=4.9", "ooxml-common>=0.19.0", "ooxml-edit>=0.46.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.47.0: DocumentFormat.tool_hints, which TOOL_HINTS fills (round 9, N5).
+dependencies = ["lxml>=4.9", "ooxml-common>=0.19.0", "ooxml-edit>=0.47.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

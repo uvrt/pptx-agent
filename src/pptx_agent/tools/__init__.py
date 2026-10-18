@@ -132,6 +132,44 @@ building a run of like slides, ppt_compare_slides lists where they differ.
 #: and distribute and no longer fits beside the others; ppt_add_table takes its place.
 STRICT_FIRST = ("ppt_add_slide", "ppt_manage_slides", "ppt_draft_slides")
 
+#: Tool names a model writes that ooxml-edit's reading of names (its tools' names and
+#: actions, verbs and plurals read) does not settle, or settles wrongly -- moving a shape is
+#: not moving a slide, a slide's title is its text (``DocumentFormat.tool_hints``; each
+#: key covers its spellings with another verb, a plural or no prefix).  Wording only.
+TOOL_HINTS = {
+    "ppt_delete_shape": "ppt_arrange delete",
+    "ppt_delete_picture": "ppt_arrange delete",
+    "ppt_delete_chart": "ppt_arrange delete",
+    "ppt_delete_table": "ppt_arrange delete",
+    "ppt_delete_connector": "ppt_arrange delete",
+    "ppt_move_shape": "ppt_set_shape",
+    "ppt_resize_shape": "ppt_set_shape",
+    "ppt_rotate_shape": "ppt_set_shape",
+    "ppt_format_shape": "ppt_set_shape",
+    "ppt_set_fill": "ppt_set_shape",
+    "ppt_move_picture": "ppt_set_shape",
+    "ppt_resize_picture": "ppt_set_shape",
+    "ppt_add_text_box": "ppt_add_shape",
+    "ppt_add_textbox": "ppt_add_shape",
+    "ppt_add_text": "ppt_add_shape",
+    "ppt_add_image": "ppt_add_picture",
+    "ppt_replace_image": "ppt_add_picture",
+    "ppt_replace_picture": "ppt_add_picture",
+    "ppt_add_line": "ppt_add_connector",
+    "ppt_add_arrow": "ppt_add_connector",
+    "ppt_set_title": "ppt_set_text",
+    "ppt_set_slide_title": "ppt_set_text",
+    "ppt_set_notes": "ppt_set_text",
+    "ppt_set_speaker_notes": "ppt_set_text",
+    "ppt_set_font": "ppt_format_text",
+    "ppt_set_bullets": "ppt_format_text",
+    "ppt_add_slide_number": "ppt_edit_master set_footer",
+    "ppt_new_deck": "new_document",
+    "ppt_new_presentation": "new_document",
+    "ppt_save": "save_document",
+    "ppt_save_deck": "save_document",
+}
+
 _PRESENTATION = b"ppt/presentation.xml"
 
 
@@ -206,7 +244,7 @@ FORMAT = DocumentFormat(
     prompt=PROMPT,
     errors={LabelError: ("label_not_found", lambda exc: exc.candidates[:50]),
             ChartDataError: "refused", FullStateError: "refused"},
-    summary=_summary, checks=checks, strict_first=STRICT_FIRST,
+    summary=_summary, checks=checks, strict_first=STRICT_FIRST, tool_hints=TOOL_HINTS,
     undo_scope=_slide_scope, undo_shared=_template_parts,
     restored=lambda deck: deck._reset_caches(),
     configure=_configure,
