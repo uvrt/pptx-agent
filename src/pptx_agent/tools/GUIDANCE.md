@@ -84,6 +84,9 @@ def review(toolbox, session, doc, numbers, house_rules, model_call):
   Claude), the `check` facts and the design facts as JSON, the task's brief, and your house
   rules. Ask for findings with shape addresses, each tied to a fact or a rule, not general
   impressions. The reviewer can be the same model or a cheaper one; give it no tools.
+  For a whole deck, `render` with `sheet` gives up to 30 slides as one labelled image
+  (4 columns of 360 px: about 1,800 tokens for 16 slides on Claude) to find the slides worth
+  a full render.
 - **What to do with findings:** send them back to the editing model as one user turn ("The
   review found: ... Fix these, or say why a finding does not apply.") and let it work through
   the tools again.

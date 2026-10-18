@@ -6,6 +6,18 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- `render` with `sheet` (round 9, N1; ooxml-edit 0.49.0): up to 30 slides, layouts or
+  masters as one image, tiled in order, each labelled with its number and id
+  (`3 · s:258`; `· hidden` after a hidden slide's; a layout `L2 Title Only`) -- a contact
+  sheet. `{"columns": 4, "width": 480}`; `{}` is 4 columns of 360 px (1,480 px wide).
+  `sheet.width` is each tile's, 160-1280 (the call's `width` stands in); `columns` 1-8.
+  Refused, naming the bound and what to do: more than 30, a sheet over 2,576 px wide (the
+  widest tile that fits) or tall (how many slides fit, before anything is drawn). The tiles
+  are drawn in one worker call at the tile width, from the render cache where there; the
+  sheet is cached whole. `missing_glyphs` and `template_note` as for a render; render
+  without `sheet` and more than 4 slides now says `sheet` takes 30. Definitions: +64 to the
+  core (3,563 -> 3,627, about 5,368 counted) and every definition (12,944 -> 13,008; guard
+  13,010); a reviewer's core guard 2,225 -> 2,285, all 4,475 -> 4,535; strict set unchanged.
 - `edit_chart` (round 9, N2; ooxml-edit 0.48.0): a `scale` without `axis` -- in
   `set_axis_scale` or `add` -- is the value axis where it is the chart's one axis that takes
   bounds and units (column, bar, line, radar, dot); a scatter's x and y, a date axis or a

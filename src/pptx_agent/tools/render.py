@@ -59,6 +59,20 @@ def render_slides_reporting(data: bytes, numbers: "list[int | str]", width: int,
     return images, [by_slide.get(number, []) for number in numbers]
 
 
+@worker_task
+def rasterise_tiles(svg: str, font_dirs: "list[str] | None" = None) -> bytes:
+    """The PNG of a contact image's SVG (``ooxml_edit.tools.tiles.tiled_svg``: the slides'
+    PNGs placed at their own size, their labels): drawn once, at the SVG's own size.  The
+    labels are in the bundle's sans-serif, the machine's fonts left out so the same sheet
+    draws the same everywhere; a label a font cannot draw is not a deck's text, so it is
+    not reported."""
+    from pptx2svg.png import svg_to_png
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return svg_to_png(svg, font_dirs=font_dirs, host_fonts=False, check_glyphs=False)
+
+
 def png_size(png: bytes) -> tuple[int, int]:
     """A PNG's width and height, read from its header."""
     if png[:8] != b"\x89PNG\r\n\x1a\n":

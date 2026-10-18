@@ -10,13 +10,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ooxml_edit.tools import Result, ToolError, collect_warnings, page_list, shared
+from ooxml_edit.tools import Result, ToolError, collect_warnings, page_list, shared, tiles
 
 from .common import (KIND, facts, library_errors, numbers, slide_id_of, targets,
                      template_key_of, template_options, validate_delta)
 from ..edit.document import font_dirs_of, locale_of
 from ..edit.effective import text_minimums
-from .render import png_size, render_slides_reporting
+from .render import png_size, rasterise_tiles, render_slides_reporting
 from . import textfacts
 from .tables import forget_cells
 
@@ -257,17 +257,21 @@ def _span(pattern, text):
 
 @shared.handler("render", kind=KIND)
 @library_errors
-def render(call, doc, slides=None, pages=None, width=None):
+def render(call, doc, slides=None, pages=None, width=None, sheet=None):
     if pages is not None:
         raise _deck_only("pages", "slides")
     deck = call.document
     if not slides:
         raise ToolError("invalid_arguments", f"name the slides to render, at most "
-                        f"{MAX_RENDER}, e.g. [1], or a layout, L2", field="slides",
+                        f"{MAX_RENDER}, e.g. [1], or a layout, L2; with sheet, up to "
+                        f"{tiles.MAX_TILES}", field="slides",
                         valid_options=(list(range(1, len(deck.slides) + 1))
                                        or template_options(deck))[:50])
+    if sheet is not None:
+        return _render_sheet(call, deck, slides, width, sheet)
     if len(slides) > MAX_RENDER:
-        raise ToolError("limit", f"at most {MAX_RENDER} slides per render", field="slides")
+        raise ToolError("limit", f"at most {MAX_RENDER} slides per render; sheet: {{}} tiles "
+                        f"up to {tiles.MAX_TILES} into one image", field="slides")
     wanted = targets(deck, slides)
     width = width or DEFAULT_WIDTH
     entry = call.entry
@@ -311,6 +315,76 @@ def render(call, doc, slides=None, pages=None, width=None):
     shown += [f"{n} ({'layout' if n.startswith('L') else 'master'})"
               for n in wanted if isinstance(n, str)]
     return Result(summary=f"Rendered {', '.join(shown)}", data=data)
+
+
+def _render_sheet(call, deck, slides, width, sheet) -> Result:
+    """``render`` with ``sheet``: the slides tiled into one image, in order, each labelled
+    with its number and id (``3 · s:258``; a layout ``L2 Title Only``) -- a contact sheet
+    (:mod:`ooxml_edit.tools.tiles`).  ``sheet.width`` is each tile's; ``width`` stands in
+    for it when the sheet gives none.  The tiles come from the render cache where they are
+    there and are drawn otherwise (all in one worker call); the sheet is cached whole, one
+    entry, so a sheet of 30 does not push the single renders out."""
+    limits = call.limits
+    wanted = targets(deck, slides)
+    tiling = tiles.tiling_of(sheet, len(wanted), name="sheet", width=width, what="slides",
+                             max_edge=limits.max_image_edge)
+    cx, cy = deck.slide_size
+    tiles.check_size(tiling, [round(tiling.width * cy / cx)] * len(wanted), name="sheet",
+                     what="slides", max_edge=limits.max_image_edge)
+    entry, version = call.entry, call.entry.version
+    ids = {item: item if isinstance(item, str) else deck.slides[item - 1].slide_id
+           for item in wanted}
+    fonts, locale = font_dirs_of(deck), locale_of(deck)
+    key = ("sheet", version, tuple(ids[n] for n in wanted), tiling.columns, tiling.width,
+           fonts, locale)
+    made = entry.render_cache.get(key)
+    cached = made is not None
+    if made is None:
+        drawn = {n: entry.render_cache.get((version, ids[n], tiling.width, fonts, locale))
+                 for n in wanted}
+        missing = [n for n in wanted if drawn[n] is None]
+        labels = {n: _sheet_label(deck, n) for n in wanted}
+        data = deck.to_bytes() if missing else None
+        with call.unlocked():
+            # The snapshot (bytes, ids, labels) is taken; both worker calls run on it.
+            if missing:
+                images, lost = call.run(
+                    render_slides_reporting, data, missing, tiling.width, list(fonts), locale,
+                    timeout=limits.render_timeout * -(-len(missing) // MAX_RENDER))
+                drawn.update(zip(missing, zip(images, lost)))
+            views = [(drawn[n][0], *png_size(drawn[n][0]), labels[n]) for n in wanted]
+            tiles.check_size(tiling, [h for _, _, h, _ in views], name="sheet",
+                             what="slides", max_edge=limits.max_image_edge)
+            svg, w, h = tiles.tiled_svg(views, tiling)
+            png = call.run(rasterise_tiles, svg, list(fonts))
+        made = (png, w, h, [drawn[n][1] for n in wanted])
+        entry.render_cache.put(key, made)
+    png, w, h, lost = made
+    shown = [n if isinstance(n, str) else f"s:{ids[n]}" for n in wanted]
+    call.image(png, w, h, label=f"sheet of {len(wanted)}: {', '.join(shown[:3])}"
+               f"{', ...' if len(shown) > 3 else ''}")
+    data: dict[str, Any] = {"sheet": {"columns": tiling.columns, "width": tiling.width,
+                                      "slides": shown},
+                            "cached": cached}
+    if any(isinstance(n, str) for n in wanted):
+        data["template_note"] = TEMPLATE_NOTE
+    unrendered = [{"slide": address, **item} for address, left in zip(shown, lost)
+                  for item in left]
+    if unrendered:
+        data["missing_glyphs"] = unrendered
+        data["missing_glyphs_note"] = MISSING_GLYPHS_NOTE
+    return Result(summary=f"Rendered {len(wanted)} slide(s) as one sheet, {tiling.columns} "
+                  f"column(s) of {tiling.width} px, labelled with number and id", data=data)
+
+
+def _sheet_label(deck, item) -> str:
+    """A tile's label: ``3 · s:258``, `` · hidden`` after a hidden slide's; ``L2 Title Only``."""
+    if isinstance(item, str):
+        return f"{item} {deck._template_by_key(item).name}"
+    slide = deck.slides[item - 1]
+    root = deck.package.tree(slide.part_path)
+    hidden = root is not None and root.get("show") in ("0", "false")
+    return f"{item} · s:{slide.slide_id}{' · hidden' if hidden else ''}"
 
 
 def _render_name(deck, item) -> str:
