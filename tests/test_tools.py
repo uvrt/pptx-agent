@@ -159,10 +159,15 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: (``256.7/row0``, ``/col1``), its ``target`` described "table (all cells; /row0, /col1)":
 #: +9 to every definition (12,935 -> 12,944), none to the core: the tool is deferred.  The
 #: guard rises to 12,945.  The strict set is unchanged: no parameter is added.
+#: Round 9, N1: render's ``sheet`` (``{columns, width}``: the slides tiled into one labelled
+#: image, ooxml-edit 0.49.0) adds 64 to the core (3,563 -> 3,627, about 5,368 counted by the
+#: proxy) and to every definition (12,944 -> 13,008).  The guard rises to 13,010.  The
+#: strict set is unchanged in its members: render is not sent strict to Claude; on OpenAI,
+#: where it is, ``sheet`` is one more object, its keys nullable.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 12945
+ALL_GUARD = 13010
 
 
 def estimate_tokens(definitions) -> int:
@@ -880,6 +885,72 @@ def test_render_takes_slides_and_caches_by_version(toolbox, session):
     assert fresh.data["cached"] == []
     assert call(toolbox, session, "render", doc="d1").error.field == "slides"
     assert call(toolbox, session, "render", doc="d1", slides=[1, 2, 1, 2, 1]).error.code == "limit"
+
+
+def test_render_sheet_tiles_many_slides_into_one_labelled_image(toolbox):
+    # Production feedback round 9, N1: a reviewer wants many slides at once.  sheet tiles
+    # them in order into one image, each labelled with its number and id; sheet.width is
+    # each tile's.
+    deck = Document.new()
+    for number in range(6):
+        deck.add_slide("Title Only").title = f"Part {number + 1}"
+    session = toolbox.session(clock=CLOCK)
+    session.open(deck.to_bytes(), "parts.pptx")
+    shown = ok(call(toolbox, session, "render", doc="d1", slides=[*range(1, 7), "L2"],
+                    sheet={"columns": 3, "width": 240}))
+    (image,) = shown.images
+    tile_height = round(240 * deck.slide_size[1] / deck.slide_size[0])
+    assert image.width == 3 * 240 + 4 * 8
+    assert image.height == 3 * (tile_height + 20) + 4 * 8
+    ids = [slide.slide_id for slide in deck.slides]
+    assert shown.data["sheet"] == {"columns": 3, "width": 240,
+                                   "slides": [f"s:{i}" for i in ids] + ["L2"]}
+    assert shown.data["cached"] is False and "template_note" in shown.data
+    assert "one sheet" in shown.summary
+    again = ok(call(toolbox, session, "render", doc="d1", slides=[*range(1, 7), "L2"],
+                    sheet={"columns": 3, "width": 240}))
+    assert again.data["cached"] is True and again.images[0].data == image.data
+    # Defaults: 4 columns of 360 px, the call's width standing in for the tile's.
+    assert ok(call(toolbox, session, "render", doc="d1", slides=[1, 2],
+                   sheet={})).images[0].width == 2 * 360 + 3 * 8
+    assert ok(call(toolbox, session, "render", doc="d1", slides=[1, 2], width=200,
+                   sheet={})).data["sheet"]["width"] == 200
+
+
+def test_render_sheet_refusals_name_the_bound_and_what_to_do(toolbox, session):
+    many = call(toolbox, session, "render", doc="d1", slides=[1, 2, 1, 2, 1])
+    assert many.error.code == "limit" and "sheet" in many.error.message
+    wide = call(toolbox, session, "render", doc="d1", slides=[1, 2],
+                sheet={"columns": 2, "width": 1280})
+    assert wide.error.code == "limit" and wide.error.field == "sheet.width"
+    assert "2584 px wide" in wide.error.message and "at most 1276" in wide.error.message
+    bound = call(toolbox, session, "render", doc="d1", slides=[1, 2], sheet={"width": 100})
+    assert bound.error.code == "invalid_arguments" and "160" in bound.error.message
+    deck = Document.new()
+    for _ in range(31):
+        deck.add_slide("Blank")
+    crowded = toolbox.session(clock=CLOCK)
+    crowded.open(deck.to_bytes(), "crowded.pptx")
+    capped = call(toolbox, crowded, "render", doc="d1", slides=list(range(1, 32)), sheet={})
+    assert capped.error.code == "limit" and capped.error.field == "slides"
+    assert "at most 30 slides" in capped.error.message and "another call" in capped.error.message
+    # Too tall is refused before anything is drawn, naming how many fit.
+    column = call(toolbox, crowded, "render", doc="d1", slides=list(range(1, 15)),
+                  sheet={"columns": 1, "width": 1000})
+    assert column.error.code == "limit" and "at most 4 slides" in column.error.message
+    assert len(crowded.entry("d1").render_cache) == 0
+
+
+def test_a_sheet_label_is_the_number_and_id_and_says_hidden():
+    from pptx_agent.tools.shared_tools import _sheet_label
+
+    deck = Document.new()
+    deck.add_slide("Title Only")
+    second = deck.add_slide("Title Only")
+    deck.package.tree(second.part_path).set("show", "0")
+    assert _sheet_label(deck, 1) == f"1 · s:{deck.slides[0].slide_id}"
+    assert _sheet_label(deck, 2) == f"2 · s:{second.slide_id} · hidden"
+    assert _sheet_label(deck, "L2") == f"L2 {deck._template_by_key('L2').name}"
 
 
 def test_render_and_check_take_slide_ids_refs_and_numbers(toolbox, session):
