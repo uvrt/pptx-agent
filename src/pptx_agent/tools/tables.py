@@ -531,20 +531,24 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
     if action == "set_cells":
         written = []
         for i, cell in enumerate(need("cells", cells)):
+            # Round 10, O6: each side by position or by label, mixed as given.
             row, col = cell.get("row"), cell.get("col")
-            if "row_label" in cell or "col_label" in cell:
-                if "row_label" not in cell or "col_label" not in cell:
-                    raise ToolError("invalid_arguments", "give both row_label and col_label",
-                                    field=f"cells[{i}].row_label")
-                found = table.cell_by_label(cell["row_label"], cell["col_label"])
-            elif row is None or col is None:
-                raise ToolError("invalid_arguments", "give row and col, or the labels",
-                                field=f"cells[{i}].row")
-            else:
-                if not (row < table.rows and col < table.columns):
-                    raise ToolError("not_found", f"no cell {row},{col}; the table is "
-                                    f"{table.rows}x{table.columns}", field=f"cells[{i}]")
-                found = table.cell(row, col)
+            for index, label, side in ((row, "row_label", "row"), (col, "col_label", "col")):
+                if index is not None and cell.get(label) is not None:
+                    raise ToolError("invalid_arguments", f"give {side} or {label}, not both",
+                                    field=f"cells[{i}].{label}")
+                if index is None and cell.get(label) is None:
+                    raise ToolError("invalid_arguments", f"give {side} (from 0) or {label}",
+                                    field=f"cells[{i}].{side}")
+            if row is not None and row >= table.rows or col is not None and col >= table.columns:
+                raise ToolError("not_found", f"no cell {row if row is not None else '*'},"
+                                f"{col if col is not None else '*'}; the table is "
+                                f"{table.rows}x{table.columns}", field=f"cells[{i}]")
+            if row is None:
+                row = table.find_row(cell["row_label"])
+            if col is None:
+                col = table.find_column(cell["col_label"])
+            found = table.cell(row, col)
             where = textfacts.spot(call.document, found.address)
             before = where.text() if where is not None else None
             found.text = cell["text"]
