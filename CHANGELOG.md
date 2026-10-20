@@ -6,6 +6,14 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- The render worker calls pptx2svg's public `render_svgs`, `rasterise_svgs` and
+  `uses_host_fonts` (pptx2svg's round-10 API) instead of its private `_render`,
+  `_rasterise` and `_host_fonts`; the same calls, the same PNGs. Rasterising itself got
+  cheaper in pptx2svg and ooxml-common 0.25.0 (round 10, item 3): an effect's filter region
+  fits its reach (a full-slide shadow drew four slides of blur), fewer whole-SVG scans per
+  slide, the font mapping indexed; and a font folder holding both Aptos and Aptos Display
+  draws body text in Aptos again.
+
 - `render` draws a call's slides over every worker at once, and keeps each image by its
   content (round 10, O1 and O3; ooxml-edit 0.52.0, ooxml-common 0.24.0): the slides not
   held are split into as many chunks as there are workers (`render_views`, one per
