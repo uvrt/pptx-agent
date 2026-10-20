@@ -6,6 +6,15 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A contact sheet whose tiles do not fit the 2,576 px edge is drawn with narrower tiles,
+  not refused (round 10, O4; ooxml-edit 0.55.0): too wide, the widest that fit the columns
+  (two columns of the call's 1,280 px: 1,276 each); too tall, the widest for the slides'
+  shape, before anything is drawn. `sheet.shrunk` (`{"from", "why"}`) and the summary say
+  so; only tiles that would not fit even at 160 px are refused.
+- `ppt_edit_table`'s `set_cells` takes `row_label` with `col`, and `row` with `col_label`
+  (round 10, O6): each side by label or by position; both for one side, or neither, is
+  refused naming the field.
+
 - The render worker calls pptx2svg's public `render_svgs`, `rasterise_svgs` and
   `uses_host_fonts` (pptx2svg's round-10 API) instead of its private `_render`,
   `_rasterise` and `_host_fonts`; the same calls, the same PNGs. Rasterising itself got

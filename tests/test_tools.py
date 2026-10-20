@@ -164,6 +164,9 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: proxy) and to every definition (12,944 -> 13,008).  The guard rises to 13,010.  The
 #: strict set is unchanged in its members: render is not sent strict to Claude; on OpenAI,
 #: where it is, ``sheet`` is one more object, its keys nullable.
+#: Round 10, item 4: the shared undo's ``scope`` names a sheet beside a slide (ooxml-edit
+#: 0.55.0): the core 3,627 -> 3,628, every definition 13,008 -> 13,010; the guard stays
+#: 13,010.  The strict set is unchanged: undo is not strict, and no parameter is added.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
@@ -723,6 +726,20 @@ def test_tables(toolbox, session):
                                                "text": "5"}])
     assert missing.error.code == "label_not_found"
     assert missing.error.valid_options == ["Item", "Revenue", "Margin"]
+    # Round 10, O6: a row by label with a column by position, and the other way round.
+    mixed = ok(call(toolbox, session, "ppt_edit_table", doc="d1", target="$t", action="set_cells",
+                    cells=[{"row_label": "Revenue", "col": 1, "text": "11"},
+                           {"row": 1, "col_label": "Q2", "text": "13"}]))
+    assert mixed.data["cells"][1][1:] == ["11", "13"]
+    both = call(toolbox, session, "ppt_edit_table", doc="d1", target="$t", action="set_cells",
+                cells=[{"row": 1, "row_label": "Revenue", "col": 1, "text": "x"}])
+    assert both.error.code == "invalid_arguments" and both.error.field == "cells[0].row_label"
+    neither = call(toolbox, session, "ppt_edit_table", doc="d1", target="$t", action="set_cells",
+                   cells=[{"row_label": "Revenue", "text": "x"}])
+    assert neither.error.field == "cells[0].col" and "col_label" in neither.error.message
+    past = call(toolbox, session, "ppt_edit_table", doc="d1", target="$t", action="set_cells",
+                cells=[{"row_label": "Revenue", "col": 7, "text": "x"}])
+    assert past.error.code == "not_found" and "3x3" in past.error.message
     ok(call(toolbox, session, "ppt_edit_table", doc="d1", target="$t", action="insert_row",
             like=2))
     ok(call(toolbox, session, "ppt_edit_table", doc="d1", target="$t", action="format_cells",
@@ -920,10 +937,6 @@ def test_render_sheet_tiles_many_slides_into_one_labelled_image(toolbox):
 def test_render_sheet_refusals_name_the_bound_and_what_to_do(toolbox, session):
     many = call(toolbox, session, "render", doc="d1", slides=[1, 2, 1, 2, 1])
     assert many.error.code == "limit" and "sheet" in many.error.message
-    wide = call(toolbox, session, "render", doc="d1", slides=[1, 2],
-                sheet={"columns": 2, "width": 1280})
-    assert wide.error.code == "limit" and wide.error.field == "sheet.width"
-    assert "2584 px wide" in wide.error.message and "at most 1276" in wide.error.message
     bound = call(toolbox, session, "render", doc="d1", slides=[1, 2], sheet={"width": 100})
     assert bound.error.code == "invalid_arguments" and "160" in bound.error.message
     deck = Document.new()
@@ -934,11 +947,41 @@ def test_render_sheet_refusals_name_the_bound_and_what_to_do(toolbox, session):
     capped = call(toolbox, crowded, "render", doc="d1", slides=list(range(1, 32)), sheet={})
     assert capped.error.code == "limit" and capped.error.field == "slides"
     assert "at most 30 slides" in capped.error.message and "another call" in capped.error.message
-    # Too tall is refused before anything is drawn, naming how many fit.
-    column = call(toolbox, crowded, "render", doc="d1", slides=list(range(1, 15)),
+    # Too tall even at the narrowest tile is refused before anything is drawn, naming how
+    # many fit.
+    column = call(toolbox, crowded, "render", doc="d1", slides=list(range(1, 31)),
                   sheet={"columns": 1, "width": 1000})
-    assert column.error.code == "limit" and "at most 4 slides" in column.error.message
+    assert column.error.code == "limit" and "at most 21 slides" in column.error.message
+    assert "even at a tile width of 160" in column.error.message
     assert len(crowded.entry("d1").render_cache) == 0
+
+
+def test_render_sheet_narrows_tiles_that_do_not_fit_and_says_so(toolbox, session):
+    # Production feedback round 10, O4: tiles that would make the sheet over the 2,576 px
+    # edge are drawn at the widest that fit, not refused; the result says from what and why.
+    wide = ok(call(toolbox, session, "render", doc="d1", slides=[1, 2], width=1280,
+                   sheet={"columns": 2}))
+    assert wide.data["sheet"]["width"] == 1276 and wide.images[0].width == 2576
+    assert wide.data["sheet"]["shrunk"] == {
+        "from": 1280, "why": "2 columns of 1280 px make the sheet 2584 px wide, over the 2576 px limit"}
+    assert "narrowed from 1280 px" in wide.summary
+    deck = Document.new()
+    for _ in range(14):
+        deck.add_slide("Blank")
+    tall = toolbox.session(clock=CLOCK)
+    tall.open(deck.to_bytes(), "tall.pptx")
+    column = ok(call(toolbox, tall, "render", doc="d1", slides=list(range(1, 15)),
+                     sheet={"columns": 1, "width": 1000}))
+    width = column.data["sheet"]["width"]
+    assert width == 275 and column.images[0].height <= 2576
+    assert column.data["sheet"]["shrunk"]["from"] == 1000
+    assert "px tall, over the 2576 px limit" in column.data["sheet"]["shrunk"]["why"]
+    # The call's own width past a tile's widest stands in as 1,280 px, said so.
+    single = ok(call(toolbox, session, "render", doc="d1", slides=[1], width=2000, sheet={}))
+    assert single.data["sheet"]["width"] == 1280
+    assert single.data["sheet"]["shrunk"]["why"] == "width 2000 is over a tile's 1280 px"
+    assert "shrunk" not in ok(call(toolbox, session, "render", doc="d1", slides=[1, 2],
+                                   sheet={})).data["sheet"]
 
 
 def test_a_sheet_label_is_the_number_and_id_and_says_hidden():
