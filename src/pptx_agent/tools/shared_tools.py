@@ -411,14 +411,17 @@ def _render_sheet(call, deck, slides, width, sheet) -> Result:
     for it when the sheet gives none.  The tiles are the images ``render`` keeps
     (:func:`draw`: those it holds are not drawn again, the rest over the workers at once);
     the sheet is cached whole by version, one entry, so a sheet of 30 does not push the
-    single renders out.  ``cached_tiles`` lists the tiles not drawn for it."""
+    single renders out.  ``cached_tiles`` lists the tiles not drawn for it.  Tiles too
+    wide or too tall for the image's edge are drawn narrower (:func:`tiles.fit`), and
+    ``sheet.shrunk`` says from what width and why."""
     limits = call.limits
     wanted = targets(deck, slides)
     tiling = tiles.tiling_of(sheet, len(wanted), name="sheet", width=width, what="slides",
                              max_edge=limits.max_image_edge)
     cx, cy = deck.slide_size
-    tiles.check_size(tiling, [round(tiling.width * cy / cx)] * len(wanted), name="sheet",
-                     what="slides", max_edge=limits.max_image_edge)
+    # Narrower tiles where the sheet would be too tall: a slide's shape is known.
+    tiling = tiles.fit(tiling, [cy / cx] * len(wanted), name="sheet", what="slides",
+                       max_edge=limits.max_image_edge)
     call.check_images(1)                 # before drawing: a refused call costs nothing
     entry, version = call.entry, call.entry.version
     ids = {item: item if isinstance(item, str) else deck.slides[item - 1].slide_id
@@ -431,6 +434,12 @@ def _render_sheet(call, deck, slides, width, sheet) -> Result:
     tiles_cached = None
     if made is None:
         drawn, _ = draw(call, deck, wanted, tiling.width)
+        views = [(drawn[n][0], *png_size(drawn[n][0])) for n in wanted]
+        fitted = tiles.fit(tiling, [h / w for _, w, h in views], name="sheet", what="slides",
+                           max_edge=limits.max_image_edge)
+        if fitted.width != tiling.width:     # drawn a pixel taller than the slide's shape
+            tiling = fitted
+            drawn, _ = draw(call, deck, wanted, tiling.width)
         labels = {n: _sheet_label(deck, n) for n in wanted}
         tiles_cached = [n for n in wanted if drawn[n][2]]
         with call.unlocked():
@@ -440,15 +449,17 @@ def _render_sheet(call, deck, slides, width, sheet) -> Result:
                              what="slides", max_edge=limits.max_image_edge)
             svg, w, h = tiles.tiled_svg(views, tiling)
             png = call.run(rasterise_tiles, svg, list(fonts))
-        made = (png, w, h, {n: drawn[n][1] for n in wanted})
+        made = (png, w, h, {n: drawn[n][1] for n in wanted}, tiling)
         entry.render_cache.put(key, made)
-    png, w, h, lost = made
+    png, w, h, lost, tiling = made
     shown = [n if isinstance(n, str) else f"s:{ids[n]}" for n in wanted]
     call.image(png, w, h, label=f"sheet of {len(wanted)}: {', '.join(shown[:3])}"
                f"{', ...' if len(shown) > 3 else ''}")
     data: dict[str, Any] = {"sheet": {"columns": tiling.columns, "width": tiling.width,
                                       "slides": shown},
                             "cached": cached}
+    if tiling.shrunk:
+        data["sheet"]["shrunk"] = tiling.shrunk
     if tiles_cached:
         data["cached_tiles"] = tiles_cached
     if any(isinstance(n, str) for n in wanted):
@@ -458,7 +469,8 @@ def _render_sheet(call, deck, slides, width, sheet) -> Result:
         data["missing_glyphs"] = unrendered
         data["missing_glyphs_note"] = MISSING_GLYPHS_NOTE
     return Result(summary=f"Rendered {len(wanted)} slide(s) as one sheet, {tiling.columns} "
-                  f"column(s) of {tiling.width} px, labelled with number and id", data=data)
+                  f"column(s) of {tiling.width} px{tiles.narrowed_note(tiling)}, labelled with "
+                  "number and id", data=data)
 
 
 def _sheet_label(deck, item) -> str:
