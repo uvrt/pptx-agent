@@ -89,6 +89,7 @@ from ..edit.units import UnitWarning
 from ..fullstate import FullStateError
 from ..outline import OutlineWarning
 from . import charts, facts, read, review, shapes, shared_tools, slides, tables, text
+from . import render as _render
 from .common import KIND, checks, pt
 from .textfacts import slide_number
 
@@ -249,7 +250,8 @@ FORMAT = DocumentFormat(
     restored=lambda deck: deck._reset_caches(),
     configure=_configure,
     store_provenance=tables.store_provenance, read_provenance=tables.read_provenance,
-    own_facts={_slidenumbers.PREFIX: slide_number})
+    own_facts={_slidenumbers.PREFIX: slide_number},
+    warm_up=_render.warm_up)
 
 def deck_format(*, min_text_size: "float | dict[str, float] | None" = None,
                 assets=None) -> DocumentFormat:

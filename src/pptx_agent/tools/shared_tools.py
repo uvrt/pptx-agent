@@ -16,7 +16,7 @@ from .common import (KIND, facts, library_errors, numbers, slide_id_of, targets,
                      template_key_of, template_options, validate_delta)
 from ..edit.document import font_dirs_of, locale_of
 from ..edit.effective import text_minimums
-from .render import png_size, rasterise_tiles, render_slides_reporting
+from .render import png_size, rasterise_tiles, render_views
 from . import textfacts
 from .tables import forget_cells
 
@@ -274,37 +274,16 @@ def render(call, doc, slides=None, pages=None, width=None, sheet=None):
                         f"up to {tiles.MAX_TILES} into one image", field="slides")
     wanted = targets(deck, slides)
     width = width or DEFAULT_WIDTH
-    entry = call.entry
-    version = entry.version
-    # A slide by its id, a layout or master by its key (L2, M0): what the cache is keyed by.
-    ids = {item: item if isinstance(item, str) else deck.slides[item - 1].slide_id
-           for item in wanted}
-    # The font folders, resolved here (the session's, else OOXML_FONT_DIRS) and handed to
-    # the worker, which sees neither; they key the cache, so renders with different
-    # folders do not mix.  The locale likewise: the session's, handed over and keying.
-    fonts = font_dirs_of(deck)
-    locale = locale_of(deck)
-    missing = [n for n in wanted
-               if entry.render_cache.get((version, ids[n], width, fonts, locale)) is None]
-    if missing:
-        # The deck's bytes are the snapshot, taken under the lock; the rasteriser works on
-        # them with the lock let go, so another call may edit the deck meanwhile.  What is
-        # drawn, numbered and cached is this version's (the result's version).
-        data = deck.to_bytes()
-        images, lost = call.run_unlocked(render_slides_reporting, data, missing, width,
-                                         list(fonts), locale)
-        for number, png, left_out in zip(missing, images, lost):
-            entry.render_cache.put((version, ids[number], width, fonts, locale),
-                                   (png, left_out))
-    described, unrendered = [], []
+    call.check_images(len(wanted))       # before drawing: a refused call costs nothing
+    drawn, ids = draw(call, deck, wanted, width)
+    described = []
     for number in wanted:
-        png, left_out = entry.render_cache.get((version, ids[number], width, fonts, locale))
+        png = drawn[number][0]
         w, h = png_size(png)
         image = call.image(png, w, h, label=_render_name(deck, number))
         described.append(image.describe())
-        address = number if isinstance(number, str) else f"s:{ids[number]}"
-        unrendered += [{"slide": address, **item} for item in left_out]
-    data: dict[str, Any] = {"cached": [n for n in wanted if n not in missing]}
+    unrendered = _left_out(wanted, ids, drawn)
+    data: dict[str, Any] = {"cached": [n for n in wanted if drawn[n][2]]}
     if any(isinstance(n, str) for n in wanted):
         data["template_note"] = TEMPLATE_NOTE
     if unrendered:
@@ -317,13 +296,122 @@ def render(call, doc, slides=None, pages=None, width=None, sheet=None):
     return Result(summary=f"Rendered {', '.join(shown)}", data=data)
 
 
+def draw(call, deck, items, width) -> tuple[dict, dict]:
+    """``{item: (png, missing, cached)}`` for slides and template keys ``items`` drawn
+    ``width`` px wide, and ``{item: id}`` (a slide's id, a layout's or master's key).
+
+    An image is kept by its content (:func:`.render.raster_key`) in the toolbox's store
+    (``call.images``); this version's key of each view is remembered on the document, so a
+    repeat is answered here.  The rest go to the workers at once, in chunks
+    (``render_views``), told which images the store holds -- a view an edit left as it
+    was, or the same slide in another document, is keyed, found and not drawn again -- and handed the faces a
+    worker decoded from the deck's embedded fonts, which no worker decodes again.
+    ``cached`` says an image was not drawn by this call.  The bytes are the version's snapshot, taken under the lock;
+    the workers draw with the lock let go, and what they drew is kept under that version
+    (the result's)."""
+    entry, version, limits = call.entry, call.entry.version, call.limits
+    store = call.images
+    # A slide by its id, a layout or master by its key (L2, M0): what the keys are kept by.
+    ids = {item: item if isinstance(item, str) else deck.slides[item - 1].slide_id
+           for item in items}
+    # The font folders, resolved here (the session's, else OOXML_FONT_DIRS) and handed to
+    # the worker, which sees neither; they key the cache, so renders with different
+    # folders do not mix.  The locale likewise: the session's, handed over and keying.
+    fonts, locale = font_dirs_of(deck), locale_of(deck)
+    drawn: dict = {}
+    todo = []
+    for item in dict.fromkeys(items):
+        key = entry.render_keys.get((version, ids[item], width, fonts, locale))
+        found = store.get(key) if key is not None else None
+        if found is not None:
+            drawn[item] = (found[0], found[1], True)
+        else:
+            todo.append(item)
+    if not todo:
+        return drawn, ids
+    data = entry.snapshot()
+    held = store.entries()           # what the workers are told is drawn already
+    parts = {item: deck._template_by_key(item).part_path for item in todo
+             if isinstance(item, str)}
+    chunks = [todo[start::call.parallelism] for start in range(call.parallelism)]
+    chunks = [chunk for chunk in chunks if chunk]
+    # The faces a worker decoded from the deck's embedded fonts, for the others.
+    decoded = {key: found[0] for key in entry.font_keys.keys()
+               if (found := call.decoded_fonts.peek(key)) is not None}
+    tasks = [(data, [parts.get(item, item) for item in chunk], width, list(fonts), locale,
+              list(held), decoded) for chunk in chunks]
+    timeouts = [limits.render_timeout_for(len(chunk)) for chunk in chunks]
+    first: list = []
+    if len(tasks) > 1 and not entry.font_keys.keys() and _embeds_fonts(deck):
+        # No worker has decoded this deck's embedded faces yet: one chunk first, alone,
+        # and its faces go with the others, so no worker decodes them a second time.
+        with call.unlocked():
+            first = call.run_all(render_views, tasks[:1], timeouts=timeouts[:1])
+        if not isinstance(first[0], BaseException):
+            fonts_found = first[0]["fonts"]
+            for key, font in fonts_found.items():
+                call.decoded_fonts.put(key, font)
+                entry.font_keys.put(key, True)
+            if not fonts_found:
+                entry.font_keys.put(NO_FACES, True)   # it embeds none a slide uses
+            decoded = {**decoded, **fonts_found}
+            tasks = [(*task[:-1], decoded) for task in tasks]
+    with call.unlocked():
+        results = first + call.run_all(render_views, tasks[len(first):],
+                                       timeouts=timeouts[len(first):])
+    failed = None
+    for chunk, result in zip(chunks, results):
+        if isinstance(result, BaseException):
+            failed = failed or result
+            continue
+        for key, font in result["fonts"].items():
+            call.decoded_fonts.put(key, font)
+            entry.font_keys.put(key, True)
+        for item, (key, png, missing, new) in zip(chunk, result["views"]):
+            if png is None:
+                png, missing = held[key]
+            else:
+                store.put(key, png, missing)
+            entry.render_keys.put((version, ids[item], width, fonts, locale), key)
+            drawn[item] = (png, missing, not new)
+    if failed is not None:
+        raise failed                     # what the other chunks drew is kept
+    return drawn, ids
+
+
+#: Kept in an entry's ``font_keys`` once a deck's render decoded no embedded face.
+NO_FACES = "none"
+
+
+def _embeds_fonts(deck) -> bool:
+    """Whether the deck lists embedded fonts (``p:embeddedFontLst``)."""
+    root = deck.package.tree(deck.package.presentation_part())
+    return root is not None and any(
+        child.tag.endswith("}embeddedFontLst") and len(child) for child in root)
+
+
+def _left_out(wanted, ids, drawn) -> list[dict]:
+    """The ``missing_glyphs`` facts of the views drawn: each face and script once, on the
+    first view that has it, as pptx2svg reports a render's."""
+    out, seen = [], set()
+    for item in wanted:
+        address = item if isinstance(item, str) else f"s:{ids[item]}"
+        for fact in drawn[item][1]:
+            if (fact["face"], fact["script"]) in seen:
+                continue
+            seen.add((fact["face"], fact["script"]))
+            out.append({"slide": address, **fact})
+    return out
+
+
 def _render_sheet(call, deck, slides, width, sheet) -> Result:
     """``render`` with ``sheet``: the slides tiled into one image, in order, each labelled
     with its number and id (``3 · s:258``; a layout ``L2 Title Only``) -- a contact sheet
     (:mod:`ooxml_edit.tools.tiles`).  ``sheet.width`` is each tile's; ``width`` stands in
-    for it when the sheet gives none.  The tiles come from the render cache where they are
-    there and are drawn otherwise (all in one worker call); the sheet is cached whole, one
-    entry, so a sheet of 30 does not push the single renders out."""
+    for it when the sheet gives none.  The tiles are the images ``render`` keeps
+    (:func:`draw`: those it holds are not drawn again, the rest over the workers at once);
+    the sheet is cached whole by version, one entry, so a sheet of 30 does not push the
+    single renders out.  ``cached_tiles`` lists the tiles not drawn for it."""
     limits = call.limits
     wanted = targets(deck, slides)
     tiling = tiles.tiling_of(sheet, len(wanted), name="sheet", width=width, what="slides",
@@ -331,6 +419,7 @@ def _render_sheet(call, deck, slides, width, sheet) -> Result:
     cx, cy = deck.slide_size
     tiles.check_size(tiling, [round(tiling.width * cy / cx)] * len(wanted), name="sheet",
                      what="slides", max_edge=limits.max_image_edge)
+    call.check_images(1)                 # before drawing: a refused call costs nothing
     entry, version = call.entry, call.entry.version
     ids = {item: item if isinstance(item, str) else deck.slides[item - 1].slide_id
            for item in wanted}
@@ -339,25 +428,19 @@ def _render_sheet(call, deck, slides, width, sheet) -> Result:
            fonts, locale)
     made = entry.render_cache.get(key)
     cached = made is not None
+    tiles_cached = None
     if made is None:
-        drawn = {n: entry.render_cache.get((version, ids[n], tiling.width, fonts, locale))
-                 for n in wanted}
-        missing = [n for n in wanted if drawn[n] is None]
+        drawn, _ = draw(call, deck, wanted, tiling.width)
         labels = {n: _sheet_label(deck, n) for n in wanted}
-        data = deck.to_bytes() if missing else None
+        tiles_cached = [n for n in wanted if drawn[n][2]]
         with call.unlocked():
-            # The snapshot (bytes, ids, labels) is taken; both worker calls run on it.
-            if missing:
-                images, lost = call.run(
-                    render_slides_reporting, data, missing, tiling.width, list(fonts), locale,
-                    timeout=limits.render_timeout * -(-len(missing) // MAX_RENDER))
-                drawn.update(zip(missing, zip(images, lost)))
+            # The snapshot (the tiles, ids, labels) is taken; the worker draws from it.
             views = [(drawn[n][0], *png_size(drawn[n][0]), labels[n]) for n in wanted]
             tiles.check_size(tiling, [h for _, _, h, _ in views], name="sheet",
                              what="slides", max_edge=limits.max_image_edge)
             svg, w, h = tiles.tiled_svg(views, tiling)
             png = call.run(rasterise_tiles, svg, list(fonts))
-        made = (png, w, h, [drawn[n][1] for n in wanted])
+        made = (png, w, h, {n: drawn[n][1] for n in wanted})
         entry.render_cache.put(key, made)
     png, w, h, lost = made
     shown = [n if isinstance(n, str) else f"s:{ids[n]}" for n in wanted]
@@ -366,10 +449,11 @@ def _render_sheet(call, deck, slides, width, sheet) -> Result:
     data: dict[str, Any] = {"sheet": {"columns": tiling.columns, "width": tiling.width,
                                       "slides": shown},
                             "cached": cached}
+    if tiles_cached:
+        data["cached_tiles"] = tiles_cached
     if any(isinstance(n, str) for n in wanted):
         data["template_note"] = TEMPLATE_NOTE
-    unrendered = [{"slide": address, **item} for address, left in zip(shown, lost)
-                  for item in left]
+    unrendered = _left_out(wanted, ids, {n: (None, lost[n], None) for n in wanted})
     if unrendered:
         data["missing_glyphs"] = unrendered
         data["missing_glyphs_note"] = MISSING_GLYPHS_NOTE
@@ -438,7 +522,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
             # Measuring is the slow part: it runs on a copy of this version, opened from the
             # bytes taken under the lock, with the lock let go -- so an edit elsewhere in the
             # deck does not wait for it.  Inside a batch it runs on the deck, under the lock.
-            data_bytes, font_dirs, locale = deck.to_bytes(), deck.font_dirs, deck.locale
+            data_bytes, font_dirs, locale = entry.snapshot(), deck.font_dirs, deck.locale
         with call.unlocked() as released:
             if released:
                 with collect_warnings():          # said when the deck was opened, not now

@@ -6,6 +6,30 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- `render` draws a call's slides over every worker at once, and keeps each image by its
+  content (round 10, O1 and O3; ooxml-edit 0.52.0, ooxml-common 0.24.0): the slides not
+  held are split into as many chunks as there are workers (`render_views`, one per
+  worker, a chunk's deck parse its fixed cost), and each image is keyed by its SVG and
+  everything else its pixels depend on (`raster_key`, `raster_fingerprint`: every font
+  file the rasteriser may be handed with its time and size, the embedded faces by digest,
+  whether glyphs are checked, the renderers' code), kept in the toolbox's memory store
+  (`Toolbox.images`, byte-bounded, every session's and view's). A repeat of an unchanged
+  deck is answered from the store with no worker asked; after an edit, the workers draw
+  the SVGs again and rasterise only the slides whose key changed. `cached` lists the
+  slides not drawn by the call, as before; a contact sheet reuses the tiles `render`
+  drew and says which (`cached_tiles`). PNGs are `render_slides`' byte for byte.
+- The worker opens the deck's bytes with pptx2svg directly: no `Document.open` and
+  `to_bytes` per call; the main process makes a version's bytes once
+  (`DocumentEntry.snapshot`, `check` too).
+- A deck's embedded faces are decoded once: when a deck embeds fonts and no worker has
+  decoded them yet, one chunk is drawn first, alone, and the faces it decoded go to the
+  other chunks (and later calls) with their tasks (`Toolbox.decoded_fonts`), so no
+  worker decodes them again. Memory only.
+- The image budget is asked before anything is drawn (`call.check_images`), so a refused
+  render or sheet costs nothing. `FORMAT.warm_up` (`render.warm_up`) warms each new worker
+  -- the imports, the Office font index, resvg's system-font load -- outside any call's
+  deadline. Definitions are unchanged.
+
 - `render` with `sheet` (round 9, N1; ooxml-edit 0.49.0): up to 30 slides, layouts or
   masters as one image, tiled in order, each labelled with its number and id
   (`3 · s:258`; `· hidden` after a hidden slide's; a layout `L2 Title Only`) -- a contact
