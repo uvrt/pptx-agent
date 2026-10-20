@@ -144,8 +144,8 @@ def render_views(data: bytes, items: "list[int | str]", width: int,
     with warnings.catch_warnings():
         # The same facts come back in the result; the worker's stderr is nobody's to read.
         warnings.filterwarnings("ignore", message=".*no font this render loads")
-        documents, resolved = pptx2svg._render(data, options)
-        host_fonts = pptx2svg._host_fonts(options)
+        documents, resolved = pptx2svg.render_svgs(data, options)
+        host_fonts = pptx2svg.uses_host_fonts(options)
         dirs = pptx2svg.user_font_dirs(options)
         fingerprint = raster_fingerprint(dirs, host_fonts, resolved.embedded_fonts,
                                          options.check_glyphs)
@@ -168,8 +168,9 @@ def render_views(data: bytes, items: "list[int | str]", width: int,
                 for item, key, document, number in todo:
                     report = types.SimpleNamespace(check_glyphs=options.check_glyphs,
                                                    warnings=[])
-                    png = pptx2svg._rasterise([document], "auto", dirs, files, None, True,
-                                              host_fonts, report, [number])[0]
+                    png = pptx2svg.rasterise_svgs([document], report, numbers=[number],
+                                                  font_dirs=dirs, font_files=files,
+                                                  host_fonts=host_fonts)[0]
                     missing = [{"face": w.detail.face, "script": w.detail.script,
                                 "sample": w.detail.sample} for w in report.warnings
                                if getattr(w, "code", None) == "glyphs-missing"
