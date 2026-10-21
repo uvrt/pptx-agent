@@ -510,9 +510,10 @@ DECK_FACTS = ("fit", "collisions", "validate")
 
 @shared.handler("check", kind=KIND)
 @library_errors
-def check(call, doc, slides=None, pages=None, include=None, boxes=False):
+def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing=None):
     if pages is not None:
         raise _deck_only("pages", "slides")
+    below = None if spacing is None else float(spacing)
     deck = call.document
     wanted = list(include or DECK_FACTS)
     notes = []
@@ -526,7 +527,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
     entry = call.entry
     version = entry.version
     key = ("check", tuple(ids), tuple(sorted(set(wanted))), bool(boxes), font_dirs_of(deck),
-           locale_of(deck), tuple(text_minimums(deck.min_text_size).items()))
+           locale_of(deck), tuple(text_minimums(deck.min_text_size).items()), below)
     data = entry.check_cache.get((version, key))
     if data is None:
         target = deck
@@ -546,6 +547,8 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
             data.update(facts(target, ids, boxes=boxes, include=wanted))
             if "facts" in wanted or "design" in wanted:
                 data.update(slide_facts_json(target, ids, problems="facts" in wanted))
+            if below is not None:
+                data.update(spacing_json(target, ids, below))
             problems = target.validate() if "validate" in wanted else None
         if problems is not None:
             data["validate"] = {"problems": [str(p) for p in problems],
@@ -557,8 +560,43 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False):
                                                   "small_text", "chart_title_font",
                                                   "missing_slides"))
     new = len((data.get("validate") or {}).get("new") or [])
-    return Result(summary=f"{count} fit/collision fact(s), {new} new validation problem(s)",
-                  data=data)
+    tight = ""
+    if below is not None:
+        tight = (f", {len(data['spacing']) + data.get('spacing_left_out', 0)} spacing(s) "
+                 f"below {below:g} pt")
+    return Result(summary=f"{count} fit/collision fact(s), {new} new validation problem(s)"
+                  f"{tight}", data=data)
+
+
+#: The spacings ``check`` lists per slide, nearest first; ``spacing_left_out`` counts the rest.
+SPACING_PER_SLIDE = 12
+
+#: Said with ``spacing``: what an entry measures.
+SPACING_NOTE = ("spacing: measured, nearest first, pt: between two neighbours on an axis; "
+                "inside a filled or outlined shape, the content's padding to an edge; "
+                "clearance to a footer, slide_number or date, or past the layout's "
+                "content_area (gap < 0). Text as drawn, not its box. Overlaps are "
+                "collisions; backgrounds, lines and connectors are left out. Cite the gap")
+
+
+def spacing_json(deck, ids, below: float) -> dict[str, Any]:
+    """``check``'s ``spacing``: each slide's tightest spacings below ``below`` pt
+    (:meth:`Slide.spacing <pptx_agent.Slide.spacing>`), nearest first, at most
+    :data:`SPACING_PER_SLIDE` a slide."""
+    found, left_out, drawn = [], 0, True
+    for sid in ids:
+        report = deck.slide(f"s:{sid}").spacing(below=round(below * 12700))
+        drawn = drawn and report.drawn
+        found += [entry.to_json() for entry in report.entries[:SPACING_PER_SLIDE]]
+        left_out += max(0, len(report.entries) - SPACING_PER_SLIDE)
+    out: dict[str, Any] = {"spacing": found}
+    if left_out:
+        out["spacing_left_out"] = left_out
+    if found:
+        out["spacing_note"] = SPACING_NOTE
+    if not drawn:                              # pragma: no cover - without pptx2svg
+        out["spacing_boxes"] = "text measured by its box: pptx2svg is not installed"
+    return out
 
 
 def _compact_design(facts) -> dict[str, Any]:
