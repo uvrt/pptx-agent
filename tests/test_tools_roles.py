@@ -31,11 +31,12 @@ from test_tools import (CLOCK, COUNTED_PER_ESTIMATED, CORE_COUNTED_BUDGET, _deck
 #: A reviewer's core (``["review", "resolve"]``, the larger of the two), estimated: a
 #: regression guard as ALL_GUARD is.  Measured 2,212 (2,210 before comment edits were every
 #: role's); round 8, M3 and M4 (layouts and masters in ppt_read_slides' ``slides``, ``name``
-#: in ppt_compare_slides' description) 2,220; round 9, N1 (render's ``sheet``, +64) 2,284.
-REVIEW_CORE_GUARD = 2285
+#: in ppt_compare_slides' description) 2,220; round 9, N1 (render's ``sheet``, +64) 2,284;
+#: round 11, P3 (tables in ppt_compare_slides' description, +14) 2,298.
+REVIEW_CORE_GUARD = 2300
 #: Every definition a reviewer is sent, estimated.  Measured 4,460 (4,458 before); round 8,
-#: M3 and M4, 4,469; round 9, N1, 4,532.
-REVIEW_ALL_GUARD = 4535
+#: M3 and M4, 4,469; round 9, N1, 4,532; round 11, P3, 4,546.
+REVIEW_ALL_GUARD = 4550
 
 REVIEW_CORE = {"open_document", "save_document", "find_text", "render", "check", "describe",
                "ppt_read_slides", "batch", "ppt_compare_slides", "ppt_comments"}

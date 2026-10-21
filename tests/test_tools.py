@@ -167,10 +167,18 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: Round 10, item 4: the shared undo's ``scope`` names a sheet beside a slide (ooxml-edit
 #: 0.55.0): the core 3,627 -> 3,628, every definition 13,008 -> 13,010; the guard stays
 #: 13,010.  The strict set is unchanged: undo is not strict, and no parameter is added.
+#: Round 11, P1-P3: ppt_add_table's ``fill_box`` (the body rows share the box's height;
+#: else rows take their text's height) +27, ppt_edit_table's set_heights/set_widths on the
+#: rows/columns listed (``sizes``, ``rows`` and ``columns`` described so) +13, and
+#: ppt_compare_slides comparing tables' rows, widths, insets and borders (its description)
+#: +14: every definition 13,010 -> 13,064, none to the core (3,628): the three tools are
+#: deferred.  The guard rises to 13,070.  The strict set is unchanged in its members: none
+#: of the three is sent strict to Claude; on OpenAI, where ppt_add_table is, ``fill_box`` is
+#: one more nullable boolean.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13010
+ALL_GUARD = 13070
 
 
 def estimate_tokens(definitions) -> int:
