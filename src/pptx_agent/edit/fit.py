@@ -367,9 +367,10 @@ class TableMeasure:
 
     ``heights`` is each table row's height, EMU, the header first: what its text needs,
     cell margins included, laid out by pptx2svg's table layout as :func:`table_heights`
-    lays out a placed table's.  A row's stored height is a minimum, so a table placed with
-    a box height of 0 is drawn at exactly these heights; a taller box shares its height
-    among the rows and draws any row its text needs more for taller.  ``header_rows`` is
+    lays out a placed table's.  A row's stored height is a minimum, and ``ppt_add_table``
+    places a table at exactly these heights whatever its box's height (round 11: its
+    ``fill_box`` shares a taller box's room among the body rows; :meth:`Table.fit_rows
+    <pptx_agent.edit.table.Table.fit_rows>` sets a placed table's rows so).  ``header_rows`` is
     how many rows repeat atop every page (1, or 0 for none).  ``pages`` are each page's
     rows below the header, as ranges of table rows: ``range(1, 13)`` is rows 1 to 12.  A
     row that does not fit a page even alone under the header gets a page of its own and

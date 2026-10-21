@@ -6,6 +6,27 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Table row heights in a run of slides (round 11, P1-P3). A row's height is a minimum, so
+  `ppt_add_table`'s box `h` is an upper bound: each row takes its text's height
+  (`Table.fit_rows`, measured with pptx2svg's table layout) and the frame their sum, and
+  the summary says what the table takes -- `it takes 96 pt of the 276 pt box, each row its
+  text's height (header row 19.2 pt); fill_box: true shares the rest among the body rows`.
+  `fill_box: true` shares the room left among the body rows, the header keeping its text's
+  height; rows taller than the box run past it as before, the summary saying by how much
+  and naming `continue`. A header row is no longer stretched to a fifth of a tall box.
+  `insert_row` takes its `like` row's height and `delete_row` takes its row's out of the
+  frame, as they did; `set_heights`/`set_widths` take `rows`/`columns` to set only those;
+  every table result lists `heights`. `ppt_set_shape`'s `h` on a table warns that its rows
+  were rescaled, naming the header row's new height. `ppt_compare_slides` compares matched
+  tables inside: the header row's drawn height, fill and text size, the body rows' height
+  (with their row counts as context, so a three-row and a six-row table agree), column
+  widths, cell insets and borders -- every differing table with its fix
+  (`{"tool": "ppt_edit_table", "calls": [{"target", "action": "set_heights", "rows": [0],
+  "sizes": [19.2]}]}`, or `ppt_format_text` items); a table's box height is no longer
+  compared. Every definition 13,010 -> 13,064 estimated tokens (guard 13,070), the core
+  unchanged (3,628); a reviewer's core 2,298 (guard 2,300), all 4,546 (guard 4,550); the
+  strict set unchanged. Goldens p1 and p14 re-recorded: their tables' rows now hug their text.
+
 - A contact sheet whose tiles do not fit the 2,576 px edge is drawn with narrower tiles,
   not refused (round 10, O4; ooxml-edit 0.55.0): too wide, the widest that fit the columns
   (two columns of the call's 1,280 px: 1,276 each); too tall, the widest for the slides'
