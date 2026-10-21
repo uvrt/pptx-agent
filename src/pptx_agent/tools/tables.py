@@ -25,6 +25,20 @@ columns, 5,000 cells), or for the table it is written into, is refused, saying b
 ``rows`` fewer than the source's is refused saying how to place fewer -- a row range of the
 source (``t:items/#1:#9``, ``d:by_region/#10:``) -- or to go on over more slides.
 
+**Row heights** (round 11, P1).  A row's height is a minimum -- PowerPoint draws a row
+whose text needs more taller (measured, ``tools/table_rows_probe.py``) -- so the box's
+``h`` is an upper bound, not a share: ``ppt_add_table`` sets each row to its text's height
+(:meth:`Table.fit_rows <pptx_agent.edit.table.Table.fit_rows>`) and the frame to their sum,
+and says how much of the box the table takes ("it takes 96 pt of the 276 pt box").  With
+``fill_box`` the room left is shared evenly among the body rows; the header row keeps its
+text's height.  Rows taller together than the box keep their heights and run past it, as
+before, the summary saying by how much and that ``continue: true`` goes on over the next
+slides.  ``insert_row`` copies its ``like`` row's height (by default the row above's) and
+``delete_row`` takes its row's height out of the frame: the other rows keep theirs, and
+the frame's height follows their sum; ``insert_column``/``delete_column`` the same with
+widths.  ``set_heights``/``set_widths`` take ``rows``/``columns`` to set only those.  Each
+table result lists ``heights``, every row's stored height in points (up to 40).
+
 **Continuing on the next slides.**  ``ppt_add_table`` with ``continue: true`` places every
 row: the rows that fit the box (its ``h``, or the slide's content area when ``h`` is 0)
 on the slide, under the header row, and the rest on new slides right after it, a page
@@ -117,8 +131,9 @@ def _table(deck, target: str):
 
 
 def table_json(frame, table) -> dict[str, Any]:
-    """The table as the model reads it: size, style and the flags that are on, labels, and
-    its cells' text (up to 400)."""
+    """The table as the model reads it: size, style and the flags that are on, each row's
+    stored height (points, a minimum: a row grows to fit its text), labels, and its cells'
+    text (up to 400)."""
     rows = []
     for row in range(min(table.rows, 40)):
         rows.append([table.cell(row, column).text for column in range(min(table.columns, 10))])
@@ -126,6 +141,7 @@ def table_json(frame, table) -> dict[str, Any]:
     return {"address": frame.id, "rows": table.rows, "columns": table.columns,
             "style": (style["name"] or style["id"]) if style else None,
             "flags": [flag for flag, on in table.flags.items() if on],
+            "heights": [pt(height) for height in table.row_heights[:40]],
             "column_labels": table.column_labels(), "row_labels": table.row_labels(),
             "cells": rows}
 
@@ -154,6 +170,8 @@ def table_json(frame, table) -> dict[str, Any]:
                           "header repeated.", optional=True),
        "continue": boolean("Rows past the page go on new slides after it, same box.",
                            optional=True),
+       "fill_box": boolean("Body rows share box h; else rows hug their text.",
+                           optional=True),
        "key": _KEY},
       kind=KIND, group=OBJECTS, mutates=True, refs=("slide",), sources=("from",),
       facts=("data[]",), aliases=_COLUMN_NAMES,
@@ -161,9 +179,13 @@ def table_json(frame, table) -> dict[str, Any]:
 @library_errors
 def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, style=None,
                   ref=None, key=None, header=None, from_columns=None, size=None, widths=None,
-                  measure=False, date_format=None, **given):
+                  measure=False, date_format=None, fill_box=False, **given):
     source = given.get("from")
     more = bool(given.get("continue"))
+    if fill_box and (more or measure):
+        raise ToolError("invalid_arguments", "fill_box shares one box among one table's body "
+                        "rows: leave it out with " + ("continue" if more else "measure"),
+                        field="fill_box")
     placed = None
     if source is None:
         _no_source(from_columns, header, date_format)
@@ -208,6 +230,7 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
                           placed, ref)
     frame = build_table(host, rows, columns, x, y, w, h, data, style=style_id, size=size,
                         widths=column_widths)
+    taken, warnings = _fit_rows(frame, h, bool(fill_box))
     if ref:
         call.define_ref(ref, frame.id)
     _keep_data_facts(call, frame, lambda row: row)
@@ -217,8 +240,39 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
         result["from"] = placed.provenance(0)
         call.keep_provenance(frame.id, placed.rows, result["from"])
     return Result(summary=f"Added a {rows}x{columns} table {frame.id}"
-                  + (f" from {placed.rows.address}" if placed else ""), created=[frame.id],
-                  data=result)
+                  + (f" from {placed.rows.address}" if placed else "") + taken,
+                  created=[frame.id], warnings=warnings, data=result)
+
+
+def _fit_rows(frame, box_h: int, fill: bool) -> tuple[str, list[str]]:
+    """A new table's rows at their text's heights, the box's ``h`` an upper bound (with
+    ``fill``, the body rows sharing it; :meth:`Table.fit_rows
+    <pptx_agent.edit.table.Table.fit_rows>`): what the summary says of the height the table
+    takes, and the warnings.  Without pptx2svg the rows keep their even share of the box."""
+    table = frame.table
+    try:
+        table.fit_rows(box_h or None, fill=fill)
+    except ImportError:                       # pragma: no cover - the extras-less install
+        return "", ["the rows share the box evenly: measuring them to their text needs "
+                    "pptx2svg"]
+    heights = table.row_heights
+    taken, box = pt(sum(heights)), pt(box_h)
+    header = (f" (header row {pt(heights[0])} pt)"
+              if len(heights) > 1 and table.flags.get("first_row") else "")
+    if not box_h:
+        return f": it takes {_number(taken)} pt, each row its text's height{header}", []
+    if taken > box + 0.01:
+        return (f": it takes {_number(taken)} pt, {_number(round(taken - box, 2))} pt past "
+                f"the {_number(box)} pt box, each row its text's height; continue: true "
+                "goes on over the next slides", [])
+    if fill and taken > 0:
+        return (f": its body rows share the {_number(box)} pt box{header}", [])
+    return (f": it takes {_number(taken)} pt of the {_number(box)} pt box, each row its "
+            f"text's height{header}; fill_box: true shares the rest among the body rows", [])
+
+
+def _number(value: float):
+    return int(value) if float(value).is_integer() else value
 
 
 def _too_few_rows(source: str, placed: "_Placed", rows: int) -> None:
@@ -488,11 +542,13 @@ _SIDES = ["top", "bottom", "left", "right", "all"]
                                       optional=True)},
                    "merge: the cells to join; split: a merged cell.", optional=True),
        "sizes": array(number(minimum=0, maximum=10000),
-                      "set_widths/set_heights: one per column/row.", optional=True),
+                      "set_widths/set_heights: one per column/row (or per columns/rows).",
+                      optional=True),
        "rows": array(integer(minimum=0, maximum=10000),
-                     "format_cells: rows from 0. Default all.", optional=True),
+                     "format_cells, set_heights: rows from 0. Default all.", optional=True),
        "columns": array(integer(minimum=0, maximum=10000),
-                        "format_cells: columns from 0. Default all.", optional=True),
+                        "format_cells, set_widths: columns from 0. Default all.",
+                        optional=True),
        "fill": string("format_cells: colour or none.", optional=True),
        "borders": array(obj({"side": string(enum=_SIDES),
                              "width": number("0 removes.", minimum=0, maximum=100),
@@ -587,18 +643,10 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
         area = need("span", span)
         table.split(area["row"], area["col"])
     elif action == "set_widths":
-        values = need("sizes", sizes)
-        if len(values) != table.columns:
-            raise ToolError("invalid_arguments", f"{len(values)} widths for {table.columns} "
-                            "columns", field="sizes")
-        for column, value in enumerate(values):
+        for column, value in _sized(need("sizes", sizes), columns, table.columns, "column"):
             table.set_column_width(column, emu(value))
     elif action == "set_heights":
-        values = need("sizes", sizes)
-        if len(values) != table.rows:
-            raise ToolError("invalid_arguments", f"{len(values)} heights for {table.rows} rows",
-                            field="sizes")
-        for row, value in enumerate(values):
+        for row, value in _sized(need("sizes", sizes), rows, table.rows, "row"):
             table.set_row_height(row, emu(value))
     elif action == "format_cells":
         if fill is None and not borders:
@@ -618,6 +666,25 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
     fresh = call.document.shape(frame.id)
     return Result(summary=f"{action} on table {frame.id}", changed=changed,
                   data=table_json(fresh, fresh.table))
+
+
+def _sized(values, chosen, count: int, what: str) -> list[tuple[int, float]]:
+    """``set_widths``/``set_heights``: each size with its column or row -- one per ``chosen``
+    (``columns``/``rows``), else one for every one of the table's ``count``."""
+    field = f"{what}s"
+    if chosen is not None:
+        for value in chosen:
+            if value >= count:
+                raise ToolError("not_found", f"no {what} {value}; the table has {count}",
+                                field=field)
+        if len(set(chosen)) != len(chosen):
+            raise ToolError("invalid_arguments", f"a {what} is listed twice", field=field)
+    order = list(range(count)) if chosen is None else list(chosen)
+    if len(values) != len(order):
+        raise ToolError("invalid_arguments", f"{len(values)} sizes for {len(order)} {what}s"
+                        + ("" if chosen is not None else f"; or list the {what}s in {field}"),
+                        field="sizes")
+    return list(zip(order, values))
 
 
 def _set_from(call, frame, table, source, from_columns, header, top: int,

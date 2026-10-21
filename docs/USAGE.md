@@ -224,6 +224,13 @@ runs past it as `off_slide` with `detail="rows"`, `rows` (the first and last row
 edge, 1-based) and `rows_fit`: keep `rows_fit` rows on this slide and move the rest to a
 table on the next.
 
+A frame taller than its text stretches every row, the header too: `add_table` shares the
+frame's height evenly among the rows. `table.fit_rows()` sets each row to
+its text's height and the frame to their sum; `table.fit_rows(276 * 12700, fill=True)`
+shares the room left in a 276 pt box among the body rows, the header row keeping its
+text's height (one undo step; needs pptx2svg). `insert_row` copies its `like` row's height
+and `delete_row` takes its row's height out of the frame: the other rows keep theirs.
+
 To know before placing one, `slide.measure_table(data, size=12)` builds the table on a copy
 of the deck (the deck is not changed) and returns a `TableMeasure`: each row's drawn
 `heights`, the header first, and the `pages` its rows split into -- ranges of table rows,

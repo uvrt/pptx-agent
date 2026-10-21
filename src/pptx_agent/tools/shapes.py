@@ -247,7 +247,7 @@ def ppt_set_shape(call, doc, items):
     if not items:
         return Result.nothing_given("changed")
     deck = call.document
-    changed = []
+    changed, warnings = [], []
     for index, item in enumerate(items):
         field = f"items[{index}]"
         shape = shape_at(deck, item["target"], field=f"{field}.target")
@@ -263,7 +263,14 @@ def ppt_set_shape(call, doc, items):
         if "w" in item:
             shape.width = emu(item["w"])
         if "h" in item:
+            before = shape.table.row_heights if shape.has_table else None
             shape.height = emu(item["h"])
+            if before is not None and shape.table.row_heights != before:
+                after = shape.table.row_heights
+                warnings.append(f"{shape.id} is a table: h rescaled its rows in proportion, "
+                                f"the header row {pt(before[0])} -> {pt(after[0])} pt; a row "
+                                "stays at least its text's height, and ppt_edit_table "
+                                "set_heights sets rows")
         if "rotation" in item:
             shape.rotation = item["rotation"]
         if "flip_h" in item:
@@ -295,7 +302,7 @@ def ppt_set_shape(call, doc, items):
         changed.append(shape.id)
     shapes = {address: box_pt(deck.shape(address).slide_bounds) for address in changed[:20]}
     return Result(summary=f"Changed {len(changed)} shape(s)", changed=changed,
-                  data={"boxes": shapes})
+                  warnings=warnings, data={"boxes": shapes})
 
 
 def _graphic(shape, item: dict[str, Any], field: str) -> dict[str, Any]:

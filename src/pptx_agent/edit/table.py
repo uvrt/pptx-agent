@@ -356,6 +356,43 @@ class Table:
 
         return rows_fitting(self._shape(), bottom)
 
+    def fit_rows(self, height: int | None = None, *, fill: bool = False) -> "Table":
+        """Set every row to the height its text needs -- as PowerPoint draws a row whose
+        stored height is less (:attr:`drawn_row_heights`; measured, ``tools/table_rows_probe.py``)
+        -- and the frame's height to their sum, so a header row is never stretched by a box
+        shared evenly among the rows.  With ``fill``, the room ``height`` (EMU) leaves below
+        the rows is shared evenly among the body rows -- every row but the header (row 0,
+        when the Header Row flag is on) -- and the header keeps its text's height.  Rows
+        taller together than ``height`` keep their text's heights: the table runs past it.
+        One undo step; returns the table.  Needs pptx2svg.
+
+        For example::
+
+            table.fit_rows()                             # rows hug their text
+            table.fit_rows(276 * 12700, fill=True)       # the body rows fill a 276 pt box
+        """
+        from .document import _require_renderer
+        from .fit import table_heights
+
+        _require_renderer()
+        with self._editing() as table:
+            rows = self._rows(table)
+            for row in rows:              # a stored height is a minimum: measure without it
+                row.set("h", "0")
+            heights = list(table_heights(self._shape()))
+            header = 1 if self.flags.get("first_row") and len(rows) > 1 else 0
+            spare = 0 if height is None else int(height) - sum(heights)
+            if fill and spare > 0:
+                share, rest = divmod(spare, len(rows) - header)
+                for index in range(header, len(rows)):
+                    heights[index] += share + (1 if index - header < rest else 0)
+            for row, value in zip(rows, heights):
+                set_int(row, "h", int(value))
+            extent = find(self._shape()._element, "p:xfrm/a:ext")
+            if extent is not None:
+                set_int(extent, "cy", sum(heights))
+        return self
+
     def set_column_width(self, column: int, width: int) -> "Table":
         """Set a grid column's width, EMU; the frame grows or shrinks with it.
 

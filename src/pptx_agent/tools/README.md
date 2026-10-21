@@ -255,6 +255,22 @@ of its own rows (`first_row` is the table row of the page's first source row):
            {"slide": "s:259", "table": "259.4", "rows": "10-18", "h": 331.2, "from": {...}}]}
 ```
 
+### Row heights: the box is an upper bound
+
+A row's height is a minimum (PowerPoint draws a row whose text needs more taller), so
+`ppt_add_table` sets each row to its text's height and the frame to their sum; the box's
+`h` is the most the table may take, and the summary says how much it does: `Added a 5x3
+table 256.3: it takes 96 pt of the 276 pt box, each row its text's height (header row
+19.2 pt); fill_box: true shares the rest among the body rows`. With `fill_box: true` the
+body rows share the box (`its body rows share the 276 pt box (header row 19.2 pt)`); the
+header keeps its text's height. Rows taller together than the box run past it, as they
+always did: `it takes 340 pt, 64 pt past the 276 pt box, each row its text's height;
+continue: true goes on over the next slides`. `insert_row` copies its `like` row's height
+and `delete_row` takes its row's out of the frame; no other row changes. `set_heights` with
+`rows` sets only those rows (`"rows": [0], "sizes": [24]`), `set_widths` with `columns`
+only those columns. `ppt_set_shape`'s `h` on a table still rescales every row in
+proportion and warns, naming the header row's new height.
+
 To place fewer rows, name them: a row range of the source, `t:items/#1:#9` (rows 1 to 9,
 from 1, the last included) or `d:by_region/#10:` (row 10 to the last); each value keeps
 its sources. `rows` smaller than the source is refused saying so: nothing is cut.

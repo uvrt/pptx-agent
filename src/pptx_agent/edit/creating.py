@@ -186,7 +186,10 @@ class ShapeFactory:
         """A new ``rows`` x ``cols`` table, its columns and rows sharing the frame evenly.
         Each cell wraps, has PowerPoint's default margins (0.1 in left and right, 0.05 in
         top and bottom) and is anchored ``"top"`` (a cell's :attr:`TableCell.text_frame`
-        sets them); a row grows to fit its text when PowerPoint draws it.
+        sets them); a row grows to fit its text when PowerPoint draws it, but a frame taller
+        than the text stretches every row, the header too: :meth:`Table.fit_rows
+        <pptx_agent.edit.table.Table.fit_rows>` sets the rows to their text's height (with
+        ``fill``, the body rows sharing the room), as ``ppt_add_table`` does.
 
         ``style`` is a table style's name or id, one of :attr:`Document.table_styles`
         (``"Light Style 1 - Accent 1"``, the template's own style's name, or
