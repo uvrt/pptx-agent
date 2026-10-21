@@ -40,6 +40,22 @@ none) and its outline's colour and width.  Bold, italic and the like are not com
 A shape without text, a fill or an outline has no value for those properties and is left
 out of their comparison.
 
+**Tables** (round 11, P3) are compared inside, as PowerPoint draws them (pptx2svg's table
+layout, :attr:`Table.drawn_row_heights <pptx_agent.edit.table.Table.drawn_row_heights>`):
+with the Header Row flag on, the header row's height (``header_h``), fill (``header_fill``,
+the fill most of its cells are drawn with, the table style's included) and text size
+(``header_size``); the body rows' height (``row_h``: the height most of them are drawn at,
+the least of those tied), each value listing the body row ``rows`` counts of its tables as
+context -- a table of three rows and one of six agree when their rows do; the column
+``widths`` and the cells' ``insets`` (left, top, right, bottom, the most common), each
+compared element by element within the tolerance; and the ``borders`` drawn (the most
+common line on each side, ``"1 #FFFFFF"`` when all four agree).  A table's own box height
+is not compared: it is its rows'.  Every differing table -- not only a near-miss, since a
+stretched header row is seldom a design -- gets a fix: ``ppt_edit_table`` ``calls`` (each
+one call's arguments but ``doc``: ``set_heights`` with ``rows``, ``set_widths``,
+``format_cells``) or ``ppt_format_text`` items (``/row0``'s size, the table's insets);
+widths across tables of other column counts, and borders, get none.
+
 Where a value comes from (``from``): ``slide`` when the slide states it, else ``layout``,
 ``master`` or ``default`` -- for the size and colour of placeholder text and a
 placeholder's box.  A near-miss has a ``fix`` where one call gives the shapes the
@@ -77,9 +93,15 @@ NEAR_CHANNEL = 8
 #: overlap may still be matched by position.
 POSITION_REACH = 36.0
 #: What is compared, in the order reported.
-PROPERTIES = ("x", "y", "w", "h", "size", "color", "font", "fill", "line", "line_width")
-_NUMERIC = frozenset(("x", "y", "w", "h", "size", "line_width"))
-_COLOURS = frozenset(("color", "fill", "line"))
+PROPERTIES = ("x", "y", "w", "h", "size", "color", "font", "fill", "line", "line_width",
+              "header_h", "header_fill", "header_size", "row_h", "widths", "insets",
+              "borders")
+_NUMERIC = frozenset(("x", "y", "w", "h", "size", "line_width", "header_h", "header_size",
+                      "row_h"))
+#: Compared element by element, each within the tolerance: a table's column widths and its
+#: cells' insets (left, top, right, bottom), points.
+_SERIES = frozenset(("widths", "insets"))
+_COLOURS = frozenset(("color", "fill", "line", "header_fill"))
 _SHEETS = {"sld": "slide", "sldLayout": "layout", "sldMaster": "master"}
 
 
@@ -87,7 +109,15 @@ def _points(emu: float) -> float:
     return round(float(emu) / EMU_PER_POINT, 2)
 
 
+def _exact(emu: float) -> float:
+    """EMU as points to four decimals: a fix's length, which gives back the EMU it came
+    from (the comparison's two decimals would not)."""
+    return round(float(emu) / EMU_PER_POINT, 4)
+
+
 def _number(value):
+    if isinstance(value, tuple):
+        return [_number(item) for item in value]
     return int(value) if isinstance(value, float) and value.is_integer() else value
 
 
@@ -119,6 +149,7 @@ class _Value:
     value: Any
     source: str | None = None        #: slide, layout, master, default (where it matters)
     fix: Any = None                  #: what a fix item sets to give a shape this value
+    rows: int | None = None          #: a table's body rows, the context of its row height
 
 
 def _hex(color, shape) -> str | None:
@@ -210,16 +241,21 @@ def _colour_sheet(host, paragraph, run) -> str:
     return "default"
 
 
-def measure(shape: "Shape") -> dict[tuple[str, int], _Value]:
-    """A shape's values, ``{(property, level): value}`` -- level 0 but for the text size."""
+def measure(shape: "Shape", cache: dict | None = None) -> dict[tuple[str, int], _Value]:
+    """A shape's values, ``{(property, level): value}`` -- level 0 but for the text size.
+    ``cache`` keeps each slide's resolved table layout between calls (a table's)."""
     out: dict[tuple[str, int], _Value] = {}
     bounds = shape.bounds
+    table = kind_of(shape) == "table"
     if bounds is not None:
         source = None
         if shape.placeholder is not None:
             source = "slide" if shape.has_explicit_transform else "layout"
         for name, emu in zip(("x", "y", "w", "h"), bounds):
-            out[(name, 0)] = _Value(_points(emu), source)
+            if not (table and name == "h"):      # a table's height is its rows'
+                out[(name, 0)] = _Value(_points(emu), source)
+    if table:
+        _table_values(shape, out, {} if cache is None else cache)
     if shape.kind == "shape":
         _text_values(shape, out)
         fill = shape.effective_fill
@@ -243,6 +279,105 @@ def measure(shape: "Shape") -> dict[tuple[str, int], _Value]:
             if line.width is not None and line.visible is not False:
                 out[("line_width", 0)] = _Value(_points(line.width))
     return out
+
+
+def _table_values(shape: "Shape", out: dict, cache: dict) -> None:
+    """A table's values: its header row's drawn height, fill and text size (when the Header
+    Row flag is on), its body rows' height -- the height most of them are drawn at, the
+    least of those tied -- with their count as context, its column widths, its cells' insets
+    and borders (the most common of each)."""
+    table = shape.table
+    try:
+        from .fit import _Measured, table_heights
+
+        slide = shape._slide
+        measured = cache.get(slide.slide_id)
+        if measured is None:
+            measured = cache[slide.slide_id] = _Measured(slide)
+        heights = table_heights(shape, measured)
+        resolved = getattr(measured.element(shape)[0], "table", None)
+    except ImportError:                       # pragma: no cover - the extras-less install
+        heights, resolved = table.row_heights, None
+    header = 1 if table.flags.get("first_row") and len(heights) > 1 else 0
+    if header:
+        out[("header_h", 0)] = _Value(_points(heights[0]), fix=_exact(heights[0]))
+        fill = _header_fill(resolved)
+        if fill is not None:
+            out[("header_fill", 0)] = _Value(fill, fix=fill)
+        sizes: Counter = Counter()
+        for column in range(table.columns):
+            cell = table.cell(0, column)
+            if cell.is_spanned:
+                continue
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    weight = len(run.text.strip())
+                    if weight:
+                        sizes[effective.size(cell, paragraph._element(), run._element())] \
+                            += weight
+        if sizes:
+            out[("header_size", 0)] = _Value(_dominant(sizes))
+    body = [_points(height) for height in heights[header:]]
+    if body:
+        counts = Counter(body)
+        most = max(counts.values())
+        typical = min(v for v, n in counts.items() if n == most)
+        exact = next(height for height in heights[header:] if _points(height) == typical)
+        out[("row_h", 0)] = _Value(typical, fix=_exact(exact), rows=len(body))
+    out[("widths", 0)] = _Value(tuple(_points(width) for width in table.column_widths),
+                                fix=[_number(_exact(width)) for width in table.column_widths])
+    insets = Counter(tuple(_points(side) for side in cell.text_frame.insets)
+                     for cell in table.iter_cells() if not cell.is_spanned)
+    if insets:
+        out[("insets", 0)] = _Value(_dominant(insets))
+    borders = _borders(resolved)
+    if borders is not None:
+        out[("borders", 0)] = _Value(borders)
+
+
+def _paint(fill) -> str | None:
+    """A resolved fill as compared: ``#RRGGBB``, ``none``, or its kind."""
+    if fill is None:
+        return "none"
+    kind = getattr(fill, "type", None)
+    if kind == "solid":
+        return f"#{fill.color.hex.lstrip('#').upper()}"
+    return kind
+
+
+def _header_fill(resolved) -> str | None:
+    """The fill most of the header row's cells are drawn with (pptx2svg's resolved table:
+    the cell's own, else the table style's)."""
+    if resolved is None or not resolved.rows:
+        return None
+    fills = Counter(_paint(cell.fill) for cell in resolved.rows[0].cells
+                    if not (cell.h_merge or cell.v_merge))
+    return _dominant(fills) if fills else None
+
+
+def _borders(resolved) -> str | None:
+    """The cells' borders as drawn, the most common line on each side: ``"1 #FFFFFF"``
+    (points and colour) when every side has the same, else ``"top 1 #FFFFFF; bottom
+    none; ..."``."""
+    if resolved is None:
+        return None
+    sides = ("top", "bottom", "left", "right")
+    lines = {side: Counter() for side in sides}
+    for row in resolved.rows:
+        for cell in row.cells:
+            if cell.h_merge or cell.v_merge:
+                continue
+            for side in sides:
+                line = getattr(cell.borders, side, None) if cell.borders else None
+                paint = None if line is None else _paint(line.fill)
+                lines[side]["none" if paint in (None, "none") or not line.width
+                            else f"{_number(_points(line.width))} {paint}"] += 1
+    common = {side: _dominant(counter) for side, counter in lines.items() if counter}
+    if not common:
+        return None
+    if len(set(common.values())) == 1:
+        return next(iter(common.values()))
+    return "; ".join(f"{side} {value}" for side, value in common.items())
 
 
 # -- matching -----------------------------------------------------------------------------
@@ -400,6 +535,8 @@ def match(slides: list["Slide"]) -> list[ShapeGroup]:
 
 
 def _near(name: str, a, b, within: float) -> bool:
+    if name in _SERIES:
+        return len(a) == len(b) and all(abs(p - q) <= within + 1e-9 for p, q in zip(a, b))
     if name in _NUMERIC:
         return abs(a - b) <= within + 1e-9
     if name in _COLOURS and isinstance(a, str) and isinstance(b, str) \
@@ -412,6 +549,8 @@ def _near(name: str, a, b, within: float) -> bool:
 def _fix_item(name: str, level: int, shape: "Shape", value: _Value, majority: _Value):
     """The fix items giving ``shape`` the majority's value, or ``None``."""
     target = shape.id
+    if name in _TABLE_FIX:
+        return _TABLE_FIX[name](shape, majority)
     if name in ("x", "y", "w", "h"):
         return [{"target": target, name: _number(majority.value)}]
     if name == "fill":
@@ -438,7 +577,43 @@ def _fix_item(name: str, level: int, shape: "Shape", value: _Value, majority: _V
     return None
 
 
-_FIX_TOOL = {"size": "ppt_format_text", "color": "ppt_format_text"}
+def _row_fix(shape: "Shape", majority: _Value, rows: list[int]):
+    value = _number(majority.fix if majority.fix is not None else majority.value)
+    return [{"target": shape.id, "action": "set_heights", "rows": rows,
+             "sizes": [value] * len(rows)}]
+
+
+def _body_rows(shape: "Shape") -> list[int]:
+    table = shape.table
+    first = 1 if table.flags.get("first_row") and table.rows > 1 else 0
+    return list(range(first, table.rows))
+
+
+def _insets_fix(shape: "Shape", majority: _Value):
+    return [{"target": shape.id, "insets": dict(zip(("left", "top", "right", "bottom"),
+                                                    (_number(v) for v in majority.value)))}]
+
+
+#: A table's fixes: the ``ppt_edit_table`` calls (``calls``, each one call's arguments but
+#: ``doc``) or ``ppt_format_text`` items giving it the majority's value.
+_TABLE_FIX = {
+    "header_h": lambda shape, majority: _row_fix(shape, majority, [0]),
+    "row_h": lambda shape, majority: _row_fix(shape, majority, _body_rows(shape)),
+    "widths": lambda shape, majority: [{"target": shape.id, "action": "set_widths",
+                                        "sizes": majority.fix}],
+    "header_fill": lambda shape, majority: [{"target": shape.id, "action": "format_cells",
+                                             "rows": [0], "fill": majority.fix}],
+    "header_size": lambda shape, majority: [{"target": f"{shape.id}/row0",
+                                             "size": _number(majority.value)}],
+    "insets": _insets_fix,
+}
+
+_FIX_TOOL = {"size": "ppt_format_text", "color": "ppt_format_text",
+             "header_size": "ppt_format_text", "insets": "ppt_format_text",
+             "header_h": "ppt_edit_table", "row_h": "ppt_edit_table",
+             "widths": "ppt_edit_table", "header_fill": "ppt_edit_table"}
+#: Tools that take one target a call: their fixes are ``calls``, not ``items``.
+_ONE_TARGET = frozenset(("ppt_edit_table",))
 
 
 @dataclass
@@ -449,6 +624,7 @@ class Comparison:
     slides: list[int]
     groups: list[ShapeGroup]
     within: float = WITHIN
+    _layouts: dict = field(default_factory=dict, repr=False, compare=False)
 
     def to_json(self) -> dict[str, Any]:
         """``{"slides", "matched", "agree", "shapes": [...], "only": [...]}``: ``matched``
@@ -459,8 +635,10 @@ class Comparison:
         fewer, ``{"shape", "name", "shapes": [addresses]}``.  Each ``differ`` entry is
         ``{"property", "level" (sizes past level 0), "value": the majority's, "on": how many
         have it, "from", "near": [{"value", "from", "shapes"}], "other": [...], "fix":
-        {"tool", "items"}}`` -- ``fix`` for the near-misses only; ``from`` given where the
-        sources differ.  A name group whose names differ has ``{"property": "name",
+        {"tool", "items"}}`` -- ``fix`` for the near-misses only, and for every differing
+        table (``{"tool": "ppt_edit_table", "calls": [...]}``, a call per entry); ``from``
+        given where the sources differ; ``rows`` a table's body row counts beside its
+        ``row_h`` (the majority's, and each value's).  A name group whose names differ has ``{"property": "name",
         "value", "on", "other"}`` first."""
         entries, only = self.entries()
         return {"slides": [f"s:{sid}" for sid in self.slides], "matched": len(self.groups),
@@ -493,7 +671,7 @@ class Comparison:
         return entries, only
 
     def _differences(self, group: ShapeGroup) -> list[dict]:
-        measured = {sid: measure(shape) for sid, shape in group.shapes.items()}
+        measured = {sid: measure(shape, self._layouts) for sid, shape in group.shapes.items()}
         keys: list[tuple[str, int]] = []
         for values in measured.values():
             for key in values:
@@ -522,8 +700,11 @@ class Comparison:
                 entry["level"] = level
             entry["value"] = _number(top)
             entry["on"] = best
+            if name == "row_h":
+                entry["rows"] = sorted({value.rows for value in majority_values})
             near: dict[tuple, list] = {}
             other: dict[tuple, list] = {}
+            counts_of: dict[tuple, set] = {}
             fixes: list = []
             for sid, value in holders:
                 if value.value == top:
@@ -531,7 +712,13 @@ class Comparison:
                 shape = group.shapes[sid]
                 bucket = near if _near(name, value.value, top, self.within) else other
                 bucket.setdefault((value.value, value.source), []).append(shape.id)
-                if bucket is near:
+                if name == "row_h":
+                    counts_of.setdefault((value.value, value.source), set()).add(value.rows)
+                # A table's rows, widths, insets and header: every one that differs is fixed
+                # (a stretched header is no design), but not across column counts.
+                table_fix = name in _TABLE_FIX and not (
+                    name in _SERIES and len(value.value) != len(majority.value))
+                if bucket is near or table_fix:
                     items = _fix_item(name, level, shape, value, majority)
                     if items is None:
                         fixes = None
@@ -545,10 +732,14 @@ class Comparison:
                     entry[label] = [
                         {"value": _number(value),
                          **({"from": source} if shown_from and source is not None else {}),
+                         **({"rows": sorted(counts_of[(value, source)])}
+                            if (value, source) in counts_of else {}),
                          "shapes": shapes}
                         for (value, source), shapes in bucket.items()]
-            if near and fixes:
-                entry["fix"] = {"tool": _FIX_TOOL.get(name, "ppt_set_shape"), "items": fixes}
+            if fixes and (near or name in _TABLE_FIX):
+                tool = _FIX_TOOL.get(name, "ppt_set_shape")
+                entry["fix"] = {"tool": tool,
+                                "calls" if tool in _ONE_TARGET else "items": fixes}
             out.append(entry)
         return out
 

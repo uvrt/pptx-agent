@@ -53,7 +53,8 @@ COMPARE_PAGE = 40
 
 @tool("ppt_compare_slides",
       "Compare a run of like slides shape by shape: where name, box, text size, colour, "
-      "font, fill or outline differ from the majority; near-misses with a fix. Measures only.",
+      "font, fill, outline, table rows, widths, insets or borders differ from the "
+      "majority; near-misses and tables with a fix. Measures only.",
       {"doc": string("Document id."),
        "slides": array(string(or_integer=1), "Slide numbers from 1, or ids (s:256, $ref); "
                        "at least two."),
