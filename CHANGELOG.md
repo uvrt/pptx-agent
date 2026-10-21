@@ -6,6 +6,20 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- The tightest spacings on a slide, measured (round 12, Q1): `check` with `spacing` (pt,
+  e.g. `8`; ooxml-edit 0.56.0) adds `spacing`, nearest first and at most 12 a slide
+  (`spacing_left_out` counts the rest) -- gaps `between` two neighbours facing on an
+  `axis` (each shape's nearest, within the same container), `inside` a filled or outlined
+  shape (the content's `padding` to each `edge`, `also` others as near), and `clearance`
+  to the footer, slide number and date placeholders or past the layout's `content_area`
+  (`gap` negative). Text is measured where it is drawn (the collision measurement's
+  extent), shapes with rotation and groups resolved; overlaps (collisions), full-slide
+  backgrounds, lines, connectors and a shape's own insets are left out. `Slide.spacing`
+  in the library (boxes only without pptx2svg). Measurements, no verdicts; GUIDANCE says to
+  cite the gap. The core 3,628 -> 3,664 estimated tokens, every definition 13,064 ->
+  13,099 (guard 13,100); a reviewer's core 2,298 -> 2,333 (guard 2,335), all 4,546 ->
+  4,581 (guard 4,585); the strict set unchanged.
+
 - Table row heights in a run of slides (round 11, P1-P3). A row's height is a minimum, so
   `ppt_add_table`'s box `h` is an upper bound: each row takes its text's height
   (`Table.fit_rows`, measured with pptx2svg's table layout) and the frame their sum, and

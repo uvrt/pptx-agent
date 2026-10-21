@@ -26,6 +26,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .design import DesignFacts
     from .diagram import DiagramNode
     from .layoutchange import LayoutChange
+    from .spacing import SpacingReport
 
 from lxml import etree
 from ooxml_edit.history import History
@@ -2868,6 +2869,23 @@ class Slide(ShapeFactory):
 
         return design_facts(self, region=region, within=within, include=include,
                             **tolerances)
+
+    def spacing(self, *, below: int = 101600) -> "SpacingReport":
+        """The tightest spacings on this slide, measured and nearest first, each below
+        ``below`` EMU (default 8 pt): gaps between neighbours, padding inside a filled or
+        outlined shape, and clearance to the footer, slide number and date and past the
+        layout's :attr:`content_area`; text by where it is drawn (pptx2svg's layout), not
+        its box.  No verdicts; overlaps are :meth:`collisions`'.  See
+        :mod:`pptx_agent.edit.spacing`.
+
+        For example::
+
+            [entry.to_json() for entry in slide.spacing().entries]
+            # [{'between': ['257.6', '257.34'], 'axis': 'y', 'gap': 4.0}, ...]
+        """
+        from .spacing import spacing
+
+        return spacing(self, below=below)
 
     def facts(self) -> dict:
         """The problem facts beyond overflows and collisions: colours that are not theme

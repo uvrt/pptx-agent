@@ -26,7 +26,7 @@ see [Units](#units-emu-everywhere-pt-for-points) below.
 | Shapes | position, size, rotation, flips, preset geometry and adjustments, fills and outlines in theme colours, z-order, duplicate, delete, groups; new autoshapes, text boxes, tables, pictures (SVG too, with a PNG fallback) and connectors that stay attached; a picture's native size, its image replaced; align and distribute; grid and flow |
 | Slides | add from a layout, duplicate, reorder, delete; titles, and a slide by its title; a layout's placeholders; draft whole slides from Markdown |
 | Decks | new from nothing or from a template; title, author, language, slide size; the theme's colours and fonts, read and set; which colours do which job, and their tints |
-| Checks | `validate()` (what PowerPoint would repair or refuse), `overflows()` and `text_fit()` (what will not fit, as PowerPoint draws it), `collisions()` (text over text, lines through text), `measure_text()` (before building) |
+| Checks | `validate()` (what PowerPoint would repair or refuse), `overflows()` and `text_fit()` (what will not fit, as PowerPoint draws it), `collisions()` (text over text, lines through text), `spacing()` (the tightest gaps, padding and frame clearances, as drawn), `measure_text()` (before building) |
 | Round trips | a full-state SVG that can be edited anywhere and applied back |
 
 Every example below is run by `tests/test_usage.py`, from a directory holding
@@ -597,6 +597,15 @@ print(elbow.route[0], elbow.drawn_bounds == elbow.bounds)   # -> (2743200.0, 228
 text shapes whose boxes overlap although their text does not -- labels side by side whose
 frames run into each other. A marker line drawn in front of bars is reported where it
 crosses their text; sent behind them it is not, so there is no need to split it.
+
+`slide.spacing(below=Pt(8))` measures what collisions leave alone: the tightest spacings
+that are not overlaps, nearest first, each a `Spacing` (EMU; `to_json()` in points) --
+`"between"` two neighbours facing on an axis (each shape's nearest, within one container),
+`"inside"` a filled or outlined shape (the content's padding to each edge), and
+`"clearance"` to the footer, slide number and date placeholders or past the layout's
+`content_area` (negative). Text is measured where it is drawn, as for collisions; without
+pptx2svg every shape by its box (`report.drawn` is false). No verdicts: whether 4 pt under
+a heading is too tight is the application's rule. `check` with `spacing` reports the same.
 
 Layering is not a collision: a shape lying wholly on an opaque shape behind it (a label on a
 bar, a title on a banner, text on a picture). A group's members are compared with each

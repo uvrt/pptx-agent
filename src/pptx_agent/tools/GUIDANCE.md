@@ -22,6 +22,7 @@ the deck as PowerPoint will show it, with shape addresses:
 | `off_slide` | every changing call, `check` | a shape past the slide's edge, by how much; for a table whose rows grew past the bottom, `rows_past` (first and last, 1-based) and `rows_fit` -- where to split it (`rows_note`) |
 | `layout` | changing calls that touched shapes | at most five: a box 1-3 pt off the line its like neighbours are on; one uneven gap in a row of like boxes; a paragraph size unlike its like boxes'; a label much farther from its marker than the others of its kind. Each carries `fix`, the exact call that makes it agree (`ppt_set_shape 256.6 y=150`) |
 | `empty_placeholders` | every changing call, `check` (with `fit`, the default) | placeholders that hold nothing (`shape`, `type`, `idx`). Measured in PowerPoint: an empty one (no text, or one empty paragraph) shows "Click to add text" (or "...title", a content placeholder's icons) while editing and no prompt in a show or export; a whitespace-only one shows no prompt but a stray bullet, exported too; several empty paragraphs show nothing. A placeholder holding a picture, table, chart or SmartArt is not empty; titles and subtitles count; date, footer and slide number do not. Fill them, or delete them with `ppt_manage_slides` `delete_empty_placeholders`, which keeps an empty title (fill it: a title names the slide in navigation and to a screen reader) and one with a fill or outline (PowerPoint draws that box in the export too) |
+| `spacing` | `check` with `spacing` (pt, e.g. `8`) | the tightest spacings below that many pt, nearest first, at most 12 a slide (`spacing_left_out` counts the rest): `between` two neighbours facing on an `axis` (each shape's nearest, in the same container), `inside` a filled or outlined shape (the content's `padding` to an `edge`, `also` others as near it), `clearance` to a `footer`, `slide_number` or `date`, or `content_area` (past the layout's, `gap` negative). Text as drawn, not its box; overlaps are `collisions`; full-slide backgrounds, lines and connectors are left out |
 | `validate` | every changing call, `check` | validation problems the call added (`new`) or removed (`fixed`) against the deck as opened |
 | `missing_glyphs` | `render` | text the image leaves out because the renderer has no font for it (`face`, `script`, `sample`); the deck is unchanged and PowerPoint draws it (`missing_glyphs_note`): install `pptx2svg-fonts` where the tools run |
 | `unresolved` | `save_document` | the overflows, collisions, off-slide shapes and empty placeholders still in the deck when it was saved (the save goes ahead) |
@@ -44,6 +45,12 @@ How to use them:
   fired three times in all (two labels far from their bubbles, one header 1 pt larger than its
   like boxes'), and never on the fixture decks with every shape touched: they are rare by
   design, so when one appears it is worth a look.
+- **Spacing is measured, so cite the number.** A reviewer reading a slide and a render
+  passed a heading 4 pt under its panel and chips 3 pt under their card's text, told "a gap
+  under 6 pt fails, cite the gap". `check` with `spacing: 8` lists those gaps in points;
+  put your threshold in the house rules and tell the model to quote the entry
+  (`{"between": ["257.6", "257.34"], "axis": "y", "gap": 4.0}`) when it passes or fails one.
+  Whether a tight gap is intended (a caption under its picture) is the model's call.
 - **Design facts are inputs to your rules.** `ppt_design_facts` reports that a set of four
   like boxes uses four accent hues and that no legend covers them; whether that is a
   "rainbow" to fix is your house rule. Ask for it on slides with a graphic, before saving.
