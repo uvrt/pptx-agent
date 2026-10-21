@@ -175,10 +175,15 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: deferred.  The guard rises to 13,070.  The strict set is unchanged in its members: none
 #: of the three is sent strict to Claude; on OpenAI, where ppt_add_table is, ``fill_box`` is
 #: one more nullable boolean.
+#: Round 12, Q1: check's ``spacing`` (a number of pt: the gaps, padding and frame
+#: clearances below it, ooxml-edit 0.56.0) adds 36 to the core (3,628 -> 3,664, about 5,423
+#: counted by the proxy) and 35 to every definition (13,064 -> 13,099).  The guard rises to
+#: 13,100.  The strict set is unchanged in its members: check is a reading tool, not sent
+#: strict to Claude; on OpenAI, where it is, ``spacing`` is one more nullable number.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13070
+ALL_GUARD = 13100
 
 
 def estimate_tokens(definitions) -> int:

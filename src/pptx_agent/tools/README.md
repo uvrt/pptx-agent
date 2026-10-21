@@ -137,6 +137,14 @@ the full core's 3,563); edit_chart offers only `read`, `ppt_manage_slides` only
 refused naming the role it needs; a reviewer reports each finding with the call that would
 fix it, for a builder (`roles=["review", "edit"]`, or the default) to apply in one batch.
 
+**Spacing in a review.** A reviewer judging gaps by eye passes the tight ones; `check` with
+`spacing` measures them. `{"doc": "d1", "slides": [1], "spacing": 8}` adds `spacing`, the
+gaps below 8 pt nearest first -- `{"between": ["257.3", "257.4"], "axis": "y", "gap": 4.0}`
+(a heading 4 pt under a panel), `{"inside": "257.5", "shape": "257.7", "edge": "bottom",
+"padding": 4.0}` (a chip 4 pt from its card's edge), `{"clearance": "footer", "shape":
+"257.5", "gap": 6.5}` -- text measured where it is drawn, not by its box. Measurements only:
+put the threshold in the house rules and have the reviewer cite the entry.
+
 Several agents on one deck at once share one session -- the deck, its undo history, refs
 and outputs -- each through a view with roles of its own (ooxml-edit 0.46.0); a view
 narrows the session's roles, never widens them, and its `context` reaches the handlers of
