@@ -6,6 +6,20 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Every result says what the call changed, for the application (round 13, R2; ooxml-edit
+  0.57.0): `Result.touched` -- slides and shape ids (`{"slide": "s:258", "shapes":
+  ["258.7"], "created": [...], "removed": [...]}`, `whole`, `notes`, `comments`), new and
+  deleted slides (`"created": ["s:300"]`), layouts and masters with the slides that show
+  them (`affects`), a master's theme, deck-level changes (`order` with the renumbered
+  slides, `size`, `text_styles`, `sections`, `table_styles`, `document_properties`), and
+  `{"part"}` for anything else -- and `Result.touched_by_op` in a batch.  Derived from the
+  bytes (`pptx_agent.edit.touched`, the format's `touched`): each changed slide part
+  compared shape by shape by the tools' shape ids, a chart's or picture's part mapped to
+  the frame that refers to it, the id stamp the tools write ignored; so every tool, undo
+  and redo included, and nothing only read (a `like`, a copy's source). Never in what the
+  model reads: no definition or result token changes. About 1 ms a call on a 48-slide
+  deck.
+
 - The tightest spacings on a slide, measured (round 12, Q1): `check` with `spacing` (pt,
   e.g. `8`; ooxml-edit 0.56.0) adds `spacing`, nearest first and at most 12 a slide
   (`spacing_left_out` counts the rest) -- gaps `between` two neighbours facing on an
