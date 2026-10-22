@@ -6,6 +6,11 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- Usage: renders run in worker processes, so a script keeps its work under
+  `if __name__ == "__main__":`; without the guard the toolbox no longer waits two minutes a
+  render but renders in subprocess workers, saying why (round 13, R6; ooxml-edit 0.58.0,
+  no change here).
+
 - Every result says what the call changed, for the application (round 13, R2; ooxml-edit
   0.57.0): `Result.touched` -- slides and shape ids (`{"slide": "s:258", "shapes":
   ["258.7"], "created": [...], "removed": [...]}`, `whole`, `notes`, `comments`), new and

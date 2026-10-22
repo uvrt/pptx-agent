@@ -727,6 +727,13 @@ with the others), each with the exact call that resolves it, such as
 `ppt_set_shape 256.6 y=150` (`pptx_agent.edit.feedback`). Facts, not rules: a difference may
 be intended.
 
+Renders run in the toolbox's worker processes, started with `spawn`, which imports the
+program's main module again in each: in a script, put the work -- the `with Toolbox(...)`
+block above -- under `if __name__ == "__main__":`. A script without the guard
+does not hang: its workers stop as they start, the toolbox renders in subprocess workers
+instead with a warning that says why (ooxml-edit 0.58.0), and `Toolbox(workers=0)` renders
+in the script's own process.
+
 ### A dense slide in brief (`ppt_read_slides` `detail: "compact"`)
 
 ```python
