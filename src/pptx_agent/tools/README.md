@@ -159,6 +159,37 @@ sent = toolbox.definitions("anthropic", roles=["review"])
 system = toolbox.system_prompt(roles=["review"], tools=sent)   # the line follows `sent`
 ```
 
+**What a call changed, for a live view.** Every result carries `result.touched`
+(ooxml-edit 0.57.0), for the application and never in what the model reads: what the call
+changed in the deck's own addresses, from the bytes that changed -- so every tool, `undo`
+and `redo` included, and nothing a call only read (a `like`, the shape or slide a copy was
+made from):
+
+```python
+{"doc": "d1", "slide": "s:258", "shapes": ["258.7", "258.9"]}       # shapes redrawn
+{"doc": "d1", "slide": "s:258", "shapes": ["258.12"], "created": ["258.12"]}
+{"doc": "d1", "slide": "s:258", "shapes": ["258.3"], "removed": ["258.3"]}
+{"doc": "d1", "slide": "s:258", "whole": True}       # background, layout, transition, hidden
+{"doc": "d1", "slide": "s:258", "notes": True}       # speaker notes; "comments": True
+{"doc": "d1", "slide": "s:300", "created": ["s:300"]}               # or "removed"
+{"doc": "d1", "layout": "L2", "shapes": ["L2.2"], "affects": ["s:257", "s:259"]}
+{"doc": "d1", "master": "M0", "shapes": ["M0.7"], "affects": [...every slide on it]}
+{"doc": "d1", "theme": "M0", "affects": [...]}      # the theme of master M0
+{"doc": "d1", "deck": ["order"], "affects": ["s:257", "s:258"]}     # slides renumbered
+{"doc": "d1", "part": "ppt/..."}                     # anything else, never left out
+```
+
+A shape is listed when its own XML changed (a group's without its members), when it moved
+into or out of a group, or when it moved among its siblings (the fewest that explain the
+new order); a part it draws from -- a chart, its workbook, a picture's image -- counts as a
+change to it. A layout's or master's `affects` are the slides built on it, which show the
+change; they are not listed again. `deck` also says `size` and `text_styles` (every slide
+affected), `sections`, `table_styles` (the slides with tables), `document_properties`, and
+the relationship name of any other deck-level part (`authors`, `notesMaster`). A `batch`
+has the union, and `result.touched_by_op` each op's (`{0: [...], 2: [...]}`). The library
+gives the same from a watch: `with deck.history.watch() as change: ...`, then
+`pptx_agent.edit.touched.touched(deck, change)`.
+
 ### Tables from data
 
 `ppt_add_table` and `ppt_edit_table`'s `set_cells` take a table's text from a source, as

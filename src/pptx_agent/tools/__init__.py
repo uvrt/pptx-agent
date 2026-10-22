@@ -230,6 +230,14 @@ def _slide_scope(deck, scope: str) -> list[str]:
                   for part in (path, rels_path_for(path))]
 
 
+def _touched(deck, change) -> list[dict]:
+    """``Result.touched`` for a deck (``DocumentFormat.touched``): the slides, shapes,
+    layouts, masters and deck-level changes (:mod:`pptx_agent.edit.touched`)."""
+    from ..edit.touched import touched
+
+    return touched(deck, change)
+
+
 def _template_parts(deck) -> list[str]:
     """``undo``'s shared parts on a deck: every layout and master (and their
     relationships), which every slide on them shows -- a change to one is no one slide's
@@ -248,7 +256,7 @@ FORMAT = DocumentFormat(
     summary=_summary, checks=checks, strict_first=STRICT_FIRST, tool_hints=TOOL_HINTS,
     undo_scope=_slide_scope, undo_shared=_template_parts,
     restored=lambda deck: deck._reset_caches(),
-    configure=_configure,
+    configure=_configure, touched=_touched,
     store_provenance=tables.store_provenance, read_provenance=tables.read_provenance,
     own_facts={_slidenumbers.PREFIX: slide_number},
     warm_up=_render.warm_up)
