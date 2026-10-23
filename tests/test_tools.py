@@ -180,10 +180,13 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: counted by the proxy) and 35 to every definition (13,064 -> 13,099).  The guard rises to
 #: 13,100.  The strict set is unchanged in its members: check is a reading tool, not sent
 #: strict to Claude; on OpenAI, where it is, ``spacing`` is one more nullable number.
+#: Round 14, S1: ppt_compare_slides comparing the text's layout (its description) +19:
+#: every definition 13,099 -> 13,118, none to the core (3,664): the tool is deferred.  The
+#: guard rises to 13,120.  The strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13100
+ALL_GUARD = 13120
 
 
 def estimate_tokens(definitions) -> int:
