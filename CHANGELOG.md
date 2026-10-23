@@ -6,6 +6,16 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- The shared `save_document` takes `clean` (ooxml-edit 0.60.0, round 16, F11): what Word
+  keeps but never draws taken out of a document's file. A deck's handler takes none, so
+  ooxml-edit refuses `clean: true` for a deck (`invalid_arguments`, `field: "clean"`); no
+  code change here. Decks carry no rsids or web divisions; orphaned parts they can carry
+  (`OpcPackage.drop_orphans`, ooxml-edit's) are not taken out yet. Definitions +42
+  estimated tokens: core 3,713 -> 3,755 (about 5,557 counted), every definition 13,168 ->
+  13,210 (guard 13,170 -> 13,212), a reviewer's core 2,402 -> 2,444 (guard 2,405 ->
+  2,447), every reviewer definition 4,650 -> 4,692 (guard 4,655 -> 4,697); the strict
+  set's members unchanged.
+
 - A text box's inherited colour as PowerPoint draws it, where it comes from, and its
   contrast (round 15, T1-T3). Measured on PowerPoint 16.106 for Mac (51 probes in 9 made-up
   decks: on-screen slide show, PDF and AppleScript's `font color` agree): text in a shape
