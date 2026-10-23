@@ -117,6 +117,37 @@ def _run_colors(paragraphs) -> list[str]:
     return seen
 
 
+def _drawn_color(frame) -> tuple[str | None, str | None]:
+    """``(colour, source)`` a text is drawn in: the effective colour of its runs as hex
+    (inherited and resolved through the slide's colour map, as pptx2svg draws it) and the
+    short name of where most of its characters' colour comes from
+    (:func:`ooxml_common.drawingml.text_chain.source_name`: ``"run"``,
+    ``"defaultTextStyle lvl1"``, ``"style fontRef"``...); ``("mixed", None)`` when its runs
+    are drawn in more than one colour, ``(None, None)`` with no text or no solid colour."""
+    from ..edit import effective
+
+    colors: dict[str, dict[str, int]] = {}
+    for paragraph in frame.paragraphs:
+        for run in paragraph.runs:
+            weight = len(run.text.strip())
+            if not weight:
+                continue
+            drawn = run.effective_color
+            if drawn is None:
+                continue
+            origin = effective.color_origin(paragraph._frame._host(), paragraph._element(),
+                                            run._element())
+            sources = colors.setdefault(f"#{drawn.value.upper()}", {})
+            sources[origin] = sources.get(origin, 0) + weight
+    if not colors:
+        return None, None
+    if len(colors) > 1:
+        return "mixed", None
+    (color, sources), = colors.items()
+    best = max(sources.values())
+    return color, next(name for name, weight in sources.items() if weight == best)
+
+
 def _shape_json(shape, z: int, *, idx: bool = False) -> dict[str, Any]:
     """A shape's geometry entry; with ``idx`` (a read with a layout or master in it) a
     placeholder's ``idx`` too, the number a slide's placeholder inherits by."""
@@ -153,6 +184,11 @@ def _shape_json(shape, z: int, *, idx: bool = False) -> dict[str, Any]:
             colors = _run_colors(frame.paragraphs)
             if colors:
                 data["text_colors"] = colors
+            drawn_color, source = _drawn_color(frame)
+            if drawn_color is not None:
+                data["text_color"] = drawn_color
+                if source is not None:
+                    data["color_source"] = source
             data["frame"] = {"insets": [pt(v) for v in frame.insets], "anchor": frame.anchor,
                              "autofit": frame.autofit, "wrap": frame.wrap}
     if shape.kind in ("shape", "connector", "picture"):
@@ -207,7 +243,7 @@ def _shape_json(shape, z: int, *, idx: bool = False) -> dict[str, Any]:
 
 
 #: The columns of ``detail: "compact"``, one row per shape.
-COMPACT_COLUMNS = ["id", "kind", "box", "fill", "size", "text", "group"]
+COMPACT_COLUMNS = ["id", "kind", "box", "fill", "size", "color", "text", "group"]
 #: The compact columns when a layout or master is read: a placeholder's type and idx too
 #: (``"title"``, ``"content 1"``, ``"dt 10"``) -- a slide's read with it as well, so its
 #: placeholders show which of the layout's they inherit from.
@@ -229,9 +265,11 @@ def _compact_row(shape) -> list[Any]:
     has it (a graphic frame as ``table``, ``chart`` or ``smartart``), the box in whole
     points, the fill drawn (hex where it resolves; a gradient or picture fill by its
     kind), the text's size (the effective size most of its characters are drawn at,
-    inherited and autofit-scaled, as ``geometry``'s ``sizes``) and its first words -- a
+    inherited and autofit-scaled, as ``geometry``'s ``sizes``), the colour it is drawn in
+    with where that comes from (``"#FFFFFF defaultTextStyle lvl1"``, ``"mixed"``:
+    :func:`_drawn_color`) and its first words -- a
     table's size and first cell, a chart's type and series, a group's member count."""
-    kind, fill, text, size = shape.kind, None, None, None
+    kind, fill, text, size, color = shape.kind, None, None, None, None
     if kind == "shape":
         drawn = shape.effective_fill
         if drawn is not None and drawn.kind == "solid" and drawn.color is not None:
@@ -243,6 +281,8 @@ def _compact_row(shape) -> list[Any]:
         text = _words(frame.text) if frame is not None else None
         if text:
             size = _dominant_size(frame)
+            drawn_color, source = _drawn_color(frame)
+            color = drawn_color if source is None else f"{drawn_color} {source}"
     elif kind == "group":
         text = f"{len(shape.children)} shapes"
     elif kind == "graphic_frame":
@@ -259,7 +299,7 @@ def _compact_row(shape) -> list[Any]:
     box = (None if bounds is None
            else [round(float(v) / EMU_PER_POINT) for v in bounds])
     parent = shape.parent_group
-    return [shape.id, kind, box, fill, size, text or None,
+    return [shape.id, kind, box, fill, size, color, text or None,
             parent.id if parent is not None else None]
 
 
@@ -293,8 +333,8 @@ def _dominant_size(frame) -> float | None:
 @tool("ppt_read_slides",
       "Read slides with shape ids. outline: Markdown, each block under its shape id "
       "(escaped; never paste it back as text). geometry: each shape's kind, box, z-order, "
-      "fill, line, text and font sizes. compact: id, kind, box, fill, text size, first "
-      "words per shape. svg: an SVG per slide, data-id per shape.",
+      "fill, line, text, font sizes and drawn text colour with its source. compact: id, "
+      "kind, box, fill, text size and colour, first words per shape. svg: an SVG per slide, data-id per shape.",
       {"doc": string("Document id."),
        "slides": array(string(or_integer=1), "Slide numbers from 1, or ids (s:256, $ref); "
                        "layouts L2, masters M0. Default all.", optional=True),
@@ -329,7 +369,8 @@ def ppt_read_slides(call, doc, detail, slides=None, cursor=None):
         rows = [_compact_row(shape) + ([_placeholder_label(shape)] if templates else [])
                 for sheet in sheets for shape in sheet.shapes]
         page, total, next_cursor = page_list(rows, cursor=cursor, limit=300)
-        if len(json.dumps(page, ensure_ascii=False)) > call.limits.max_result_chars - 2000:
+        # measured as the result is sent: compact separators
+        if len(json.dumps(page, ensure_ascii=False, separators=(",", ":"))) > call.limits.max_result_chars - 2000:
             page, total, next_cursor = page_list(rows, cursor=cursor, limit=120)
         return Result(summary=f"Shapes of slide(s) {_span(chosen)} in brief: {total}",
                       data={"columns": columns, "shapes": page},
@@ -340,7 +381,7 @@ def ppt_read_slides(call, doc, detail, slides=None, cursor=None):
         for z, shape in enumerate(sheet.shapes):
             shapes.append({"slide": where, **_shape_json(shape, z, idx=bool(templates))})
     page, total, next_cursor = page_list(shapes, cursor=cursor, limit=60)
-    if len(json.dumps(page)) > call.limits.max_result_chars - 2000:
+    if len(json.dumps(page, ensure_ascii=False, separators=(",", ":"))) > call.limits.max_result_chars - 2000:
         page, total, next_cursor = page_list(shapes, cursor=cursor, limit=25)
     return Result(summary=f"Geometry of slide(s) {_span(chosen)}: {total} shape(s)", data=page,
                   total=total, next_cursor=next_cursor)

@@ -34,12 +34,13 @@ from test_tools import (CLOCK, COUNTED_PER_ESTIMATED, CORE_COUNTED_BUDGET, _deck
 #: in ppt_compare_slides' description) 2,220; round 9, N1 (render's ``sheet``, +64) 2,284;
 #: round 11, P3 (tables in ppt_compare_slides' description, +14) 2,298; round 12, Q1
 #: (check's ``spacing``, +35) 2,333; round 14, S1 (text layout in ppt_compare_slides'
-#: description, +19) 2,352.
-REVIEW_CORE_GUARD = 2355
+#: description, +19) 2,352; round 15, T2 and T3 (check's ``contrast`` +37, ppt_read_slides'
+#: description +12) 2,402.
+REVIEW_CORE_GUARD = 2405
 #: Every definition a reviewer is sent, estimated.  Measured 4,460 (4,458 before); round 8,
 #: M3 and M4, 4,469; round 9, N1, 4,532; round 11, P3, 4,546; round 12, Q1, 4,581; round
-#: 14, S1, 4,601.
-REVIEW_ALL_GUARD = 4605
+#: 14, S1, 4,601; round 15, T2 and T3, 4,650.
+REVIEW_ALL_GUARD = 4655
 
 REVIEW_CORE = {"open_document", "save_document", "find_text", "render", "check", "describe",
                "ppt_read_slides", "batch", "ppt_compare_slides", "ppt_comments"}

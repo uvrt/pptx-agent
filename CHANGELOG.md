@@ -6,6 +6,39 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- A text box's inherited colour as PowerPoint draws it, where it comes from, and its
+  contrast (round 15, T1-T3). Measured on PowerPoint 16.106 for Mac (51 probes in 9 made-up
+  decks: on-screen slide show, PDF and AppleScript's `font color` agree): text in a shape
+  that is not a placeholder takes the run, the paragraph, its own list style, its
+  `fontRef`, then the presentation's `defaultTextStyle` at the paragraph's level -- **not**
+  the master's `otherStyle`, which it used to (a `defaultTextStyle` whose levels say white
+  under an `otherStyle` of `tx1` read black, PowerPoint draws white). The order is
+  ooxml-common 0.27.0's `drawingml.text_chain`, the one pptx2svg draws with, so
+  `Run.effective_color`/`effective_size`/`effective_font`, `ppt_compare_slides`' `color`,
+  `check` and the render agree (50 of 51 probes; the one left is a table with no table
+  style, a follow-up in both). Size and face follow the same chain. Placeholders and table
+  cells keep theirs. `effective.color_origin` names the source by the chain's short names
+  (`"run"`, `"paragraph"`, `"list style lvl1"`, `"style fontRef"`, `"table style"`,
+  `"layout lvl1"`, `"master lvl1"`, `"master bodyStyle lvl2"`, `"defaultTextStyle lvl1"`,
+  `"hyperlink"`, `"default"`).
+  - T3: `ppt_read_slides` `geometry` gives each text shape's `text_color` (`#RRGGBB`, or
+    `"mixed"` when its runs are drawn in more than one) and `color_source` (where most of
+    its characters' colour comes from); `compact` a `color` column, `"#FFFFFF
+    defaultTextStyle lvl1"` in one string, `"mixed"`, or null. Compact pages are measured as
+    they are sent (compact JSON), so a page still holds 300 rows.
+  - T2: `check` with `contrast` (a ratio, e.g. `4.5`; ooxml-edit 0.59.0) adds `contrast`,
+    lowest first, at most 12 a slide (`contrast_left_out`): each shape's worst run whose
+    WCAG 2 ratio with what is behind it is below the threshold (large text -- 18 pt, or
+    14 pt bold, as drawn -- two thirds of it), with `color`, `behind`, `ratio`, `source`
+    and `over` (`fill`, the shape beneath, or `background`). Behind: the shape's own fill,
+    else the shapes beneath whose box holds its centre, else the slide's background
+    (slide, layout, master), as pptx2svg resolves them; alpha blended; a gradient's worst
+    stop; a picture, table or chart behind as `"behind": "unknown"` (not sampled).
+    `Slide.contrast` in the library.
+  - Definitions: the core 3,664 -> 3,713 estimated tokens, every definition 13,118 ->
+    13,168 (guard 13,170); a reviewer's core 2,352 -> 2,402 (guard 2,405), all 4,601 ->
+    4,650 (guard 4,655); the strict set unchanged.
+
 - `ppt_compare_slides` compares the text's layout (round 14, S1): per paragraph level,
   `align`, `line_spacing` (a multiple, `"18pt"` when exact), `space_before` and
   `space_after` (pt, `"20%"` of a line) and `bullet` (`none`, `char •`, `autonum

@@ -145,6 +145,13 @@ gaps below 8 pt nearest first -- `{"between": ["257.3", "257.4"], "axis": "y", "
 "257.5", "gap": 6.5}` -- text measured where it is drawn, not by its box. Measurements only:
 put the threshold in the house rules and have the reviewer cite the entry.
 
+**Contrast in a review.** `{"doc": "d1", "slides": [3], "contrast": 4.5}` adds
+`contrast`, text below 4.5:1 against what is behind it, lowest first --
+`{"shape": "258.7", "text": "Hello", "color": "#FFFFFF", "behind": "#FFFFFF", "ratio":
+1.0, "source": "defaultTextStyle lvl1", "over": "background"}` -- the colour as PowerPoint
+draws it and where it comes from (the same as `ppt_read_slides`' `text_color` and
+`color_source`). Measurements only.
+
 Several agents on one deck at once share one session -- the deck, its undo history, refs
 and outputs -- each through a view with roles of its own (ooxml-edit 0.46.0); a view
 narrows the session's roles, never widens them, and its `context` reaches the handlers of

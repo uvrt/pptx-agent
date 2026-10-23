@@ -26,6 +26,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .design import DesignFacts
     from .diagram import DiagramNode
     from .layoutchange import LayoutChange
+    from .contrast import ContrastReport
     from .spacing import SpacingReport
 
 from lxml import etree
@@ -2886,6 +2887,24 @@ class Slide(ShapeFactory):
         from .spacing import spacing
 
         return spacing(self, below=below)
+
+    def contrast(self, *, minimum: float = 4.5) -> "ContrastReport":
+        """Text drawn in low contrast with what is behind it, measured and lowest first:
+        each shape's worst run whose WCAG 2 contrast ratio with the fill, the shapes beneath
+        or the slide's background is below ``minimum`` (default 4.5:1; large text, 18 pt
+        or 14 pt bold, two thirds of it), its colour and where that comes from; text over a
+        picture as ``"unknown"``.  No verdicts.  Needs pptx2svg.  See
+        :mod:`pptx_agent.edit.contrast`.
+
+        For example::
+
+            [entry.to_json() for entry in slide.contrast().entries]
+            # [{'shape': '258.7', 'text': 'Hello', 'color': '#FFFFFF', 'behind': '#FFFFFF',
+            #   'ratio': 1.0, 'source': 'defaultTextStyle lvl1', 'over': 'background'}]
+        """
+        from .contrast import contrast
+
+        return contrast(self, minimum=minimum)
 
     def facts(self) -> dict:
         """The problem facts beyond overflows and collisions: colours that are not theme

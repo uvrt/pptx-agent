@@ -183,10 +183,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: Round 14, S1: ppt_compare_slides comparing the text's layout (its description) +19:
 #: every definition 13,099 -> 13,118, none to the core (3,664): the tool is deferred.  The
 #: guard rises to 13,120.  The strict set is unchanged.
+#: Round 15, T2 and T3: check's ``contrast`` (a ratio: text below it against what is behind
+#: it, ooxml-edit 0.59.0) +37, and ppt_read_slides naming the drawn text colour and its
+#: source in geometry and compact (its description) +12: the core 3,664 -> 3,713 (about
+#: 5,495 counted by the proxy), every definition 13,118 -> 13,168.  The guard rises to
+#: 13,170.  The strict set is unchanged in its members: check is not sent strict to Claude;
+#: on OpenAI, where it is, ``contrast`` is one more nullable number.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13120
+ALL_GUARD = 13170
 
 
 def estimate_tokens(definitions) -> int:
@@ -347,21 +353,27 @@ def test_read_slides_compact_is_a_row_per_shape(toolbox, session):
     line = slide.add_connector("straight", (20 * emu, 400 * emu), (200 * emu, 400 * emu))
     result = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
                      slides=[1]))
-    assert result.data["columns"] == ["id", "kind", "box", "fill", "size", "text", "group"]
+    assert result.data["columns"] == ["id", "kind", "box", "fill", "size", "color", "text",
+                                      "group"]
     order = [row[0] for row in result.data["shapes"]]
     rows = {row[0]: row for row in result.data["shapes"]}
     assert order == [shape.id for shape in slide.shapes]     # back to front, as geometry
     assert result.total == len(order) and result.next_cursor is None
-    assert rows[group.id][1:] == ["group", [20, 100, 145, 90], None, None, "3 shapes", None]
+    assert rows[group.id][1:] == ["group", [20, 100, 145, 90], None, None, None, "3 shapes",
+                                  None]
     assert rows[tile.id][3] == tile.effective_fill.color.resolve(tile)
-    assert rows[tile.id][4:] == [None, None, group.id]
+    assert rows[tile.id][4:] == [None, None, None, group.id]
     assert rows[label.id][2] == [25, 105, 135, 20]           # whole points
-    assert rows[label.id][3:] == [None, 18, "North ridge", group.id]
-    assert rows[body.id][5] == "one two three four five six seven eight… (11 words)"
-    assert rows[table.id][1] == "table" and rows[table.id][5] == "3×4: Crew and route"
-    assert rows[chart.id][1] == "chart" and rows[chart.id][5] == "bar, 2 series"
-    assert rows[line.id][1:] == ["connector", [20, 400, 180, 0], None, None, None, None]
-    assert rows[order[0]][1:] == ["shape", [66, 29, 828, 104], None, 44, "Plan", None]
+    # the colour drawn and where it comes from: a text box takes the default text style's
+    assert rows[label.id][3:] == [None, 18, "#000000 defaultTextStyle lvl1", "North ridge",
+                                  group.id]
+    assert rows[body.id][6] == "one two three four five six seven eight… (11 words)"
+    assert rows[table.id][1] == "table" and rows[table.id][6] == "3×4: Crew and route"
+    assert rows[chart.id][1] == "chart" and rows[chart.id][6] == "bar, 2 series"
+    assert rows[line.id][1:] == ["connector", [20, 400, 180, 0], None, None, None, None, None]
+    # a title placeholder's colour comes from the master's titleStyle
+    assert rows[order[0]][1:] == ["shape", [66, 29, 828, 104], None, 44,
+                                  "#000000 master titleStyle lvl1", "Plan", None]
 
 
 def test_read_slides_compact_pages_past_three_hundred_shapes(toolbox, session):
@@ -1077,7 +1089,8 @@ def test_read_slides_reads_a_layout_and_a_master_as_slides(toolbox, session):
     compact = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
                       slides=["L2"]))
     columns = compact.data["columns"]
-    assert columns == ["id", "kind", "box", "fill", "size", "text", "group", "placeholder"]
+    assert columns == ["id", "kind", "box", "fill", "size", "color", "text", "group",
+                       "placeholder"]
     rows = {row[0]: dict(zip(columns, row)) for row in compact.data["shapes"]}
     assert all(address.startswith("L2.") for address in rows)
     labels = [row["placeholder"] for row in rows.values()]
@@ -1097,7 +1110,7 @@ def test_read_slides_reads_a_layout_and_a_master_as_slides(toolbox, session):
     # Without a layout or master, the columns are as before.
     assert ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="compact",
                    slides=[1])).data["columns"] == ["id", "kind", "box", "fill", "size",
-                                                    "text", "group"]
+                                                    "color", "text", "group"]
     geometry = ok(call(toolbox, session, "ppt_read_slides", doc="d1", detail="geometry",
                        slides=["L2", 2])).data
     entry = next(e for e in geometry if e["id"] == note)
