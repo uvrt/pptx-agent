@@ -177,8 +177,9 @@ def test_an_unstyled_title_is_drawn_as_a_text_box_is():
     deck, slide, frame = chart_deck(title="Regions")
     rewrite_chart(deck, frame, lambda xml: re.sub(r' sz="\d+"', "", xml))
     title = [t for t in chart_text(frame) if t.part == "title"]
-    # A plain text box's cascade, as pptx2svg resolves a chart title: here the master's.
-    assert [(t.size, t.source) for t in title] == [(18.0, "the master's otherStyle")]
+    # A plain text box's cascade, as pptx2svg resolves a chart title: the presentation's
+    # default, not the master's otherStyle (measured, round 15).
+    assert [(t.size, t.source) for t in title] == [(18.0, "the presentation's default text style")]
 
 
 def test_hidden_chart_text_is_not_checked():

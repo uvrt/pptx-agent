@@ -5,9 +5,11 @@ the layout and master placeholders' list styles, the master's text style and the
 presentation's default, in that order (:mod:`.inherit`); a typeface may then be the
 theme's (``+mn-lt``).  Its colour comes the same way (the ``a:solidFill`` of ``a:rPr`` and
 each ``a:defRPr``, ECMA-376 Part 1, 21.1.2.3), with two more layers between a shape's own
-list style and the master's ``otherStyle`` for text that is not in a placeholder: a
-shape's ``p:style/a:fontRef`` colour (20.1.4.1.17) and a table cell's ``a:tcTxStyle``
-(20.1.4.2.30) from its table style's regions -- where pptx2svg measured them to sit.  A
+list style and what follows it for text that is not in a placeholder: a shape's
+``p:style/a:fontRef`` colour (20.1.4.1.17) and a table cell's ``a:tcTxStyle``
+(20.1.4.2.30) from its table style's regions -- where pptx2svg measured them to sit.  A text
+box or autoshape then takes the presentation's ``defaultTextStyle``, not the master's
+``otherStyle`` (:mod:`ooxml_common.drawingml.text_chain`, measured against PowerPoint).  A
 hyperlink's text with no colour of its own is the theme's ``hlink``.  A text body's autofit comes the same way, from its own ``a:bodyPr``
 outwards, and only ``normAutofit`` carries a ``fontScale``.
 
@@ -22,6 +24,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+
+from ooxml_common.drawingml import text_chain
 
 from ..oxml.xml import FILL_TAGS, Element, find, get_int, local_name, qn
 from . import inherit
@@ -162,7 +166,7 @@ def _color_layers(host, paragraph: Element, run: Element | None) -> list[tuple[E
     """Every element that may state the run's colour, nearest first, with a label for
     those :func:`describe` cannot name from where they sit: the run's ``a:rPr``, the
     paragraph's and each list-style level's ``a:defRPr``, and -- after the shape's own list
-    style, before the master's -- the host's text defaults (``fontRef``, ``tcTxStyle``)."""
+    style, before the rest -- the host's text defaults (``fontRef``, ``tcTxStyle``)."""
     layers: list[tuple[Element, str | None]] = []
     if run is not None:
         own = run.find(qn("a:rPr")) if local_name(run) != "endParaRPr" else run
@@ -186,11 +190,8 @@ def _color_layers(host, paragraph: Element, run: Element | None) -> list[tuple[E
     return layers + extras
 
 
-def color_source(host, paragraph: Element, run: Element | None):
-    """``(colour as stated, where it comes from)``: the nearest stated colour, unresolved
-    (``Color("tx1")``), and a label such as ``"the master's bodyStyle"``.  The colour is
-    ``None`` with a label when the nearest fill is not solid (``"... (gradFill)"``), and
-    with :data:`UNSTATED` when nothing states one."""
+def _nearest_color(host, paragraph: Element, run: Element | None):
+    """``(colour as stated or None, the element that states it or None, label)``."""
     from .color import Color
 
     for holder, label in _color_layers(host, paragraph, run):
@@ -199,16 +200,76 @@ def color_source(host, paragraph: Element, run: Element | None):
             if fill is None:
                 if holder.find(qn("a:hlinkClick")) is not None \
                         and local_name(holder) == "rPr":
-                    return Color("scheme", "hlink"), "the hyperlink (theme hlink)"
+                    return Color("scheme", "hlink"), holder, "the hyperlink (theme hlink)"
                 continue
             where = label or describe(holder)
             if local_name(fill) != "solidFill":
-                return None, f"{where} ({local_name(fill)})"
-            return Color.from_element(fill), where
+                return None, holder, f"{where} ({local_name(fill)})"
+            return Color.from_element(fill), holder, where
         stated = Color.from_element(holder)
         if stated is not None:
-            return stated, label or describe(holder)
-    return None, UNSTATED
+            return stated, holder, label or describe(holder)
+    return None, None, UNSTATED
+
+
+def color_source(host, paragraph: Element, run: Element | None):
+    """``(colour as stated, where it comes from)``: the nearest stated colour, unresolved
+    (``Color("tx1")``), and a label such as ``"the master's bodyStyle"``.  The colour is
+    ``None`` with a label when the nearest fill is not solid (``"... (gradFill)"``), and
+    with :data:`UNSTATED` when nothing states one."""
+    stated, _, label = _nearest_color(host, paragraph, run)
+    return stated, label
+
+
+def color_origin(host, paragraph: Element, run: Element | None) -> str:
+    """Where a run's colour comes from, by its short name in the chain PowerPoint walks
+    (:func:`ooxml_common.drawingml.text_chain.source_name`): ``"run"``, ``"paragraph"``,
+    ``"list style lvl1"``, ``"style fontRef"``, ``"table style"``, ``"layout lvl1"``,
+    ``"master lvl1"`` (the master placeholder), ``"master bodyStyle lvl2"``,
+    ``"defaultTextStyle lvl1"``; ``"hyperlink"`` for a link's theme colour, ``"default"``
+    when nothing states one (drawn black)."""
+    stated, holder, label = _nearest_color(host, paragraph, run)
+    if holder is None:
+        return text_chain.NOTHING
+    if label == "the hyperlink (theme hlink)":
+        return "hyperlink"
+    layer, level = layer_of(holder)
+    return text_chain.source_name(layer, level)
+
+
+def layer_of(properties: Element) -> tuple[str, int]:
+    """``(layer, 0-based level)`` of an element that states run properties: an ``a:rPr``,
+    an ``a:defRPr`` (its ``a:lvl<n>pPr`` gives the level), a ``fontRef`` or a table
+    style's ``a:tcTxStyle`` -- the layer named as :mod:`ooxml_common.drawingml.text_chain`
+    names it."""
+    name = local_name(properties)
+    if name in ("rPr", "endParaRPr"):
+        return text_chain.RUN, 0
+    if name == "fontRef":
+        return text_chain.FONT_REF, 0
+    if name == "tcTxStyle":
+        return text_chain.TABLE_STYLE, 0
+    holder = properties.getparent()
+    holder_name = local_name(holder) if holder is not None else ""
+    if holder_name == "pPr":
+        return text_chain.PARAGRAPH, 0
+    level = int(holder_name[3:-3]) - 1 if holder_name.startswith("lvl") and \
+        holder_name[3:-3].isdigit() else 0
+    root = properties.getroottree().getroot()
+    part = local_name(root)
+    if part == "presentation":
+        return text_chain.DEFAULT_TEXT_STYLE, level
+    if "tcTxStyle" in (local_name(node) for node in properties.iterancestors()):
+        return text_chain.TABLE_STYLE, 0
+    style = next((local_name(node) for node in properties.iterancestors()
+                  if local_name(node) in _STYLES), None)
+    if style is not None:
+        return f"master {style}", level
+    if part == "sldLayout":
+        return text_chain.LAYOUT, level
+    if part in ("sldMaster", "notesMaster"):
+        return text_chain.MASTER, level
+    return text_chain.LIST_STYLE, level
 
 
 def color(host, paragraph: Element, run: Element | None):
@@ -680,7 +741,7 @@ def write_autofit(body: Element, mode: str | None, font_scale: float | None = No
 
 
 __all__ = ["DEFAULT_COLOR", "TEXT_KINDS", "UNSTATED", "Autofit", "EffectiveParagraph",
-           "SizeOverride", "SmallText", "autofit", "chart_text_below", "color", "color_source",
+           "SizeOverride", "SmallText", "autofit", "chart_text_below", "color", "color_origin", "color_source",
            "describe", "list_styles", "paragraph", "paragraph_layout", "paragraph_sources", "size",
            "size_overrides", "size_overrides_json", "size_source", "slide_size",
            "small_text_json", "template_size", "text_below", "text_minimums", "typeface",

@@ -240,8 +240,9 @@ def _shown(*sources) -> bool:
 
 
 def _master_styles(shape) -> list:
-    """The list styles a plain text box on the shape's slide falls back to: the master's
-    ``otherStyle`` and the presentation's default text style."""
+    """The list styles a plain text box on the shape's slide falls back to: the
+    presentation's default text style (not the master's ``otherStyle``: measured,
+    :mod:`ooxml_common.drawingml.text_chain`)."""
     slide = shape._slide
     package = slide.document.package
     master = inherit.master_of(package, inherit.layout_of(package, slide.part_path))

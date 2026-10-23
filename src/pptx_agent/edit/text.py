@@ -1500,7 +1500,9 @@ class Run:
         """The colour the run is drawn in, resolved to RGB: its own, or what it inherits
         through the same chain as :attr:`effective_size` -- plus, for text outside a
         placeholder, its shape style's ``fontRef`` colour or its table style's text colour
-        (when the deck's ``tableStyles.xml`` defines the style) -- with a theme colour
+        (when the deck's ``tableStyles.xml`` defines the style); a text box or autoshape
+        then the presentation's default text style, not the master's ``otherStyle``
+        (measured: :mod:`ooxml_common.drawingml.text_chain`) -- with a theme colour
         taken through the slide's colour map and theme and its modifiers applied.  A
         hyperlink without a colour of its own is the theme's ``hlink``; text nothing gives
         a colour is black.  ``None`` when the text is not one solid colour (a gradient).
