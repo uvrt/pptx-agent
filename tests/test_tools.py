@@ -189,10 +189,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: 5,495 counted by the proxy), every definition 13,118 -> 13,168.  The guard rises to
 #: 13,170.  The strict set is unchanged in its members: check is not sent strict to Claude;
 #: on OpenAI, where it is, ``contrast`` is one more nullable number.
+#: Round 16, F11: the shared save_document's ``clean`` (documents: what Word never draws
+#: taken out of the file saved, ooxml-edit 0.60.0; a deck's handler takes none, so ooxml-edit
+#: refuses ``clean: true`` for it) +42: the core 3,713 -> 3,755 (about 5,557 counted by the
+#: proxy), every definition 13,168 -> 13,210.  The guard rises to 13,212.  The strict set is
+#: unchanged in its members: save_document is not sent strict to Claude; on OpenAI, where
+#: it is, ``clean`` is one more nullable boolean.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13170
+ALL_GUARD = 13212
 
 
 def estimate_tokens(definitions) -> int:
