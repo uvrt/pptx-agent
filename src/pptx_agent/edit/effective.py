@@ -571,15 +571,27 @@ class EffectiveParagraph:
 
 
 def paragraph(host, element: Element) -> EffectiveParagraph:
-    from .text import Bullet
-
-    sources = paragraph_sources(host, element)
     runs = [node for node in element if local_name(node) in ("r", "fld")]
     first = next((node for node in runs if (node.findtext(qn("a:t")) or "")), None)
     if first is None:
         first = element.find(qn("a:endParaRPr"))
         if first is None and runs:
             first = runs[0]
+    return EffectiveParagraph(
+        size=size(host, element, first),
+        font=typeface(host, element, first),
+        color=color(host, element, first),
+        **paragraph_layout(host, element),
+    )
+
+
+def paragraph_layout(host, element: Element) -> dict:
+    """The layout fields of :class:`EffectiveParagraph` -- ``level``, ``alignment``,
+    ``bullet``, the margins and the spacing -- without its runs' size, typeface and colour
+    (which resolve the theme), for a caller that compares only the layout."""
+    from .text import Bullet
+
+    sources = paragraph_sources(host, element)
 
     def attribute(name: str, default=None):
         for source in sources:
@@ -621,10 +633,8 @@ def paragraph(host, element: Element) -> EffectiveParagraph:
     # spcPts is hundredths of a point; 127 EMU each.
     before_points = None if before_points is None else round(before_points * 12700)
     after_points = None if after_points is None else round(after_points * 12700)
-    return EffectiveParagraph(
+    return dict(
         level=_level(element),
-        size=size(host, element, first),
-        font=typeface(host, element, first),
         alignment=_ALIGNMENT.get(attribute("algn", "l"), attribute("algn", "l")),
         bullet=bullet,
         margin_left=int(attribute("marL", 0)),
@@ -635,7 +645,6 @@ def paragraph(host, element: Element) -> EffectiveParagraph:
         space_before_lines=before_lines,
         space_after=after_points,
         space_after_lines=after_lines,
-        color=color(host, element, first),
     )
 
 
@@ -672,7 +681,7 @@ def write_autofit(body: Element, mode: str | None, font_scale: float | None = No
 
 __all__ = ["DEFAULT_COLOR", "TEXT_KINDS", "UNSTATED", "Autofit", "EffectiveParagraph",
            "SizeOverride", "SmallText", "autofit", "chart_text_below", "color", "color_source",
-           "describe", "list_styles", "paragraph", "paragraph_sources", "size",
+           "describe", "list_styles", "paragraph", "paragraph_layout", "paragraph_sources", "size",
            "size_overrides", "size_overrides_json", "size_source", "slide_size",
            "small_text_json", "template_size", "text_below", "text_minimums", "typeface",
            "write_autofit"]
