@@ -4,12 +4,15 @@ PowerPoint resolves a slide placeholder through its layout placeholder (matched 
 then by type), then the master placeholder of the same kind -- a title from the master's
 title, footers from theirs, everything else from the master's body -- and then, for text,
 the master's text style for that kind (``titleStyle``, ``bodyStyle`` or ``otherStyle``) and
-the presentation's ``defaultTextStyle``.  This is the chain :mod:`pptx_agent.outline.read`
+the presentation's ``defaultTextStyle``; text in a shape that is not a placeholder skips the
+master's style (:mod:`ooxml_common.drawingml.text_chain`, measured).  This is the chain :mod:`pptx_agent.outline.read`
 reads bullets through and pptx2svg resolves text with; here it is for sizes, fonts and
 spacing that an agent asks about (``Run.effective_size``, ``Layout.placeholders``).
 """
 
 from __future__ import annotations
+
+from ooxml_common.drawingml import text_chain
 
 from ..oxml.package import REL_SLIDE_LAYOUT, REL_SLIDE_MASTER
 from ..oxml.xml import Element, find, local_name, qn
@@ -38,12 +41,9 @@ def master_kind(kind: str | None) -> str:
 
 
 def text_style(kind: str | None, is_placeholder: bool = True) -> str:
-    """The master text style a placeholder of ``kind`` takes its levels from."""
-    if not is_placeholder:
-        return "otherStyle"
-    if kind in TITLE_TYPES:
-        return "titleStyle"
-    return "bodyStyle" if (kind or "obj") in BODY_TYPES else "otherStyle"
+    """The master text style a placeholder of ``kind`` takes its levels from (a table
+    cell's, ``is_placeholder`` false: ``otherStyle``)."""
+    return text_chain.master_text_style(kind) if is_placeholder else "otherStyle"
 
 
 def layout_of(package, slide_part: str) -> str | None:
@@ -71,23 +71,32 @@ def master_placeholder(package, master_part: str | None, kind: str) -> Element |
 
 def list_styles(package, master_part: str | None, own: Element | None,
                 layout_shape: Element | None, kind: str | None,
-                is_placeholder: bool) -> list[Element | None]:
-    """The list styles a text body's levels inherit from, nearest first: its own (``own``,
-    the shape's ``a:lstStyle``), the layout placeholder's, the master placeholder's, the
-    master's text style, the presentation's default."""
+                is_placeholder: bool, table_cell: bool = False) -> list[Element | None]:
+    """The list styles a text body's levels inherit from, nearest first, in the order
+    :func:`ooxml_common.drawingml.text_chain.inherited_layers` gives (the one pptx2svg draws
+    with, measured against PowerPoint): its own (``own``, the shape's ``a:lstStyle``), for a
+    placeholder the layout placeholder's and the master placeholder's, the master's text
+    style for its kind -- for a placeholder or a table cell only: a text box or autoshape
+    does not take the master's ``otherStyle`` -- and the presentation's default.  The
+    host's ``fontRef`` or table style sits after ``own`` (``effective``)."""
     chain: list[Element | None] = [own]
-    if is_placeholder:
-        if layout_shape is not None:
-            chain.append(layout_shape.find(f"{qn('p:txBody')}/{qn('a:lstStyle')}"))
-        master_shape = master_placeholder(package, master_part, master_kind(kind))
-        if master_shape is not None:
-            chain.append(master_shape.find(f"{qn('p:txBody')}/{qn('a:lstStyle')}"))
     root = package.tree(master_part) if master_part else None
-    if root is not None:
-        chain.append(find(root, f"p:txStyles/p:{text_style(kind, is_placeholder)}"))
-    presentation = package.tree(package.presentation_part())
-    if presentation is not None:
-        chain.append(find(presentation, "p:defaultTextStyle"))
+    for layer in text_chain.inherited_layers(kind, table_cell=table_cell,
+                                             placeholder=is_placeholder)[1:]:
+        if layer == text_chain.LAYOUT:
+            if layout_shape is not None:
+                chain.append(layout_shape.find(f"{qn('p:txBody')}/{qn('a:lstStyle')}"))
+        elif layer == text_chain.MASTER:
+            master_shape = master_placeholder(package, master_part, master_kind(kind))
+            if master_shape is not None:
+                chain.append(master_shape.find(f"{qn('p:txBody')}/{qn('a:lstStyle')}"))
+        elif layer.startswith("master "):
+            if root is not None:
+                chain.append(find(root, f"p:txStyles/p:{layer.split()[1]}"))
+        elif layer == text_chain.DEFAULT_TEXT_STYLE:
+            presentation = package.tree(package.presentation_part())
+            if presentation is not None:
+                chain.append(find(presentation, "p:defaultTextStyle"))
     return chain
 
 

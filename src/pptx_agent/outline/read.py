@@ -556,8 +556,8 @@ def _marks(properties: Element | None, relationships: dict) -> tuple[frozenset, 
 
 def style_chain(document: "Document", slide: "Slide", shape: "Shape") -> list:
     """The list styles a slide shape's paragraphs inherit from, nearest first: its own, its
-    layout and master placeholders', the master's text style for its kind, and the
-    presentation's default -- as pptx2svg resolves them."""
+    layout and master placeholders', the master's text style for its kind (a placeholder's
+    only), and the presentation's default -- as pptx2svg resolves them."""
     package = document.package
     chain = [shape._element.find(f"{qn('p:txBody')}/{qn('a:lstStyle')}")]
     placeholder = shape.placeholder
@@ -582,8 +582,10 @@ def style_chain(document: "Document", slide: "Slide", shape: "Shape") -> list:
         style = "titleStyle" if kind in TITLE_TYPES else "bodyStyle" \
             if (kind or "obj") in _BODY_TYPES else "otherStyle"
     else:
-        style = "otherStyle"
-    if master is not None:
+        # A text box or autoshape does not take the master's otherStyle (measured,
+        # ooxml_common.drawingml.text_chain).
+        style = None
+    if master is not None and style is not None:
         chain.append(find(master, f"p:txStyles/p:{style}"))
     presentation = package.tree(package.presentation_part())
     if presentation is not None:

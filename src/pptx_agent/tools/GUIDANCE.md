@@ -23,6 +23,7 @@ the deck as PowerPoint will show it, with shape addresses:
 | `layout` | changing calls that touched shapes | at most five: a box 1-3 pt off the line its like neighbours are on; one uneven gap in a row of like boxes; a paragraph size unlike its like boxes'; a label much farther from its marker than the others of its kind. Each carries `fix`, the exact call that makes it agree (`ppt_set_shape 256.6 y=150`) |
 | `empty_placeholders` | every changing call, `check` (with `fit`, the default) | placeholders that hold nothing (`shape`, `type`, `idx`). Measured in PowerPoint: an empty one (no text, or one empty paragraph) shows "Click to add text" (or "...title", a content placeholder's icons) while editing and no prompt in a show or export; a whitespace-only one shows no prompt but a stray bullet, exported too; several empty paragraphs show nothing. A placeholder holding a picture, table, chart or SmartArt is not empty; titles and subtitles count; date, footer and slide number do not. Fill them, or delete them with `ppt_manage_slides` `delete_empty_placeholders`, which keeps an empty title (fill it: a title names the slide in navigation and to a screen reader) and one with a fill or outline (PowerPoint draws that box in the export too) |
 | `spacing` | `check` with `spacing` (pt, e.g. `8`) | the tightest spacings below that many pt, nearest first, at most 12 a slide (`spacing_left_out` counts the rest): `between` two neighbours facing on an `axis` (each shape's nearest, in the same container), `inside` a filled or outlined shape (the content's `padding` to an `edge`, `also` others as near it), `clearance` to a `footer`, `slide_number` or `date`, or `content_area` (past the layout's, `gap` negative). Text as drawn, not its box; overlaps are `collisions`; full-slide backgrounds, lines and connectors are left out |
+| `contrast` | `check` with `contrast` (a ratio, e.g. `4.5`) | text drawn below that WCAG 2 contrast ratio with what is behind it, lowest first, at most 12 a slide (`contrast_left_out`): `shape`, `text`, `color` (as drawn), `behind`, `ratio`, `source` (where the colour comes from: `run`, `defaultTextStyle lvl1`, `style fontRef`...), `over` (`fill`, the shape beneath, `background`), `large` (18 pt, or 14 pt bold: held to 2/3 of the ratio). A picture, table or chart behind: `behind: "unknown"`, no ratio |
 | `validate` | every changing call, `check` | validation problems the call added (`new`) or removed (`fixed`) against the deck as opened |
 | `missing_glyphs` | `render` | text the image leaves out because the renderer has no font for it (`face`, `script`, `sample`); the deck is unchanged and PowerPoint draws it (`missing_glyphs_note`): install `pptx2svg-fonts` where the tools run |
 | `unresolved` | `save_document` | the overflows, collisions, off-slide shapes and empty placeholders still in the deck when it was saved (the save goes ahead) |
@@ -51,6 +52,11 @@ How to use them:
   put your threshold in the house rules and tell the model to quote the entry
   (`{"between": ["257.6", "257.34"], "axis": "y", "gap": 4.0}`) when it passes or fails one.
   Whether a tight gap is intended (a caption under its picture) is the model's call.
+- **Contrast is measured, so cite the ratio.** White text from a template's default text
+  style on a white slide is invisible and reads fine in the XML; `check` with
+  `contrast: 4.5` lists it (`"color": "#FFFFFF", "behind": "#FFFFFF", "ratio": 1.0,
+  "source": "defaultTextStyle lvl1"`), and the source says where to fix it -- the run, or
+  the template. Over a picture the ratio is unknown: look at the render.
 - **Design facts are inputs to your rules.** `ppt_design_facts` reports that a set of four
   like boxes uses four accent hues and that no legend covers them; whether that is a
   "rainbow" to fix is your house rule. Ask for it on slides with a graphic, before saving.

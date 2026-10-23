@@ -26,7 +26,7 @@ see [Units](#units-emu-everywhere-pt-for-points) below.
 | Shapes | position, size, rotation, flips, preset geometry and adjustments, fills and outlines in theme colours, z-order, duplicate, delete, groups; new autoshapes, text boxes, tables, pictures (SVG too, with a PNG fallback) and connectors that stay attached; a picture's native size, its image replaced; align and distribute; grid and flow |
 | Slides | add from a layout, duplicate, reorder, delete; titles, and a slide by its title; a layout's placeholders; draft whole slides from Markdown |
 | Decks | new from nothing or from a template; title, author, language, slide size; the theme's colours and fonts, read and set; which colours do which job, and their tints |
-| Checks | `validate()` (what PowerPoint would repair or refuse), `overflows()` and `text_fit()` (what will not fit, as PowerPoint draws it), `collisions()` (text over text, lines through text), `spacing()` (the tightest gaps, padding and frame clearances, as drawn), `measure_text()` (before building) |
+| Checks | `validate()` (what PowerPoint would repair or refuse), `overflows()` and `text_fit()` (what will not fit, as PowerPoint draws it), `collisions()` (text over text, lines through text), `spacing()` (the tightest gaps, padding and frame clearances, as drawn), `contrast()` (text in low contrast with what is behind it), `measure_text()` (before building) |
 | Round trips | a full-state SVG that can be edited anywhere and applied back |
 
 Every example below is run by `tests/test_usage.py`, from a directory holding
@@ -607,6 +607,15 @@ that are not overlaps, nearest first, each a `Spacing` (EMU; `to_json()` in poin
 pptx2svg every shape by its box (`report.drawn` is false). No verdicts: whether 4 pt under
 a heading is too tight is the application's rule. `check` with `spacing` reports the same.
 
+`slide.contrast(minimum=4.5)` measures text against what is behind it: each shape's worst
+run whose WCAG 2 contrast ratio is below `minimum` (large text, 18 pt or 14 pt bold, two
+thirds of it), lowest first, each a `Contrast` with `color`, `behind`, `ratio`, `source`
+(where the colour comes from, `effective.color_origin`) and `over` (the shape's own fill,
+the shape beneath, or the slide's background). The colour is the one PowerPoint draws:
+a text box takes the presentation's `defaultTextStyle`, not the master's `otherStyle`
+(measured; `ooxml_common.drawingml.text_chain`). A picture, table or chart behind the text
+gives `behind: "unknown"`. `check` with `contrast` reports the same.
+
 Layering is not a collision: a shape lying wholly on an opaque shape behind it (a label on a
 bar, a title on a banner, text on a picture). A group's members are compared with each
 other and the rest of the slide, never with their own group. Overlaps under a point are
@@ -753,11 +762,11 @@ with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS) as toolbox:
     session = toolbox.session()
     session.open(deck.to_bytes(), "stations.pptx")
     brief = toolbox.dispatch(session, "ppt_read_slides", {"doc": "d1", "detail": "compact"})
-    print(brief.data["columns"])     # -> ['id', 'kind', 'box', 'fill', 'size', 'text', 'group']
+    print(brief.data["columns"])     # -> ['id', 'kind', 'box', 'fill', 'size', 'color', 'text', 'group']
     rows = brief.data["shapes"]
-    print(rows[1])                   # -> ['256.5', 'group', [50, 160, 180, 90], None, None, '2 shapes', None]
-    print(rows[2])                   # -> ['256.3', 'shape', [50, 160, 180, 90], '#156082', None, None, '256.5']
-    print(rows[3][4:6])              # -> [18, 'Station 1: plan the river crossing with the… (10 words)']
+    print(rows[1])                   # -> ['256.5', 'group', [50, 160, 180, 90], None, None, None, '2 shapes', None]
+    print(rows[2])                   # -> ['256.3', 'shape', [50, 160, 180, 90], '#156082', None, None, None, '256.5']
+    print(rows[3][4:7])              # -> [18, '#000000 defaultTextStyle lvl1', 'Station 1: plan the river crossing with the… (10 words)']
 ```
 
 `geometry` gives every shape in full -- its text whole, font sizes, frame, outline, cell
@@ -766,7 +775,9 @@ one row under a header of `columns`, back to front as geometry orders them: the 
 kind (geometry's, with a graphic frame named `table`, `chart` or `smartart`); the box
 `[x, y, w, h]` in whole points; the fill as drawn (the resolved hex, or `gradient`,
 `image`, `pattern`); the text's size (the effective size most of its characters are
-drawn at, inherited and autofit-scaled); and its first eight words, with the count when there are more.
+drawn at, inherited and autofit-scaled); the colour it is drawn in and where that comes
+from (`"#FFFFFF defaultTextStyle lvl1"`: the same effective colour and source as geometry's
+`text_color` and `color_source`, `"mixed"` when its runs differ); and its first eight words, with the count when there are more.
 A table says its size and first cell (`3×4: Crew and route`), a chart its type and series
 (`bar, 2 series`), a group how many shapes it holds; each group member names its group
 in the last column, so a grid of tiles reads as one. `null` is "none". On a made-up

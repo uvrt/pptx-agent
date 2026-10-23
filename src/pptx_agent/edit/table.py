@@ -881,15 +881,15 @@ class TableCell:
         self.text_frame.set_text(value)
 
     def _list_styles(self) -> list:
-        """A cell is not a placeholder: its own list style, the master's ``otherStyle``,
-        the presentation's default."""
+        """A cell is not a placeholder: its own list style, the master's ``otherStyle``
+        (which a cell, unlike a text box, takes), the presentation's default."""
         from . import inherit
 
         shape = self._table._shape()
         package = shape._slide.document.package
         master = shape._slide._template_parts()[1]
         own = self._tc().find(f"{qn('a:txBody')}/{qn('a:lstStyle')}")
-        return inherit.list_styles(package, master, own, None, None, False)
+        return inherit.list_styles(package, master, own, None, None, False, table_cell=True)
 
     def _body_chain(self) -> list:
         return [self._tc().find(f"{qn('a:txBody')}/{qn('a:bodyPr')}")]

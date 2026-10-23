@@ -510,10 +510,12 @@ DECK_FACTS = ("fit", "collisions", "validate")
 
 @shared.handler("check", kind=KIND)
 @library_errors
-def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing=None):
+def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing=None,
+          contrast=None):
     if pages is not None:
         raise _deck_only("pages", "slides")
     below = None if spacing is None else float(spacing)
+    minimum = None if contrast is None else float(contrast)
     deck = call.document
     wanted = list(include or DECK_FACTS)
     notes = []
@@ -527,7 +529,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing
     entry = call.entry
     version = entry.version
     key = ("check", tuple(ids), tuple(sorted(set(wanted))), bool(boxes), font_dirs_of(deck),
-           locale_of(deck), tuple(text_minimums(deck.min_text_size).items()), below)
+           locale_of(deck), tuple(text_minimums(deck.min_text_size).items()), below, minimum)
     data = entry.check_cache.get((version, key))
     if data is None:
         target = deck
@@ -549,6 +551,8 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing
                 data.update(slide_facts_json(target, ids, problems="facts" in wanted))
             if below is not None:
                 data.update(spacing_json(target, ids, below))
+            if minimum is not None:
+                data.update(contrast_json(target, ids, minimum))
             problems = target.validate() if "validate" in wanted else None
         if problems is not None:
             data["validate"] = {"problems": [str(p) for p in problems],
@@ -564,6 +568,9 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing
     if below is not None:
         tight = (f", {len(data['spacing']) + data.get('spacing_left_out', 0)} spacing(s) "
                  f"below {below:g} pt")
+    if minimum is not None:
+        tight += (f", {len(data['contrast']) + data.get('contrast_left_out', 0)} text(s) "
+                  f"below {minimum:g}:1 contrast")
     return Result(summary=f"{count} fit/collision fact(s), {new} new validation problem(s)"
                   f"{tight}", data=data)
 
@@ -596,6 +603,35 @@ def spacing_json(deck, ids, below: float) -> dict[str, Any]:
         out["spacing_note"] = SPACING_NOTE
     if not drawn:                              # pragma: no cover - without pptx2svg
         out["spacing_boxes"] = "text measured by its box: pptx2svg is not installed"
+    return out
+
+
+#: The texts ``check`` lists per slide for ``contrast``, lowest first; ``contrast_left_out``
+#: counts the rest.
+CONTRAST_PER_SLIDE = 12
+
+#: Said with ``contrast``: what an entry measures.
+CONTRAST_NOTE = ("contrast: measured, lowest first: WCAG 2 ratio of the text's colour as drawn "
+                 "(source: where it comes from) to what is behind it (over: its own fill, a "
+                 "shape beneath, or the background; a gradient's worst stop; alpha blended); "
+                 "large text (18 pt, 14 pt bold) held to 2/3 of the threshold; behind "
+                 "unknown: a picture, table or chart there, not sampled")
+
+
+def contrast_json(deck, ids, minimum: float) -> dict[str, Any]:
+    """``check``'s ``contrast``: each slide's text below ``minimum``:1 contrast with what is
+    behind it (:meth:`Slide.contrast <pptx_agent.Slide.contrast>`), lowest first, at most
+    :data:`CONTRAST_PER_SLIDE` a slide."""
+    found, left_out = [], 0
+    for sid in ids:
+        report = deck.slide(f"s:{sid}").contrast(minimum=minimum)
+        found += [entry.to_json() for entry in report.entries[:CONTRAST_PER_SLIDE]]
+        left_out += max(0, len(report.entries) - CONTRAST_PER_SLIDE)
+    out: dict[str, Any] = {"contrast": found}
+    if left_out:
+        out["contrast_left_out"] = left_out
+    if found:
+        out["contrast_note"] = CONTRAST_NOTE
     return out
 
 
