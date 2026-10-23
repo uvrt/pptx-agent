@@ -6,6 +6,23 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- `ppt_compare_slides` compares the text's layout (round 14, S1): per paragraph level,
+  `align`, `line_spacing` (a multiple, `"18pt"` when exact), `space_before` and
+  `space_after` (pt, `"20%"` of a line) and `bullet` (`none`, `char •`, `autonum
+  arabicPeriod`, `picture`) -- the level's first paragraph with text's, or `mixed`; and the
+  frame's `anchor`, `insets` (pt), `autofit` and `direction` (`a:bodyPr@vert`). As drawn:
+  the shape, its list style, layout and master placeholders, master text styles and the
+  presentation's default resolved (`effective.paragraph_layout`, the size, typeface and
+  colour left out; `TextFrame`'s inherited frame attributes), so one slide stating `left`
+  and another inheriting it agree. Shapes and paragraphs without text are left out. Every
+  difference has the `ppt_format_text` items that give the majority's value, valid against
+  its strict schema; none where that tool cannot write it (the direction, an exact line
+  spacing, a share of a line, another bullet character or numbering scheme, `distributed`,
+  a `mixed` majority). The description +19 estimated tokens: every definition 13,099 ->
+  13,118 (guard 13,120), the core unchanged (3,664, the tool is deferred); a reviewer's
+  core 2,333 -> 2,352 (guard 2,355), all 4,581 -> 4,601 (guard 4,605); the strict set
+  unchanged. A result is unchanged where nothing differs.
+
 - Usage: renders run in worker processes, so a script keeps its work under
   `if __name__ == "__main__":`; without the guard the toolbox no longer waits two minutes a
   render but renders in subprocess workers, saying why (round 13, R6; ooxml-edit 0.58.0,

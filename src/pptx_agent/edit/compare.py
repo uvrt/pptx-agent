@@ -40,6 +40,24 @@ none) and its outline's colour and width.  Bold, italic and the like are not com
 A shape without text, a fill or an outline has no value for those properties and is left
 out of their comparison.
 
+**Text layout** (round 14, S1), of a shape with text, as drawn -- the paragraph's own
+``a:pPr``, its shape's list style, the layout and master placeholders', the master's text
+style and the presentation's default (:func:`.effective.paragraph_layout`), the frame's
+``a:bodyPr`` from the shape outwards (:class:`~pptx_agent.TextFrame`): per paragraph level,
+like the size, ``align`` (``ppt_format_text``'s names), ``line_spacing`` (a multiple of
+single, ``"18pt"`` when exact), ``space_before`` and ``space_after`` (points, ``"20%"`` when
+a share of a line) and ``bullet`` (``none``, ``char •``, ``autonum arabicPeriod``,
+``picture``) -- each the level's first paragraph with text's, ``"mixed"`` when another of
+the level differs; and the frame's ``anchor``, ``insets`` (left, top, right, bottom, points,
+within the tolerance), ``autofit`` (``none``, ``normal``, ``shape``) and ``direction``
+(``a:bodyPr@vert``, ``horz`` when nothing says).  Paragraphs without text are left out.
+Every difference -- not only a near-miss: a heading centred on some slides of a run is
+seldom a design -- gets ``ppt_format_text`` items giving the majority's value (a level's
+paragraphs, or the shape when all its paragraphs are of the level); none where that tool
+cannot write the value: the direction, an exact line spacing, a share of a line, a bullet
+other than ``•`` or numbering other than ``arabicPeriod``, ``distributed`` alignment or
+anchor, and a ``mixed`` majority.
+
 **Tables** (round 11, P3) are compared inside, as PowerPoint draws them (pptx2svg's table
 layout, :attr:`Table.drawn_row_heights <pptx_agent.edit.table.Table.drawn_row_heights>`):
 with the Header Row flag on, the header row's height (``header_h``), fill (``header_fill``,
@@ -93,11 +111,17 @@ NEAR_CHANNEL = 8
 #: overlap may still be matched by position.
 POSITION_REACH = 36.0
 #: What is compared, in the order reported.
-PROPERTIES = ("x", "y", "w", "h", "size", "color", "font", "fill", "line", "line_width",
-              "header_h", "header_fill", "header_size", "row_h", "widths", "insets",
-              "borders")
+PROPERTIES = ("x", "y", "w", "h", "size", "color", "font", "align", "line_spacing",
+              "space_before", "space_after", "bullet", "anchor", "autofit", "direction",
+              "fill", "line", "line_width", "header_h", "header_fill", "header_size", "row_h",
+              "widths", "insets", "borders")
 _NUMERIC = frozenset(("x", "y", "w", "h", "size", "line_width", "header_h", "header_size",
-                      "row_h"))
+                      "row_h", "space_before", "space_after"))
+#: A text's layout, per paragraph level (round 14, S1): each level's first paragraph's
+#: effective value, ``"mixed"`` when that level's paragraphs differ.
+_PARAGRAPH = ("align", "line_spacing", "space_before", "space_after", "bullet")
+#: A text frame's layout, as it applies (its own, else its layout's and master's).
+_FRAME = ("anchor", "autofit", "direction")
 #: Compared element by element, each within the tolerance: a table's column widths and its
 #: cells' insets (left, top, right, bottom), points.
 _SERIES = frozenset(("widths", "insets"))
@@ -206,11 +230,84 @@ def _text_values(shape: "Shape", out: dict) -> None:
     for level, counter in sorted(sizes.items()):
         points = _dominant(counter)
         out[("size", level)] = _Value(points, size_source.get((level, points)))
+    if sizes:                            # text to lay out: an empty shape has no layout
+        _layout_values(frame, host, out)
     if colours:
         key = _dominant(colours)
         out[("color", 0)] = _Value(key, colour_source.get(key), colour_fix[key])
     if faces:
         out[("font", 0)] = _Value(_dominant(faces))
+
+
+def _layout_values(frame, host, out: dict) -> None:
+    """The text's layout as drawn (:func:`.effective.paragraph_layout`, the frame's inherited
+    attributes): per level, the paragraph properties of :data:`_PARAGRAPH` -- the first
+    paragraph with text's, ``"mixed"`` when another of the level differs -- and the frame's
+    anchor, insets, autofit and text direction.  Each value's ``fix`` is the
+    ``ppt_format_text`` item keys that give it, ``None`` where no tool sets it."""
+    levels: dict[int, dict[str, list]] = {}
+    for paragraph in frame.paragraphs:
+        if not paragraph.text.strip():
+            continue
+        drawn = effective.paragraph_layout(host, paragraph._element())
+        values = levels.setdefault(drawn["level"], {})
+        for name, value in _paragraph_layout(drawn).items():
+            values.setdefault(name, []).append(value)
+    for level, values in sorted(levels.items()):
+        for name in _PARAGRAPH:
+            seen = values[name]
+            first = seen[0]
+            if any(value != first for value in seen[1:]):
+                out[(name, level)] = _Value("mixed")
+            else:
+                out[(name, level)] = _Value(first[0], fix=first[1])
+    anchor = frame.anchor
+    out[("anchor", 0)] = _Value(anchor, fix={"anchor": anchor} if anchor in _ANCHORS else None)
+    out[("insets", 0)] = _Value(tuple(_points(side) for side in frame.insets))
+    autofit = frame.autofit
+    out[("autofit", 0)] = _Value(autofit, fix={"autofit": autofit})
+    # a:bodyPr@vert (ECMA-376 Part 1, 21.1.2.1.1; "horz" when nothing says): no tool sets it.
+    out[("direction", 0)] = _Value(frame._frame_attribute("vert") or "horz")
+
+
+#: The values ``ppt_format_text`` writes: ``align`` and ``anchor``.
+_ALIGNS = ("left", "center", "right", "justify")
+_ANCHORS = ("top", "middle", "bottom")
+
+
+def _paragraph_layout(drawn: dict) -> dict[str, tuple]:
+    """A paragraph's :data:`_PARAGRAPH` values, each ``(value, fix)``: line spacing a
+    multiple of single (``"18pt"`` when exact), space before and after points (``"20%"``
+    of a line when the style gives a share), the bullet ``none``, ``char •``, ``autonum
+    arabicPeriod`` or ``picture``."""
+    align = drawn["alignment"]
+    out = {"align": (align, {"align": align} if align in _ALIGNS else None)}
+    exact, multiple = drawn["line_spacing_points"], drawn["line_spacing"]
+    if exact is not None:
+        out["line_spacing"] = (f"{_number(exact)}pt", None)
+    else:
+        multiple = 1 if multiple is None else _number(round(multiple, 2))
+        out["line_spacing"] = (multiple, {"line_spacing": multiple}
+                               if 0.1 <= multiple <= 10 else None)   # the tool's range
+    for name in ("space_before", "space_after"):
+        lines = drawn[f"{name}_lines"]
+        if lines is not None:
+            out[name] = (f"{_number(round(lines * 100, 2))}%", None)
+        else:
+            points = _number(_points(drawn[name] or 0))
+            out[name] = (points, {name: points} if points <= 1000 else None)
+    bullet = drawn["bullet"]
+    if bullet is None:
+        out["bullet"] = ("none", {"bullet": "none"})
+    elif bullet.kind == "char":
+        out["bullet"] = (f"char {bullet.char}",
+                         {"bullet": "bullet"} if bullet.char == "\u2022" else None)
+    elif bullet.kind == "number":
+        out["bullet"] = (f"autonum {bullet.scheme}",
+                         {"bullet": "number"} if bullet.scheme == "arabicPeriod" else None)
+    else:
+        out["bullet"] = (bullet.kind, None)
+    return out
 
 
 def _dominant(counter: Counter):
@@ -537,8 +634,9 @@ def match(slides: list["Slide"]) -> list[ShapeGroup]:
 def _near(name: str, a, b, within: float) -> bool:
     if name in _SERIES:
         return len(a) == len(b) and all(abs(p - q) <= within + 1e-9 for p, q in zip(a, b))
-    if name in _NUMERIC:
-        return abs(a - b) <= within + 1e-9
+    if name in _NUMERIC:                # a share of a line ("20%") or "mixed" is no number
+        return isinstance(a, (int, float)) and isinstance(b, (int, float)) \
+            and abs(a - b) <= within + 1e-9
     if name in _COLOURS and isinstance(a, str) and isinstance(b, str) \
             and len(a) == len(b) == 7 and a.startswith("#") and b.startswith("#"):
         return all(abs(int(a[i:i + 2], 16) - int(b[i:i + 2], 16)) <= NEAR_CHANNEL
@@ -562,6 +660,8 @@ def _fix_item(name: str, level: int, shape: "Shape", value: _Value, majority: _V
         return [{"target": target, "line": {"width": _number(majority.value)}}]
     if name == "color":
         return [{"target": target, "color": majority.fix or majority.value}]
+    if name in _FRAME:
+        return None if majority.fix is None else [{"target": target, **majority.fix}]
     if name == "size":
         frame = shape.text_frame
         host = frame._host()
@@ -570,11 +670,20 @@ def _fix_item(name: str, level: int, shape: "Shape", value: _Value, majority: _V
                 and effective.template_size(host, paragraphs[0]._element()) == majority.value \
                 and {o.level for o in effective.size_overrides(target, shape)} <= {level}:
             return [{"target": target, "size": 0}]        # no other level's size goes too
-        if all(p.level == level for p in frame.paragraphs):
-            return [{"target": target, "size": _number(majority.value)}]
-        return [{"target": p.address, "size": _number(majority.value)} for p in paragraphs
-                if p.text.strip()]
+        return _level_items(shape, level, {"size": _number(majority.value)})
+    if name in _PARAGRAPH:
+        return None if majority.fix is None else _level_items(shape, level, majority.fix)
     return None
+
+
+def _level_items(shape: "Shape", level: int, keys: dict) -> list[dict]:
+    """``ppt_format_text`` items giving a level's paragraphs ``keys``: the shape when all
+    its paragraphs are of the level, else each of the level's paragraphs with text."""
+    frame = shape.text_frame
+    if all(p.level == level for p in frame.paragraphs):
+        return [{"target": shape.id, **keys}]
+    return [{"target": p.address, **keys} for p in frame.paragraphs
+            if p.level == level and p.text.strip()]
 
 
 def _row_fix(shape: "Shape", majority: _Value, rows: list[int]):
@@ -610,10 +719,14 @@ _TABLE_FIX = {
 
 _FIX_TOOL = {"size": "ppt_format_text", "color": "ppt_format_text",
              "header_size": "ppt_format_text", "insets": "ppt_format_text",
+             **{name: "ppt_format_text" for name in (*_PARAGRAPH, *_FRAME)},
              "header_h": "ppt_edit_table", "row_h": "ppt_edit_table",
              "widths": "ppt_edit_table", "header_fill": "ppt_edit_table"}
 #: Tools that take one target a call: their fixes are ``calls``, not ``items``.
 _ONE_TARGET = frozenset(("ppt_edit_table",))
+#: Every difference fixed, not only a near-miss: a table's, and the text's layout -- a
+#: heading centred on some slides of a run is seldom a design (round 14, S1).
+_ALWAYS_FIX = frozenset((*_TABLE_FIX, *_PARAGRAPH, *_FRAME))
 
 
 @dataclass
@@ -633,13 +746,14 @@ class Comparison:
         slides -- ``{"shape": first address, "name", "by": "position" (when matched so),
         "differ": [...], "missing_on": [...]}``; ``only`` the groups on half the slides or
         fewer, ``{"shape", "name", "shapes": [addresses]}``.  Each ``differ`` entry is
-        ``{"property", "level" (sizes past level 0), "value": the majority's, "on": how many
-        have it, "from", "near": [{"value", "from", "shapes"}], "other": [...], "fix":
-        {"tool", "items"}}`` -- ``fix`` for the near-misses only, and for every differing
-        table (``{"tool": "ppt_edit_table", "calls": [...]}``, a call per entry); ``from``
-        given where the sources differ; ``rows`` a table's body row counts beside its
-        ``row_h`` (the majority's, and each value's).  A name group whose names differ has ``{"property": "name",
-        "value", "on", "other"}`` first."""
+        ``{"property", "level" (a size's or paragraph property's, past level 0), "value":
+        the majority's, "on": how many have it, "from", "near": [{"value", "from",
+        "shapes"}], "other": [...], "fix": {"tool", "items"}}`` -- ``fix`` for the
+        near-misses, for every text-layout difference and for every differing table
+        (``{"tool": "ppt_edit_table", "calls": [...]}``, a call per entry); ``from`` given
+        where the sources differ; ``rows`` a table's body row counts beside its ``row_h``
+        (the majority's, and each value's).  A name group whose names differ has
+        ``{"property": "name", "value", "on", "other"}`` first."""
         entries, only = self.entries()
         return {"slides": [f"s:{sid}" for sid in self.slides], "matched": len(self.groups),
                 "agree": len(self.groups) - len(entries) - len(only),
@@ -696,7 +810,7 @@ class Comparison:
             majority_source = sources.most_common(1)[0][0]
             majority = next(value for value in majority_values if value.source == majority_source)
             entry: dict[str, Any] = {"property": name}
-            if name == "size" and level:
+            if level:                        # a text size's or paragraph's level
                 entry["level"] = level
             entry["value"] = _number(top)
             entry["on"] = best
@@ -716,9 +830,9 @@ class Comparison:
                     counts_of.setdefault((value.value, value.source), set()).add(value.rows)
                 # A table's rows, widths, insets and header: every one that differs is fixed
                 # (a stretched header is no design), but not across column counts.
-                table_fix = name in _TABLE_FIX and not (
+                always = name in _ALWAYS_FIX and not (
                     name in _SERIES and len(value.value) != len(majority.value))
-                if bucket is near or table_fix:
+                if bucket is near or always:
                     items = _fix_item(name, level, shape, value, majority)
                     if items is None:
                         fixes = None
@@ -736,7 +850,7 @@ class Comparison:
                             if (value, source) in counts_of else {}),
                          "shapes": shapes}
                         for (value, source), shapes in bucket.items()]
-            if fixes and (near or name in _TABLE_FIX):
+            if fixes and (near or name in _ALWAYS_FIX):
                 tool = _FIX_TOOL.get(name, "ppt_set_shape")
                 entry["fix"] = {"tool": tool,
                                 "calls" if tool in _ONE_TARGET else "items": fixes}
