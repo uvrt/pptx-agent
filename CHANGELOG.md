@@ -6,6 +6,16 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- The shared `check` takes `layout` in `include`, `min_size` and `styles` (ooxml-edit 0.61.0,
+  round 16, F8): a document's layout facts and what they measure against. A deck's handler
+  takes neither measure, so ooxml-edit refuses them for a deck (`invalid_arguments`, the
+  field named); `layout` in `include` is noted `layout: documents only`, as `reflow` and
+  `fields` are. A deck's small text stays the application's `min_text_size`
+  (`deck_format`). Definitions +67 estimated tokens: core 3,755 -> 3,822 (about 5,657
+  counted), every definition 13,210 -> 13,277 (guard 13,212 -> 13,279), a reviewer's core
+  2,444 -> 2,511 (guard 2,447 -> 2,514), every reviewer definition 4,692 -> 4,759 (guard
+  4,697 -> 4,764); the strict set's members unchanged.
+
 - The shared `save_document` takes `clean` (ooxml-edit 0.60.0, round 16, F11): what Word
   keeps but never draws taken out of a document's file. A deck's handler takes none, so
   ooxml-edit refuses `clean: true` for a deck (`invalid_arguments`, `field: "clean"`); no
