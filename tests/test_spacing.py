@@ -189,3 +189,16 @@ def test_check_lists_a_slides_nearest_and_counts_the_rest(toolbox):
     assert total > SPACING_PER_SLIDE
     assert len(data["spacing"]) == SPACING_PER_SLIDE
     assert data["spacing_left_out"] == total - SPACING_PER_SLIDE
+
+
+def test_a_decks_check_refuses_a_documents_layout_measures(toolbox):
+    """Round 16, F8: ``min_size`` and ``styles`` measure a document's layout (ooxml-edit refuses
+    them for a deck, whose handler takes neither); ``layout`` in include is noted, not run."""
+    deck, _, _ = _summary()
+    session = toolbox.session(clock=CLOCK)
+    session.open(deck.to_bytes(), "summary.pptx")
+    for name, value in (("min_size", 9), ("styles", ["Normal"])):
+        refused = toolbox.dispatch(session, "check", {"doc": "d1", name: value})
+        assert not refused.ok and refused.error.code == "invalid_arguments" and refused.error.field == name
+    noted = _check(toolbox, deck, include=["fit", "layout"]).data
+    assert noted["notes"] == ["layout: documents only"] and "layout" not in noted

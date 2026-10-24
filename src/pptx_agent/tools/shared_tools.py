@@ -520,7 +520,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing
     wanted = list(include or DECK_FACTS)
     notes = []
     for item in wanted:
-        if item in ("reflow", "fields"):
+        if item in ("reflow", "fields", "layout"):
             notes.append(f"{item}: documents only")
         elif item == "app":
             notes.append("app: no critique pass is registered for decks")
