@@ -48,6 +48,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from lxml import etree
+from ooxml_common.drawingml import theme
 
 from ..oxml.xml import NAMESPACES, Element, qn, serialize
 from .errors import ArgumentError
@@ -112,45 +113,11 @@ _P15 = "http://schemas.microsoft.com/office/powerpoint/2012/main"
 
 # -- the theme -------------------------------------------------------------------------------
 
-#: The Office theme's colours (PowerPoint 2023 onwards): name -> sRGB, or a system colour.
-THEME_COLORS: tuple[tuple[str, str], ...] = (
-    ("dk1", "sys:windowText:000000"), ("lt1", "sys:window:FFFFFF"),
-    ("dk2", "0E2841"), ("lt2", "E8E8E8"),
-    ("accent1", "156082"), ("accent2", "E97132"), ("accent3", "196B24"),
-    ("accent4", "0F9ED5"), ("accent5", "A02B93"), ("accent6", "4EA72E"),
-    ("hlink", "467886"), ("folHlink", "96607D"),
-)
-MAJOR_FONT, MINOR_FONT = "Aptos Display", "Aptos"
-_APTOS_PANOSE = "02110004020202020204"
-#: Per-script fallback faces of the Office font scheme: script -> (major, minor).
-_SCRIPT_FONTS: tuple[tuple[str, str, str], ...] = (
-    ("Jpan", "游ゴシック Light", "游ゴシック"), ("Hang", "맑은 고딕", "맑은 고딕"),
-    ("Hans", "等线 Light", "等线"), ("Hant", "新細明體", "新細明體"),
-    ("Arab", "Times New Roman", "Arial"), ("Hebr", "Times New Roman", "Arial"),
-    ("Thai", "Angsana New", "Cordia New"), ("Ethi", "Nyala", "Nyala"),
-    ("Beng", "Vrinda", "Vrinda"), ("Gujr", "Shruti", "Shruti"),
-    ("Khmr", "MoolBoran", "DaunPenh"), ("Knda", "Tunga", "Tunga"),
-    ("Guru", "Raavi", "Raavi"), ("Cans", "Euphemia", "Euphemia"),
-    ("Cher", "Plantagenet Cherokee", "Plantagenet Cherokee"),
-    ("Yiii", "Microsoft Yi Baiti", "Microsoft Yi Baiti"),
-    ("Tibt", "Microsoft Himalaya", "Microsoft Himalaya"), ("Thaa", "MV Boli", "MV Boli"),
-    ("Deva", "Mangal", "Mangal"), ("Telu", "Gautami", "Gautami"), ("Taml", "Latha", "Latha"),
-    ("Syrc", "Estrangelo Edessa", "Estrangelo Edessa"), ("Orya", "Kalinga", "Kalinga"),
-    ("Mlym", "Kartika", "Kartika"), ("Laoo", "DokChampa", "DokChampa"),
-    ("Sinh", "Iskoola Pota", "Iskoola Pota"), ("Mong", "Mongolian Baiti", "Mongolian Baiti"),
-    ("Viet", "Times New Roman", "Arial"), ("Uigh", "Microsoft Uighur", "Microsoft Uighur"),
-    ("Geor", "Sylfaen", "Sylfaen"), ("Armn", "Arial", "Arial"),
-    ("Bugi", "Leelawadee UI", "Leelawadee UI"),
-    ("Bopo", "Microsoft JhengHei", "Microsoft JhengHei"),
-    ("Java", "Javanese Text", "Javanese Text"), ("Lisu", "Segoe UI", "Segoe UI"),
-    ("Mymr", "Myanmar Text", "Myanmar Text"), ("Nkoo", "Ebrima", "Ebrima"),
-    ("Olck", "Nirmala UI", "Nirmala UI"), ("Osma", "Ebrima", "Ebrima"),
-    ("Phag", "Phagspa", "Phagspa"), ("Syrn", "Estrangelo Edessa", "Estrangelo Edessa"),
-    ("Syrj", "Estrangelo Edessa", "Estrangelo Edessa"),
-    ("Syre", "Estrangelo Edessa", "Estrangelo Edessa"), ("Sora", "Nirmala UI", "Nirmala UI"),
-    ("Tale", "Microsoft Tai Le", "Microsoft Tai Le"),
-    ("Talu", "Microsoft New Tai Lue", "Microsoft New Tai Lue"), ("Tfng", "Ebrima", "Ebrima"),
-)
+#: The Office theme's colours, Latin faces and per-script faces, and its format scheme's
+#: gradients and line widths: :mod:`ooxml_common.drawingml.theme`, measured from a new blank
+#: presentation as described above, which docx-agent's new document shares.
+THEME_COLORS = theme.OFFICE_THEME_COLORS
+MAJOR_FONT, MINOR_FONT = theme.OFFICE_MAJOR_FONT, theme.OFFICE_MINOR_FONT
 #: The fonts a new deck uses, as ``app.xml`` lists them: the theme's two and the bullets'.
 FONTS_USED = ("Aptos", "Aptos Display", "Arial")
 BULLET_FONT = ("Arial", "020B0604020202020204", "34", "0")  # typeface, panose, pitch, charset
@@ -475,23 +442,19 @@ def theme_xml() -> bytes:
     fonts = _sub(elements, "a:fontScheme", name="Office")
     for tag, face, column in (("a:majorFont", MAJOR_FONT, 1), ("a:minorFont", MINOR_FONT, 2)):
         holder = _sub(fonts, tag)
-        _sub(holder, "a:latin", typeface=face, panose=_APTOS_PANOSE)
+        _sub(holder, "a:latin", typeface=face, panose=theme.APTOS_PANOSE)
         _sub(holder, "a:ea", typeface="")
         _sub(holder, "a:cs", typeface="")
-        for entry in _SCRIPT_FONTS:
+        for entry in theme.POWERPOINT_SCRIPT_FONTS:
             _sub(holder, "a:font", script=entry[0], typeface=entry[column])
     formats = _sub(elements, "a:fmtScheme", name="Office")
     fills = _sub(formats, "a:fillStyleLst")
     _scheme(fills, "phClr")
-    _gradient(fills, ((0, (("lumMod", 110000), ("satMod", 105000), ("tint", 67000))),
-                      (50000, (("lumMod", 105000), ("satMod", 103000), ("tint", 73000))),
-                      (100000, (("lumMod", 105000), ("satMod", 109000), ("tint", 81000)))))
-    _gradient(fills, ((0, (("satMod", 103000), ("lumMod", 102000), ("tint", 94000))),
-                      (50000, (("satMod", 110000), ("lumMod", 100000), ("shade", 100000))),
-                      (100000, (("lumMod", 99000), ("satMod", 120000), ("shade", 78000)))))
+    for stops in theme.OFFICE_FILL_GRADIENTS:
+        _gradient(fills, stops)
     lines = _sub(formats, "a:lnStyleLst")
-    for width in ("12700", "19050", "25400"):
-        line = _sub(lines, "a:ln", w=width, cap="flat", cmpd="sng", algn="ctr")
+    for width in theme.POWERPOINT_LINE_WIDTHS:
+        line = _sub(lines, "a:ln", w=str(width), cap="flat", cmpd="sng", algn="ctr")
         _scheme(line, "phClr")
         _sub(line, "a:prstDash", val="solid")
         _sub(line, "a:miter", lim="800000")
@@ -506,10 +469,7 @@ def theme_xml() -> bytes:
     color = _sub(_sub(backgrounds, "a:solidFill"), "a:schemeClr", val="phClr")
     _sub(color, "a:tint", val="95000")
     _sub(color, "a:satMod", val="170000")
-    _gradient(backgrounds, (
-        (0, (("tint", 93000), ("satMod", 150000), ("shade", 98000), ("lumMod", 102000))),
-        (50000, (("tint", 98000), ("satMod", 130000), ("shade", 90000), ("lumMod", 103000))),
-        (100000, (("shade", 63000), ("satMod", 120000)))))
+    _gradient(backgrounds, theme.OFFICE_BACKGROUND_GRADIENT)
     defaults = _sub(root, "a:objectDefaults")
     line_default = _sub(defaults, "a:lnDef")
     for tag in ("a:spPr", "a:bodyPr", "a:lstStyle"):

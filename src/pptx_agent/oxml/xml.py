@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import Iterator
 
+from ooxml_common.drawingml.presets import PRESETS
 from ooxml_edit.xml import (  # noqa: F401  (re-exported)
     CHILD_ORDER,
     NAMESPACES,
@@ -205,37 +206,6 @@ def _walk(container: Element, prefix: tuple[int, ...]) -> Iterator[tuple[Element
 
 
 #: ``ST_ShapeType`` -- every preset geometry ``a:prstGeom@prst`` may name.  Writing any other
-#: value is a schema violation PowerPoint answers with a repair prompt.
-PRESET_GEOMETRIES: frozenset[str] = frozenset("""
-    line lineInv triangle rtTriangle rect diamond parallelogram trapezoid
-    nonIsoscelesTrapezoid pentagon hexagon heptagon octagon decagon dodecagon star4 star5
-    star6 star7 star8 star10 star12 star16 star24 star32 roundRect round1Rect round2SameRect
-    round2DiagRect snipRoundRect snip1Rect snip2SameRect snip2DiagRect plaque ellipse teardrop
-    homePlate chevron pieWedge pie blockArc donut noSmoking rightArrow leftArrow upArrow
-    downArrow stripedRightArrow notchedRightArrow bentUpArrow leftRightArrow upDownArrow
-    leftUpArrow leftRightUpArrow quadArrow leftArrowCallout rightArrowCallout upArrowCallout
-    downArrowCallout leftRightArrowCallout upDownArrowCallout quadArrowCallout bentArrow
-    uturnArrow circularArrow leftCircularArrow leftRightCircularArrow curvedRightArrow
-    curvedLeftArrow curvedUpArrow curvedDownArrow swooshArrow cube can lightningBolt heart sun
-    moon smileyFace irregularSeal1 irregularSeal2 foldedCorner bevel frame halfFrame corner
-    diagStripe chord arc leftBracket rightBracket leftBrace rightBrace bracketPair bracePair
-    straightConnector1 bentConnector2 bentConnector3 bentConnector4 bentConnector5
-    curvedConnector2 curvedConnector3 curvedConnector4 curvedConnector5 callout1 callout2
-    callout3 accentCallout1 accentCallout2 accentCallout3 borderCallout1 borderCallout2
-    borderCallout3 accentBorderCallout1 accentBorderCallout2 accentBorderCallout3
-    wedgeRectCallout wedgeRoundRectCallout wedgeEllipseCallout cloudCallout cloud ribbon
-    ribbon2 ellipseRibbon ellipseRibbon2 leftRightRibbon verticalScroll horizontalScroll wave
-    doubleWave plus flowChartProcess flowChartDecision flowChartInputOutput
-    flowChartPredefinedProcess flowChartInternalStorage flowChartDocument
-    flowChartMultidocument flowChartTerminator flowChartPreparation flowChartManualInput
-    flowChartManualOperation flowChartConnector flowChartPunchedCard flowChartPunchedTape
-    flowChartSummingJunction flowChartOr flowChartCollate flowChartSort flowChartExtract
-    flowChartMerge flowChartOfflineStorage flowChartOnlineStorage flowChartMagneticTape
-    flowChartMagneticDisk flowChartMagneticDrum flowChartDisplay flowChartDelay
-    flowChartAlternateProcess flowChartOffpageConnector actionButtonBlank actionButtonHome
-    actionButtonHelp actionButtonInformation actionButtonForwardNext actionButtonBackPrevious
-    actionButtonEnd actionButtonBeginning actionButtonReturn actionButtonDocument
-    actionButtonSound actionButtonMovie gear6 gear9 funnel mathPlus mathMinus mathMultiply
-    mathDivide mathEqual mathNotEqual cornerTabs squareTabs plaqueTabs chartX chartStar
-    chartPlus
-""".split())
+#: value is a schema violation PowerPoint answers with a repair prompt.  The names of
+#: :data:`ooxml_common.drawingml.presets.PRESETS`, the ECMA-376 preset table.
+PRESET_GEOMETRIES: frozenset[str] = frozenset(PRESETS)
