@@ -27,10 +27,11 @@ from typing import Any
 
 from lxml import etree
 
+from ..edit.errors import ArgumentError
 from ..oxml.xml import Element
 
 
-class FullStateError(ValueError):
+class FullStateError(ArgumentError):
     """A full-state SVG could not be applied: malformed, unsafe, stale or not expressible."""
 
 

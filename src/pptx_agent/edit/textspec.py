@@ -28,6 +28,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
+from .errors import ArgumentError, ArgumentTypeError
+
 #: The run properties a :class:`RunSpec` may set.
 RUN_FIELDS = ("bold", "italic", "underline", "strike", "size", "font", "color", "hyperlink")
 #: What a paragraph's ``bullet`` may be.
@@ -94,9 +96,9 @@ class ParagraphSpec:
     def __post_init__(self) -> None:
         object.__setattr__(self, "runs", tuple(_run(run) for run in self.runs))
         if self.bullet is not None and self.bullet not in BULLETS:
-            raise ValueError(f"bullet is one of {BULLETS}, not {self.bullet!r}")
+            raise ArgumentError(f"bullet is one of {BULLETS}, not {self.bullet!r}")
         if self.level is not None and not 0 <= int(self.level) <= 8:
-            raise ValueError("level must be between 0 and 8")
+            raise ArgumentError("level must be between 0 and 8")
 
     @property
     def text(self) -> str:
@@ -135,10 +137,10 @@ class TextSpec:
         if self.insets is not None:
             insets = tuple(int(v) for v in self.insets)
             if len(insets) != 4 or min(insets) < 0:
-                raise ValueError("insets are four lengths, EMU: (left, top, right, bottom)")
+                raise ArgumentError("insets are four lengths, EMU: (left, top, right, bottom)")
             object.__setattr__(self, "insets", insets)
         if self.autofit is not None and self.autofit not in AUTOFITS:
-            raise ValueError(f"autofit is one of {AUTOFITS}, not {self.autofit!r}")
+            raise ArgumentError(f"autofit is one of {AUTOFITS}, not {self.autofit!r}")
 
     @classmethod
     def from_text(cls, text: str, **formatting: Any) -> "TextSpec":
@@ -150,7 +152,7 @@ class TextSpec:
         """
         unknown = set(formatting) - set(RUN_FIELDS)
         if unknown:
-            raise TypeError(f"unknown run formatting {sorted(unknown)}; one of {RUN_FIELDS}")
+            raise ArgumentTypeError(f"unknown run formatting {sorted(unknown)}; one of {RUN_FIELDS}")
         return cls([ParagraphSpec([RunSpec(part, **formatting)] if part else [])
                     for part in str(text).split("\n")])
 
@@ -172,7 +174,7 @@ def _run(value: Any) -> RunSpec:
         return RunSpec(value)
     if isinstance(value, Mapping):
         return RunSpec(**dict(value))
-    raise TypeError(f"a run is a RunSpec, a mapping or a string, not {type(value).__name__}")
+    raise ArgumentTypeError(f"a run is a RunSpec, a mapping or a string, not {type(value).__name__}")
 
 
 def _paragraph(value: Any) -> ParagraphSpec:
@@ -182,7 +184,7 @@ def _paragraph(value: Any) -> ParagraphSpec:
         return ParagraphSpec([RunSpec(value)] if value else [])
     if isinstance(value, Mapping):
         return ParagraphSpec(**dict(value))
-    raise TypeError(f"a paragraph is a ParagraphSpec, a mapping or a string, not "
+    raise ArgumentTypeError(f"a paragraph is a ParagraphSpec, a mapping or a string, not "
                     f"{type(value).__name__}")
 
 
@@ -244,7 +246,7 @@ def apply_spec(frame, spec: TextSpec) -> None:
     if spec.anchor is not None:
         anchor = _ANCHORS.get(spec.anchor)
         if anchor is None:
-            raise ValueError(f"anchor is top, middle or bottom, not {spec.anchor!r}")
+            raise ArgumentError(f"anchor is top, middle or bottom, not {spec.anchor!r}")
         frame.anchor = anchor
     if spec.wrap is not None:
         frame.wrap = bool(spec.wrap)

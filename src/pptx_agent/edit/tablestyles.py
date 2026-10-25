@@ -15,6 +15,7 @@ import re
 from typing import TYPE_CHECKING
 
 from ..oxml.xml import Element, append_in_order, find, findall, make, qn, remove
+from .errors import ArgumentError
 
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Document
@@ -184,14 +185,14 @@ def resolve(document: "Document", style: str) -> str:
     and the dash's kind do not matter; the deck's own style wins over a built-in of the
     same name).  ``ValueError`` names what there is."""
     if not isinstance(style, str) or not style.strip():
-        raise ValueError(f"a table style is a name or a {{GUID}}, not {style!r}")
+        raise ArgumentError(f"a table style is a name or a {{GUID}}, not {style!r}")
     styles = table_styles(document)
     text = style.strip()
     if GUID.fullmatch(text):
         for entry in styles:
             if entry["id"].upper() == text.upper():
                 return entry["id"]
-        raise ValueError(f"no table style {text} in this deck or built into PowerPoint "
+        raise ArgumentError(f"no table style {text} in this deck or built into PowerPoint "
                          "(PowerPoint would draw the table with no style); "
                          "deck.table_styles lists them")
     key = _name_key(text)
@@ -199,7 +200,7 @@ def resolve(document: "Document", style: str) -> str:
         if entry["name"] and _name_key(entry["name"]) == key:
             return entry["id"]
     own = [entry["name"] for entry in styles if not entry["builtin"] and entry["name"]]
-    raise ValueError(f"no table style named {text!r}; the deck's own: "
+    raise ArgumentError(f"no table style named {text!r}; the deck's own: "
                      f"{', '.join(own) if own else 'none'}; built in: {BUILTIN_NAMES}")
 
 

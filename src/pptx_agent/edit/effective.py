@@ -29,6 +29,7 @@ from ooxml_common.drawingml import text_chain
 
 from ..oxml.xml import FILL_TAGS, Element, find, get_int, local_name, qn
 from . import inherit
+from .errors import ArgumentError
 
 AUTOFIT_TAGS = {"noAutofit": "none", "normAutofit": "normal", "spAutoFit": "shape"}
 AUTOFIT_NAMES = {name: tag for tag, name in AUTOFIT_TAGS.items()}
@@ -323,10 +324,10 @@ def text_minimums(value) -> dict[str, float]:
     if isinstance(value, Mapping):
         unknown = [kind for kind in value if kind not in TEXT_KINDS]
         if unknown:
-            raise ValueError(f"min_text_size has no kind {unknown[0]!r}; the kinds are "
+            raise ArgumentError(f"min_text_size has no kind {unknown[0]!r}; the kinds are "
                              f"{', '.join(TEXT_KINDS)} (a kind left out is not checked)")
         if not value:
-            raise ValueError("min_text_size is an empty mapping; name body, table or chart, "
+            raise ArgumentError("min_text_size is an empty mapping; name body, table or chart, "
                              "or give None for no minimum")
         return {kind: _points(points) for kind, points in value.items() if points is not None}
     points = _points(value)
@@ -336,7 +337,7 @@ def text_minimums(value) -> dict[str, float]:
 def _points(value) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)) \
             or not 1 <= float(value) <= 400:
-        raise ValueError(f"min_text_size {value!r}: points between 1 and 400, a mapping of "
+        raise ArgumentError(f"min_text_size {value!r}: points between 1 and 400, a mapping of "
                          "body, table and chart to points, or None for no minimum")
     return float(value)
 
@@ -721,14 +722,14 @@ def write_autofit(body: Element, mode: str | None, font_scale: float | None = No
         replace_choice(properties, tags, None)
         return
     if mode not in AUTOFIT_NAMES:
-        raise ValueError(f"autofit is one of {sorted(AUTOFIT_NAMES)} or None, not {mode!r}")
+        raise ArgumentError(f"autofit is one of {sorted(AUTOFIT_NAMES)} or None, not {mode!r}")
     old = next((child for child in properties if isinstance(child.tag, str)
                 and local_name(child) == "normAutofit"), None)
     node = make(f"a:{AUTOFIT_NAMES[mode]}")
     if mode == "normal":
         if font_scale is not None:
             if not 0 < font_scale <= 1:
-                raise ValueError("font_scale is a fraction in (0, 1]")
+                raise ArgumentError("font_scale is a fraction in (0, 1]")
             if round(font_scale * 100000) != 100000:
                 node.set("fontScale", str(round(font_scale * 100000)))
             if old is not None and old.get("lnSpcReduction") and keep_scale:

@@ -26,6 +26,7 @@ from ooxml_common.kinds import KINDS, kind_for
 
 from ..oxml.xml import find, findall, make, qn, remove, subelement
 from . import blank
+from .errors import ArgumentError
 from .properties import CoreProperties, now, refreshed_app, w3cdtf
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -98,7 +99,7 @@ def _strip_template(document: "Document") -> None:
     main = package.presentation_part()
     content_type = package.content_type(main)
     if content_type in (CT_MACRO_TEMPLATE, CT_MACRO_PRESENTATION):
-        raise ValueError("a macro-enabled template cannot be used: macros are out of scope")
+        raise ArgumentError("a macro-enabled template cannot be used: macros are out of scope")
     if content_type == blank.CT_TEMPLATE:
         set_main_content_type(package, blank.CT_PRESENTATION)
     for slide in list(document.slides):
@@ -186,7 +187,7 @@ def wanted_content_type(package, *, template: bool | None,
     if current not in _MAIN_TYPES.values():
         return None  # not a main part this library knows how to retype
     if macro is not None and is_macro and not macro:
-        raise ValueError("a macro-enabled deck is saved as .pptm or .potm, not .pptx or .potx")
+        raise ArgumentError("a macro-enabled deck is saved as .pptm or .potm, not .pptx or .potx")
     want_macro = is_macro if macro is None else macro
     want_template = is_template if template is None else template
     wanted = _MAIN_TYPES[(want_macro, want_template)]

@@ -49,6 +49,7 @@ from ..oxml.xml import (
     qn,
     walk_shape_tree,
 )
+from .errors import ArgumentError
 
 #: Shape tag -> the non-visual-properties container holding its ``p:cNvPr``.
 _NV_CONTAINER: dict[str, str] = {
@@ -106,13 +107,13 @@ class ShapeId:
             return text
         slide, separator, local = text.partition(".")
         if not separator or not local:
-            raise ValueError(f"malformed shape id {text!r}; expected '<sldId>.<shape>'")
+            raise ArgumentError(f"malformed shape id {text!r}; expected '<sldId>.<shape>'")
         if is_template_key(slide):
             return cls(slide, local)
         try:
             return cls(int(slide), local)
         except ValueError:
-            raise ValueError(f"malformed shape id {text!r}; slide part must be an integer") from None
+            raise ArgumentError(f"malformed shape id {text!r}; slide part must be an integer") from None
 
 
 def cnv_pr(shape: Element) -> Element | None:

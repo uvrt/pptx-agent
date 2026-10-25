@@ -8,6 +8,7 @@ import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
+from ..edit.errors import ArgumentError
 from ..oxml.package import REL_HYPERLINK, image_size
 from ..oxml.xml import Element, find, get_int, local_name, make, qn, remove
 from .markdown import comment_text, normalise_inline, parse, plain
@@ -187,7 +188,7 @@ def read_outline(text: str) -> list[SlideDraft]:
             if kind in ("comment", "html"):
                 k += 1
                 continue
-            raise ValueError("an outline starts with a '#' heading: each slide is one")
+            raise ArgumentError("an outline starts with a '#' heading: each slide is one")
         if in_notes:
             if kind not in ("comment", "html", "hr"):
                 current.notes.append(block)
@@ -303,7 +304,7 @@ def find_layout(document: "Document", role: str) -> "Layout":
     PowerPoint's English name, then by the placeholders it has."""
     layouts = document.layouts
     if not layouts:
-        raise ValueError("the presentation has no slide layouts")
+        raise ArgumentError("the presentation has no slide layouts")
     first_master = layouts[0].master_part
     candidates = [l for l in layouts if l.master_part == first_master] + \
         [l for l in layouts if l.master_part != first_master]
@@ -722,7 +723,7 @@ def insert_outline(document: "Document", text: str, *, at: int | None = None,
                 alt, src, _ = item.image
                 data = resolve(src)
                 if not data:
-                    raise ValueError(f"cannot read the image {src!r}; pass images= a directory, "
+                    raise ArgumentError(f"cannot read the image {src!r}; pass images= a directory, "
                                      "a mapping, a callable or the deck it came from")
                 item.data = data
     layouts = [_resolve_layout(document, draft, position + k == 0, layout_map)

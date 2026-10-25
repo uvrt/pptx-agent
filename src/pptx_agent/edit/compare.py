@@ -98,6 +98,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..oxml.xml import local_name
 from . import effective
+from .errors import ArgumentError
 
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Shape, Slide
@@ -880,11 +881,11 @@ def compare_slides(slides: list["Slide"], *, within: float = WITHIN) -> Comparis
     ``within`` the near-miss tolerance in points.  Raises ``ValueError`` for fewer than two
     slides or a slide given twice."""
     if len(slides) < 2:
-        raise ValueError("compare at least two slides")
+        raise ArgumentError("compare at least two slides")
     ids = [slide.slide_id for slide in slides]
     if len(set(ids)) != len(ids):
         repeated = next(sid for sid in ids if ids.count(sid) > 1)
-        raise ValueError(f"s:{repeated} is given twice; name each slide once")
+        raise ArgumentError(f"s:{repeated} is given twice; name each slide once")
     return Comparison(ids, match(slides), float(within))
 
 

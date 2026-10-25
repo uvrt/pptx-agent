@@ -92,6 +92,7 @@ from .edit.deck import TemplateOpenedWarning
 from .edit.diagram import Diagram, DiagramNode
 from .edit.effective import EffectiveParagraph
 from .edit.document import EMU_PER_INCH, EMU_PER_POINT, Document, ImageSize, Shape, Slide
+from .edit.errors import ArgumentError, ArgumentTypeError
 from .edit.fill import Arrowhead, Fill, GradientStop, LineFormat
 from .edit.fit import (WRAP_MARGIN, Overflow, RowsFit, TableMeasure, TextFit, TextMeasure,
                        fit_box, measure_text)
@@ -114,6 +115,8 @@ __version__ = "0.1.0"
 __all__ = [
     "Adjustments",
     "ApplyReport",
+    "ArgumentError",
+    "ArgumentTypeError",
     "Arrowhead",
     "Bullet",
     "Chart",

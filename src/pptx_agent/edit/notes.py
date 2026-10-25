@@ -35,6 +35,7 @@ from __future__ import annotations
 from ..oxml.package import REL_NOTES_MASTER, REL_NOTES_SLIDE, REL_SLIDE, REL_SLIDE_MASTER
 from ..oxml.xml import Element, find, local_name, qn, serialize
 from . import blank
+from .errors import ArgumentError
 
 CT_NOTES_SLIDE = blank.CT + "presentationml.notesSlide+xml"
 CT_NOTES_MASTER = blank.CT + "presentationml.notesMaster+xml"
@@ -114,7 +115,7 @@ def _ensure_master(package, language: str, slide_size: tuple[int, int]) -> str:
     presentation = package.presentation_part()
     masters = package.related_parts_of_type(presentation, REL_SLIDE_MASTER)
     if not masters:
-        raise ValueError("the presentation has no slide master to take a theme from")
+        raise ArgumentError("the presentation has no slide master to take a theme from")
     master_themes = package.related_parts_of_type(masters[0], REL_THEME)
     theme_bytes = package.read(master_themes[0]) if master_themes else blank.theme_xml()
     theme = package.unused_part_name("ppt/theme/theme{n}.xml")
@@ -263,7 +264,7 @@ def add_notes(document, slide_part: str, slide_number: int) -> Element:
     if existing is not None:
         body = notes_body(package, existing)
         if body is None:
-            raise ValueError(f"{existing} has no notes placeholder")
+            raise ArgumentError(f"{existing} has no notes placeholder")
         return body
     language = _language(document)
     master = _ensure_master(package, language, document.slide_size)

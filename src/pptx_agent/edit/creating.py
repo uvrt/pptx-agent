@@ -39,6 +39,7 @@ from ..oxml.xml import (
 from . import authoring, connectors
 from .color import Color
 from .connectors import End, Frame
+from .errors import ArgumentError, ArgumentTypeError
 from .ids import cnv_pr
 from .presets import adjustment_defaults, connection_sites, evaluate
 
@@ -91,7 +92,7 @@ class ShapeFactory:
             box = slide.add_shape("roundRect", 914400, 914400, 1828800, 914400, text="Plan")
         """
         if preset not in PRESET_GEOMETRIES:
-            raise ValueError(f"{preset!r} is not a preset geometry (ST_ShapeType)")
+            raise ArgumentError(f"{preset!r} is not a preset geometry (ST_ShapeType)")
         _check_size(width, height)
         slide, container, group = self._factory()
         language = authoring.default_language(slide.document.package,
@@ -127,7 +128,7 @@ class ShapeFactory:
             slide.add_textbox(914400, 914400, 3657600, 369332, "Notes", autofit="none")
         """
         if autofit not in authoring.AUTOFIT_ELEMENTS:
-            raise ValueError(f"autofit is one of {sorted(authoring.AUTOFIT_ELEMENTS)}, "
+            raise ArgumentError(f"autofit is one of {sorted(authoring.AUTOFIT_ELEMENTS)}, "
                              f"not {autofit!r}")
         _check_size(width, height)
         slide, container, group = self._factory()
@@ -165,7 +166,7 @@ class ShapeFactory:
             slide.add_connector("elbow", (box, 3), (goal, 1), line={"tail": "triangle"})
         """
         if kind not in connectors.KINDS:
-            raise ValueError(f"connector kind must be one of {sorted(connectors.KINDS)}")
+            raise ArgumentError(f"connector kind must be one of {sorted(connectors.KINDS)}")
         slide, container, group = self._factory()
         start, start_ref = _resolve_end(slide, container, begin, "begin")
         finish, end_ref = _resolve_end(slide, container, end, "end")
@@ -203,7 +204,7 @@ class ShapeFactory:
             table = slide.add_table(3, 4, 914400, 914400, 7315200, 1097280).table
         """
         if int(rows) < 1 or int(cols) < 1:
-            raise ValueError("a table needs at least one row and one column")
+            raise ArgumentError("a table needs at least one row and one column")
         _check_size(width, height)
         slide, container, group = self._factory()
         if style is not None:
@@ -211,7 +212,7 @@ class ShapeFactory:
 
             style = resolve(slide.document, style)
         if group is not None:
-            raise ValueError("PowerPoint does not allow a table in a group")
+            raise ArgumentError("PowerPoint does not allow a table in a group")
         language = authoring.default_language(slide.document.package,
                                               language_of(slide.document))
 
@@ -261,7 +262,7 @@ class ShapeFactory:
         _check_size(width, height)
         slide, container, group = self._factory()
         if group is not None:
-            raise ValueError("add a chart to the slide, then group it")
+            raise ArgumentError("add a chart to the slide, then group it")
         language = authoring.default_language(slide.document.package,
                                               language_of(slide.document))
         locale = locale_of(slide.document)
@@ -303,7 +304,7 @@ def locale_of(document):
 
 def _check_size(width: int, height: int) -> None:
     if int(width) < 0 or int(height) < 0:
-        raise ValueError("a shape's width and height cannot be negative")
+        raise ArgumentError("a shape's width and height cannot be negative")
 
 
 def _create(slide: "Slide", container: Element, group: "Shape | None", build, *,
@@ -336,7 +337,7 @@ def apply_line(shape: "Shape", spec: Any) -> None:
         unknown = set(spec) - {"width", "color", "visible", "dash", "cap", "head", "tail",
                                "start", "end"}
         if unknown:
-            raise ValueError(f"unknown outline properties {sorted(unknown)}")
+            raise ArgumentError(f"unknown outline properties {sorted(unknown)}")
         for key in ("visible", "width", "color", "dash", "cap", "head", "tail", "start", "end"):
             if key in spec:
                 setattr(outline, key, spec[key])
@@ -345,7 +346,7 @@ def apply_line(shape: "Shape", spec: Any) -> None:
     elif isinstance(spec, (str, Color)):
         outline.color = spec
     else:
-        raise TypeError(f"cannot use {spec!r} as an outline")
+        raise ArgumentTypeError(f"cannot use {spec!r} as an outline")
 
 
 # -- adjustments -------------------------------------------------------------------------------
@@ -399,7 +400,7 @@ class Adjustments:
         """
         preset = self._shape.preset
         if preset in (None, "custom"):
-            raise ValueError(f"{self._identifier} has no preset geometry to adjust")
+            raise ArgumentError(f"{self._identifier} has no preset geometry to adjust")
         return preset
 
     @property
@@ -476,7 +477,7 @@ class Adjustments:
                 raise KeyError(f"{self.preset} has no adjustment {name!r}; it has "
                                f"{list(self.names)}")
             if isinstance(value, bool) or not isinstance(value, int):
-                raise TypeError(f"{name}: an adjust value is an integer in DrawingML units")
+                raise ArgumentTypeError(f"{name}: an adjust value is an integer in DrawingML units")
         self._write(dict(values))
         return self
 
@@ -680,13 +681,13 @@ def _resolve_end(slide: "Slide", container: Element, spec: Any,
         if isinstance(site, str) and site in ("top", "right", "bottom", "left"):
             site = target.connection_site(site)[1]
         if isinstance(site, bool) or not isinstance(site, int):
-            raise TypeError(f"{which}: a connection site is an index or 'top', 'right', "
+            raise ArgumentTypeError(f"{which}: a connection site is an index or 'top', 'right', "
                             "'bottom', 'left'")
         if target._slide.slide_id != slide.slide_id:
-            raise ValueError(f"{which}: {target.id} is on another slide")
+            raise ArgumentError(f"{which}: {target.id} is on another slide")
         ends = shape_sites(target)
         if not ends:
-            raise ValueError(f"{which}: {target.id} ({target.kind}) has no connection sites")
+            raise ArgumentError(f"{which}: {target.id} ({target.kind}) has no connection sites")
         if not 0 <= site < len(ends):
             raise IndexError(f"{which}: {target.id} has connection sites 0..{len(ends) - 1}, "
                              f"not {site}")
@@ -695,7 +696,7 @@ def _resolve_end(slide: "Slide", container: Element, spec: Any,
     if isinstance(spec, (tuple, list)) and len(spec) == 2 \
             and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in spec):
         return End(container_to_slide(container, float(spec[0]), float(spec[1]))), None
-    raise TypeError(f"{which} must be a point (x, y) or a (shape, site) pair, not {spec!r}")
+    raise ArgumentTypeError(f"{which} must be a point (x, y) or a (shape, site) pair, not {spec!r}")
 
 
 def _unique_raw_id(slide: "Slide", shape: "Shape") -> str:
@@ -703,7 +704,7 @@ def _unique_raw_id(slide: "Slide", shape: "Shape") -> str:
     raw = None if properties is None else properties.get("id")
     if not raw or sum(1 for node in slide._sp_tree().iter(qn("p:cNvPr"))
                       if node.get("id") == raw) != 1:
-        raise ValueError(f"{shape.id}: its cNvPr id {raw!r} is not unique on the slide, so "
+        raise ArgumentError(f"{shape.id}: its cNvPr id {raw!r} is not unique on the slide, so "
                          f"a connector could not name it")
     return raw
 

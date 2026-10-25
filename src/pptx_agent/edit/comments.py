@@ -70,6 +70,7 @@ from typing import TYPE_CHECKING, Iterable
 
 from ..oxml.xml import Element, find, findall, make, parse_xml, qn, register_namespaces, \
     serialize
+from .errors import ArgumentError
 
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Document, Shape, Slide
@@ -238,7 +239,7 @@ def _moniker_of(shape: "Shape") -> str:
 
     kind = local_name(shape._element)
     if kind not in MONIKERS or _cnv_id(shape) is None:
-        raise ValueError(f"cannot anchor a comment to {shape.id} ({kind}): it has no "
+        raise ArgumentError(f"cannot anchor a comment to {shape.id} ({kind}): it has no "
                          "drawing-element id; comment on its slide instead")
     return MONIKERS[kind]
 
@@ -472,9 +473,9 @@ class CommentOps:
         from .document import Shape, Slide
 
         if not str(text).strip():
-            raise ValueError("a comment needs text")
+            raise ArgumentError("a comment needs text")
         if not str(author or "").strip():
-            raise ValueError("a comment needs an author")
+            raise ArgumentError("a comment needs an author")
         if isinstance(target, Slide):
             slide, shape = target, None
         elif isinstance(target, Shape):
@@ -542,9 +543,9 @@ class CommentOps:
             deck.reply_to_comment("c:3F2A9C1B", "Fixed.", author="Sam Author")
         """
         if not str(text).strip():
-            raise ValueError("a reply needs text")
+            raise ArgumentError("a reply needs text")
         if not str(author or "").strip():
-            raise ValueError("a reply needs an author")
+            raise ArgumentError("a reply needs an author")
         package = self.package
         from .authoring import default_language
         from .document import language_of
@@ -618,7 +619,7 @@ class CommentOps:
             deck.edit_comment("c:3F2A9C1B", "Is this the audited figure?")
         """
         if not str(text).strip():
-            raise ValueError("a comment needs text")
+            raise ArgumentError("a comment needs text")
         from .authoring import default_language
         from .document import language_of
 

@@ -39,6 +39,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from .errors import ArgumentError
+
 #: How far a route steps out of a site before it turns (measured: 0.25 in, at any size).
 STUB = 228600
 #: The smallest extent PowerPoint writes for an elbow or curved connector's frame.
@@ -259,7 +261,7 @@ def bent_frame(points: list[Point], family: str = "bentConnector") -> Frame:
     ``bentConnector<n>`` or ``curvedConnector<n>``."""
     count = len(points) - 1
     if not 2 <= count <= 5:
-        raise ValueError(f"an elbow has two to five segments, not {count}")
+        raise ArgumentError(f"an elbow has two to five segments, not {count}")
     preset = f"{family}{count}"
     (sx, sy), (ex, ey) = points[0], points[-1]
     first = (points[1][0] - sx, points[1][1] - sy)
@@ -305,7 +307,7 @@ def bent_frame(points: list[Point], family: str = "bentConnector") -> Frame:
 def frame_for(kind: str, start: End, end: End) -> Frame:
     """The frame of a connector of ``kind`` (``straight``, ``elbow``, ``curved``)."""
     if kind not in KINDS:
-        raise ValueError(f"connector kind must be one of {sorted(KINDS)}")
+        raise ArgumentError(f"connector kind must be one of {sorted(KINDS)}")
     if kind == "straight":
         return straight_frame(start.point, end.point)
     return bent_frame(route(start, end), KINDS[kind])

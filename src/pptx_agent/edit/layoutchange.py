@@ -57,6 +57,7 @@ from typing import TYPE_CHECKING
 from ..oxml.package import REL_SLIDE_LAYOUT, normalize_part_path, rels_path_for
 from ..oxml.xml import Element, find, local_name, make, qn, remove
 from . import inherit
+from .errors import ArgumentError
 
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Slide
@@ -419,7 +420,7 @@ def set_layout(slide: "Slide", layout: "Layout") -> LayoutChange:
     layout_part = layout.part_path
     layout_tree = find(package.tree(layout_part), "p:cSld/p:spTree")
     if layout_tree is None:
-        raise ValueError(f"{layout.id} has no shape tree")
+        raise ArgumentError(f"{layout.id} has no shape tree")
     offered = _placeholders(layout_tree)
     tree = slide._sp_tree()
     slide._ensure_index()

@@ -17,6 +17,7 @@ from __future__ import annotations
 import math
 from typing import Mapping
 
+from .errors import ArgumentError
 from .preset_sites import PRESET_SITES
 
 #: One degree in DrawingML's angle unit.
@@ -128,7 +129,7 @@ def evaluate(formula: str, variables: Mapping[str, float]) -> float:
         return max(arg(1), min(arg(2), arg(3)))
     if operator == "sqrt":
         return math.sqrt(max(arg(1), 0.0))
-    raise ValueError(f"unknown guide operator {operator!r} in {formula!r}")
+    raise ArgumentError(f"unknown guide operator {operator!r} in {formula!r}")
 
 
 def _preset_table() -> dict[str, tuple[str, ...]]:

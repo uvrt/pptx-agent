@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from ooxml_edit.charts.format import scheme_color, split_color
 
 from ..oxml.xml import COLOR_TAGS, Element, local_name, make, qn
+from .errors import ArgumentError, ArgumentTypeError
 
 #: ``ST_SchemeColorVal``.  On a slide, ``bg1``/``tx1``/``bg2``/``tx2`` are the usual spellings
 #: (they go through the master's colour map); ``dk1``/``lt1``/... name theme slots directly.
@@ -87,7 +88,7 @@ class Color:
         """
         match = _HEX.fullmatch(hex_value.strip())
         if match is None:
-            raise ValueError(f"{hex_value!r} is not a six-digit hex colour")
+            raise ArgumentError(f"{hex_value!r} is not a six-digit hex colour")
         return cls("rgb", match.group(1).upper())
 
     @classmethod
@@ -112,7 +113,7 @@ class Color:
         """
         scheme = scheme_color(name, SCHEME_COLORS)
         if scheme is None:
-            raise ValueError(f"{name!r} is not a theme colour; expected one of "
+            raise ArgumentError(f"{name!r} is not a theme colour; expected one of "
                              f"{sorted(SCHEME_COLORS)} (or Office's names, text1...)")
         name = scheme
         transforms = []
@@ -134,7 +135,7 @@ class Color:
         if isinstance(spec, Color):
             return spec
         if not isinstance(spec, str):
-            raise TypeError(f"expected a colour string or Color, got {type(spec).__name__}")
+            raise ArgumentTypeError(f"expected a colour string or Color, got {type(spec).__name__}")
         base, modifiers = split_color(spec, SCHEME_COLORS)
         scheme = scheme_color(base, SCHEME_COLORS)
         if scheme is not None:
@@ -143,7 +144,7 @@ class Color:
             try:
                 color = cls.rgb(base)
             except ValueError:
-                raise ValueError(
+                raise ArgumentError(
                     f"{base!r} is neither a hex colour nor a theme colour "
                     f"({', '.join(sorted(SCHEME_COLORS))}; Office's names such as text1 or "
                     "background2 are read as these)"
@@ -155,7 +156,7 @@ class Color:
                 transforms.append((name, None))
                 continue
             if name not in VALUED_TRANSFORMS or not separator:
-                raise ValueError(f"unknown colour modifier {modifier!r}")
+                raise ArgumentError(f"unknown colour modifier {modifier!r}")
             transforms.append((name, _modifier_value(raw)))
         return cls(color.kind, color.value, tuple(transforms))
 
@@ -272,7 +273,7 @@ def _modifier_value(raw: str) -> int:
     if raw.endswith("%"):
         return round(float(raw[:-1]) * 1000)
     if not _is_int(raw):
-        raise ValueError(f"colour modifier value {raw!r} must be an integer or a percentage")
+        raise ArgumentError(f"colour modifier value {raw!r} must be an integer or a percentage")
     return int(raw)
 
 
