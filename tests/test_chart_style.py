@@ -270,3 +270,27 @@ def test_a_line_chart_made_line_less_reads_back_as_dot(session):
     outline = box.dispatch(current, "ppt_read_slides",
                            {"doc": "d1", "slides": [1], "detail": "outline"})
     assert "[chart: dot;" in str(outline.to_json())
+
+
+# N4 (review): one lookup in both formats, ooxml-edit's; a name wins over a position.
+# docx-agent's tests/test_chart_style.py makes the same calls on a document.
+
+
+@pytest.mark.parametrize("names, which, changed", [
+    (["1", "2"], "1", 0),          # the series called "1"
+    (["2", "1"], "1", 1),
+    (["North", "South"], "1", 1),  # no series called "1": position 1
+])
+def test_a_series_name_wins_over_a_position(session, names, which, changed):
+    run(session, target="s:256", action="add", chart_type="column", categories=["1", "Q2"],
+        data=[{"name": name, "values": [1, 2]} for name in names], box=BOX, ref="c")
+    data = run(session, target="$c", action="set_value", series=which, category="1",
+               value=9).data
+    assert [series["values"] for series in data["series"]] == [
+        [1 if k != changed else 9, 2] for k in range(2)]   # category "1" by name, too
+    error = refused(session, target="$c", action="set_value", series="9", value=1,
+                    category="Q2")
+    assert error.code == "not_found" and error.field == "series"
+    assert error.valid_options == names
+    error = refused(session, target="$c", action="rename_series", series="East", text="x")
+    assert error.code == "label_not_found" and error.valid_options == names
