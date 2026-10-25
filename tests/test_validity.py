@@ -222,7 +222,7 @@ def check_slide_list(data: bytes) -> None:
 
 
 def schema_order_violations(data: bytes) -> set[tuple[str, str]]:
-    from pptx_agent.core.xml import _ranks, prefixed_name
+    from pptx_agent.core.xml import child_ranks, prefixed_name
 
     found = set()
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
@@ -230,7 +230,7 @@ def schema_order_violations(data: bytes) -> set[tuple[str, str]]:
             if not name.startswith("ppt/slides/slide") or not name.endswith(".xml"):
                 continue
             for parent in etree.fromstring(archive.read(name)).iter():
-                ranks = _ranks(prefixed_name(parent))
+                ranks = child_ranks(prefixed_name(parent))
                 if not ranks:
                     continue
                 last = -1

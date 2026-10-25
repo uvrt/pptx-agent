@@ -168,7 +168,7 @@ def test_embedded_faces_are_decoded_once_and_handed_to_the_other_workers(monkeyp
         # before each, as a worker process would not have them.
         from ooxml_common.fonts import embedded
 
-        monkeypatch.setattr(embedded, "_decode_cache", embedded.OrderedDict())
+        embedded.forget_decoded()
         result = _render(box, session, slides)
         decoded = len(box.decoded_fonts)
     assert [image.data for image in result.images] == expected

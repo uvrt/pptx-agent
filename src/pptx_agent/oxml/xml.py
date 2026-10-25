@@ -19,7 +19,6 @@ from ooxml_edit.xml import (  # noqa: F401  (re-exported)
     CHILD_ORDER,
     NAMESPACES,
     Element,
-    _prefixed_name,
     append_in_order,
     child_elements,
     declared_prefixes,

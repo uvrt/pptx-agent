@@ -533,7 +533,7 @@ def _format_of(owner, values: str | None) -> str | None:
 def _label_format(root, values: str | None) -> str | None:
     """The format of the first data label that shows a number: a point's own ``c:dLbl``
     wins over its series' ``c:dLbls``, which wins over its plot's."""
-    for series in _chart._series_of(root):
+    for series in _chart.series_of(root):
         own = series.element.find(qn("c:dLbls"))
         plot = series.plot.find(qn("c:dLbls")) if series.plot is not None else None
         points = {node.find(qn("c:idx")).get("val"): node

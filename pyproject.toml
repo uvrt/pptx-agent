@@ -99,7 +99,9 @@ classifiers = [
 # ooxml-edit 0.56.0: check's spacing, the tightest spacings on a slide (round 12, Q1).
 # ooxml-common 0.27.0: drawingml.text_chain, the inherited text chain shared with pptx2svg;
 # ooxml-edit 0.59.0: check's contrast (round 15, T1-T3).
-dependencies = ["lxml>=4.9", "ooxml-common>=0.27.0", "ooxml-edit>=0.59.0", "markdown-it-py>=3.0",
+# ooxml-edit 0.62.0: public names for what was imported private (opc.part_for_rels,
+# xml.child_ranks, charts.chart.series_of; review, N2).
+dependencies = ["lxml>=4.9", "ooxml-common>=0.27.0", "ooxml-edit>=0.62.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]

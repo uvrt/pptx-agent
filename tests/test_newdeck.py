@@ -104,14 +104,14 @@ def _placeholders(root) -> list[tuple]:
 
 def all_order_violations(data: bytes) -> set:
     """Schema-order violations in every XML part, not only slides."""
-    from pptx_agent.core.xml import _ranks, prefixed_name
+    from pptx_agent.core.xml import child_ranks, prefixed_name
 
     found = set()
     for name, raw in _parts(data).items():
         if not name.endswith(".xml") or name == "[Content_Types].xml":
             continue
         for parent in etree.fromstring(raw).iter():
-            ranks = _ranks(prefixed_name(parent))
+            ranks = child_ranks(prefixed_name(parent))
             if not ranks:
                 continue
             last = -1

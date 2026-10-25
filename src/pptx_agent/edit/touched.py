@@ -45,7 +45,7 @@ import re
 from typing import Any, Callable, Iterable
 
 from lxml import etree
-from ooxml_edit.opc import normalize_part_path, rels_path_for, resolve_target
+from ooxml_edit.opc import normalize_part_path, part_for_rels, rels_path_for, resolve_target
 from ooxml_edit.xml import parse_xml
 
 from ..oxml.xml import PA_ID_EXT_URI, find, qn
@@ -171,7 +171,7 @@ class _Touched:
         if part == "[Content_Types].xml" or part == "_rels/.rels":
             return
         if part.endswith(".rels"):
-            owner = _part_for_rels(part)
+            owner = part_for_rels(part)
             if owner == self.presentation:
                 return                              # the slide list says it
             host = self._host_of(owner)
@@ -604,11 +604,6 @@ def _slides_of(data: bytes, rels_data: bytes | None, presentation: str
             continue
         out[normalize_part_path(target[1])] = int(raw)
     return tuple(out.items())
-
-
-def _part_for_rels(rels: str) -> str:
-    directory, name = posixpath.split(rels)
-    return posixpath.join(posixpath.dirname(directory), name[:-len(".rels")])
 
 
 def _kind_of(part: str) -> str:
