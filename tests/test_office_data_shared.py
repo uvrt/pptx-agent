@@ -36,3 +36,30 @@ def test_the_theme_is_the_shared_one():
                                                     theme.OFFICE_MINOR_FONT)
     assert blank._APTOS_PANOSE == theme.APTOS_PANOSE
     assert blank._SCRIPT_FONTS == theme.POWERPOINT_SCRIPT_FONTS
+
+
+def test_the_preset_names_are_the_shared_tables():
+    from ooxml_common.drawingml.presets import PRESETS
+
+    from pptx_agent.oxml.xml import PRESET_GEOMETRIES
+
+    assert PRESET_GEOMETRIES == frozenset(PRESETS)
+
+
+def test_the_format_scheme_is_the_shared_one():
+    from lxml import etree
+
+    root = etree.fromstring(blank.theme_xml())
+    a = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+
+    def stops(gradient):
+        return tuple((int(stop.get("pos")), tuple(
+            (child.tag.rpartition("}")[2], int(child.get("val"))) for child in stop[0]))
+            for stop in gradient.iter(f"{a}gs"))
+
+    fills = root.findall(f".//{a}fillStyleLst/{a}gradFill")
+    assert tuple(stops(fill) for fill in fills) == theme.OFFICE_FILL_GRADIENTS
+    background = root.find(f".//{a}bgFillStyleLst/{a}gradFill")
+    assert stops(background) == theme.OFFICE_BACKGROUND_GRADIENT
+    widths = tuple(int(line.get("w")) for line in root.iter(f"{a}ln"))
+    assert widths == theme.POWERPOINT_LINE_WIDTHS
