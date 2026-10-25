@@ -87,7 +87,7 @@ table's or chart's frame that PowerPoint keeps through a save, and read back wit
 
 ## Status
 
-Pre-release (0.0.1). The API is exercised end to end by golden transcripts of trial
+Pre-release (0.1.0). The API is exercised end to end by golden transcripts of trial
 tasks; it may still change. PowerPoint oracle tests are local-only (macOS with
 PowerPoint) and skip elsewhere, including CI.
 

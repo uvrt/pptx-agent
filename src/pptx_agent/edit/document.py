@@ -4523,16 +4523,11 @@ class Document(CommentOps):
             if parts:
                 raise ValueError("the agent view is of slides; render a layout or master "
                                  "without agent=True")
-            convert = getattr(pptx2svg, "convert_pptx_to_agent_svg", None)
-            if convert is None:
-                raise RuntimeError("this pptx2svg has no agent view "
-                                   "(convert_pptx_to_agent_svg); upgrade pptx2svg")
-            return convert(self.to_bytes(),
-                           pptx2svg.ConvertOptions(slide_numbers=numbers,
-                                                   locale=options["locale"]))
+            return pptx2svg.convert_pptx_to_agent_svg(
+                self.to_bytes(), pptx2svg.ConvertOptions(slide_numbers=numbers,
+                                                         locale=options["locale"]))
         convert_options = pptx2svg.ConvertOptions(slide_numbers=numbers,
-                                                  **_template_options(pptx2svg, parts),
-                                                  **options)
+                                                  **_template_options(parts), **options)
         return _in_order(pptx2svg.convert_pptx_to_svg(self.to_bytes(), convert_options), order)
 
     def render_png(self, slides=None, **options) -> list[bytes]:
@@ -4553,7 +4548,7 @@ class Document(CommentOps):
         render_keys = {"width", "height", "font_mapping", "measurer", "warnings", "locale"}
         numbers, parts, order = self._targets(slides)
         convert_options = pptx2svg.ConvertOptions(
-            slide_numbers=numbers, **_template_options(pptx2svg, parts),
+            slide_numbers=numbers, **_template_options(parts),
             **{k: v for k, v in options.items() if k in render_keys}
         )
         return _in_order(pptx2svg.convert_pptx_to_png(
@@ -4602,15 +4597,9 @@ class Document(CommentOps):
         return f"<Document {len(self.slides)} slides>"
 
 
-def _template_options(pptx2svg, parts: list[str]) -> dict:
-    """``ConvertOptions(templates=...)`` for the layouts and masters a render draws; a
-    pptx2svg without template views refuses them."""
-    if not parts:
-        return {}
-    if "templates" not in getattr(pptx2svg.ConvertOptions, "__dataclass_fields__", {}):
-        raise RuntimeError("this pptx2svg cannot draw a layout or master (no "
-                           "ConvertOptions.templates); upgrade pptx2svg")
-    return {"templates": parts}
+def _template_options(parts: list[str]) -> dict:
+    """``ConvertOptions(templates=...)`` for the layouts and masters a render draws."""
+    return {"templates": parts} if parts else {}
 
 
 def _in_order(images: list, order: "list[int] | None") -> list:

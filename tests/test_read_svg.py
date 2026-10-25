@@ -1,7 +1,4 @@
-"""ppt_read_slides(detail="svg"): pptx2svg's compact agent view with this library's ids (LR3).
-
-Skipped where pptx2svg has no agent view yet (convert_pptx_to_agent_svg).
-"""
+"""ppt_read_slides(detail="svg"): pptx2svg's compact agent view with this library's ids (LR3)."""
 
 from __future__ import annotations
 
@@ -11,8 +8,6 @@ import re
 import pytest
 
 pptx2svg = pytest.importorskip("pptx2svg")
-if not hasattr(pptx2svg, "convert_pptx_to_agent_svg"):
-    pytest.skip("this pptx2svg has no agent view", allow_module_level=True)
 
 from ooxml_edit.tools import Limits, Toolbox  # noqa: E402
 

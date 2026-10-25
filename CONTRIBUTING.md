@@ -36,3 +36,38 @@ and skip cleanly elsewhere, including on CI:
 
 Open pull requests against `main`. CI runs the suite on Linux, macOS and Windows, Python
 3.10 to 3.15, with the siblings installed from their `main` branches.
+
+## Versions
+
+`pyproject.toml`'s version is the one [CHANGELOG.md](CHANGELOG.md)'s top version section
+names, and `pptx_agent.__version__` the same; CI's `build` job checks it
+(`tools/check_version.py`). Each version that reaches `main` is tagged `v<version>` on that
+commit by the tag workflow (`.github/workflows/tag.yml`). Raise the version with its
+CHANGELOG section; changes since the last one go under an `Unreleased` heading above it.
+
+## Dependencies
+
+The siblings are not on PyPI yet: install them first, from sibling checkouts
+(`pip install -e ../ooxml-common -e ../ooxml-edit -e ../pptx2svg`) or from their
+repositories, as CI does. `pyproject.toml` names versions, never URLs, since PyPI refuses
+a distribution whose dependencies name one. Each floor is the first version with what
+this package uses; what each earlier version added is in that package's CHANGELOG.
+
+- `ooxml-edit>=0.62.0`: the format-neutral editing core (the OPC package, ordered
+  insertion, undo, id stamping, the tool layer, and in `ooxml_edit.charts` the chart,
+  embedded-workbook and SmartArt editing), extracted from this repository with its
+  history. 0.62.0 gives public names to what was imported private (`opc.part_for_rels`,
+  `xml.child_ranks`, `charts.chart.series_of`; review, N2).
+- `ooxml-common>=0.28.0`: the reading core pptx2svg is built on, a dependency rendering
+  or not: the package kinds (validate, saving a template as a deck) and the text
+  measurement come from it. 0.27.0 carries `drawingml.text_chain`, the inherited text
+  chain shared with pptx2svg (`edit/effective.py`); 0.28.0 `fonts.embedded.forget_decoded`,
+  which the parallel-render test empties the decoded-face cache with (review, N2).
+- `lxml>=4.9`: the XML tree every edit is made in.
+- `markdown-it-py>=3.0`, `mdit-py-plugins>=0.4`: the Markdown outline in docx-agent's
+  dialect (CommonMark with GFM tables and strikethrough; the plugins carry docx-agent's
+  footnotes, which a slide has no place for, so the two stay one dialect).
+- `pptx2svg>=0.2.0` (`render`, `png` and `dev` extras): rendering, optional so the edit
+  layer can be used headless. 0.2.0 is pptx2svg's first tagged version and carries
+  everything used here (`table_row_heights`, `convert_pptx_to_agent_svg`,
+  `ConvertOptions.templates`), so nothing checks for an older one.

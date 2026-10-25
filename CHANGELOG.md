@@ -1,10 +1,26 @@
 # Changelog
 
-pptx-agent has not been released to PyPI. The public repository starts from a single
+pptx-agent has not been released to PyPI. Each version that reaches `main` is tagged
+`v<version>`, from 0.1.0, the first tagged. The public repository starts from a single
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
-## Unreleased
+## 0.1.0 -- 2026-10-25
+
+- **Versions that mean something** (review, N3): this is 0.1.0, the first version tagged
+  (`v0.1.0`). The `render` and `png` extras ask for `pptx2svg>=0.2.0`, pptx2svg's first
+  tagged version, which carries everything rendering uses, so the checks for a pptx2svg
+  without it are gone: `table_heights` calls `pptx2svg.table_row_heights` (no "upgrade
+  pptx2svg" `ImportError`), `render_svg(agent=True)` calls
+  `pptx2svg.convert_pptx_to_agent_svg` and a layout's or master's render passes
+  `ConvertOptions(templates=...)` without asking first (no `RuntimeError`), and
+  `tests/test_read_svg.py` no longer skips for an old pptx2svg. Without pptx2svg the
+  behaviour is unchanged (rendering asks for the `render` extra; a table's rows are their
+  stored heights). Each version that reaches `main` is tagged by the new tag workflow,
+  and CI's `build` job checks that `pyproject.toml`'s version is the one this file's top
+  version section names (`tools/check_version.py`). The dependency notes moved from
+  `pyproject.toml` to CONTRIBUTING.md, "Dependencies", and the ooxml-common floor is raised
+  from 0.27.0 to 0.28.0, which the tests' `fonts.embedded.forget_decoded` needs.
 
 - No private name of a sibling is imported any more (review, N2): ooxml-edit 0.62.0's
   `opc.part_for_rels` (was `_part_for_rels`; `edit/touched.py`'s own copy is gone),
