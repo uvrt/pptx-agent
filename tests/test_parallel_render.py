@@ -17,7 +17,10 @@ from ooxml_edit.tools import InProcess, Limits, Toolbox
 
 from pptx_agent import Document
 from pptx_agent.tools import FORMAT, GROUPS, TOOLS
-from pptx_agent.tools.render import raster_key, render_slides, render_views
+from ooxml_edit.tools import render as pipeline
+from ooxml_edit.tools.render import raster_key, render_views
+
+from pptx_agent.tools.render import RENDERER, render_slides
 
 pytest.importorskip("pptx2svg")
 pytest.importorskip("resvg_py")
@@ -122,19 +125,19 @@ def test_a_render_over_the_budget_is_refused_before_anything_is_drawn():
 
 def test_render_views_draws_only_what_the_caller_does_not_hold():
     data = _deck(2)
-    first = render_views(data, [1, 2], 320, [])
+    first = render_views(RENDERER, data, [1, 2], 320, [])
     assert [drawn for *_, drawn in first["views"]] == [True, True]
-    keys = [key for key, *_ in first["views"]]
-    again = render_views(data, [2, 1], 320, [], known=[keys[0]])
-    assert again["views"][1] == (keys[0], None, [], False)
-    assert again["views"][0][:2] == (keys[1], first["views"][1][1])
-    assert first["fonts"] == {}
+    keys = [key for _, key, *_ in first["views"]]
+    again = render_views(RENDERER, data, [2, 1], 320, [], known=[keys[0]])
+    assert again["views"][1] == (1, keys[0], None, None, False)
+    assert again["views"][0][:3] == (2, keys[1], first["views"][1][2])
+    assert first["facts"] == {"fonts": {}}
 
 
 def test_a_key_depends_on_the_svg_and_the_fingerprint():
-    assert raster_key("<svg/>", "a") != raster_key("<svg />", "a")
-    assert raster_key("<svg/>", "a") != raster_key("<svg/>", "b")
-    assert raster_key("<svg/>", "a") == raster_key("<svg/>", "a")
+    assert raster_key(RENDERER, "<svg/>", "a") != raster_key(RENDERER, "<svg />", "a")
+    assert raster_key(RENDERER, "<svg/>", "a") != raster_key(RENDERER, "<svg/>", "b")
+    assert raster_key(RENDERER, "<svg/>", "a") == raster_key(RENDERER, "<svg/>", "a")
 
 
 def _embedding_deck() -> Path:
@@ -152,15 +155,13 @@ def test_embedded_faces_are_decoded_once_and_handed_to_the_other_workers(monkeyp
     slides = list(range(1, min(count, 4) + 1))
     expected = render_slides(data, slides, 320, [])
     asked: list = []
-    import pptx_agent.tools.shared_tools as shared_tools
-
-    real = shared_tools.render_views
+    real = pipeline.render_views
 
     def watched(*args):
         asked.append(len(args[-1]))           # the decoded faces each task was handed
         return real(*args)
 
-    monkeypatch.setattr(shared_tools, "render_views", watched)
+    monkeypatch.setattr(pipeline, "render_views", watched)
     with _box(runner=InProcess(2)) as box:
         session = box.session()
         session.open(data, path.name)
