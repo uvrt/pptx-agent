@@ -16,7 +16,10 @@ from .common import (KIND, facts, library_errors, numbers, slide_id_of, targets,
                      template_key_of, template_options, validate_delta)
 from ..edit.document import font_dirs_of, locale_of
 from ..edit.effective import text_minimums
-from .render import png_size, rasterise_tiles, render_views
+from ooxml_edit.tools import render as pipeline
+from ooxml_edit.tools.render import png_size
+
+from .render import RENDERER
 from . import textfacts
 from .tables import forget_cells
 
@@ -300,82 +303,46 @@ def draw(call, deck, items, width) -> tuple[dict, dict]:
     """``{item: (png, missing, cached)}`` for slides and template keys ``items`` drawn
     ``width`` px wide, and ``{item: id}`` (a slide's id, a layout's or master's key).
 
-    An image is kept by its content (:func:`.render.raster_key`) in the toolbox's store
-    (``call.images``); this version's key of each view is remembered on the document, so a
-    repeat is answered here.  The rest go to the workers at once, in chunks
-    (``render_views``), told which images the store holds -- a view an edit left as it
-    was, or the same slide in another document, is keyed, found and not drawn again -- and handed the faces a
-    worker decoded from the deck's embedded fonts, which no worker decodes again.
-    ``cached`` says an image was not drawn by this call.  The bytes are the version's snapshot, taken under the lock;
-    the workers draw with the lock let go, and what they drew is kept under that version
-    (the result's)."""
-    entry, version, limits = call.entry, call.entry.version, call.limits
-    store = call.images
+    ooxml-edit's render pipeline draws them (:func:`ooxml_edit.tools.render.draw`, with the
+    deck's :data:`.render.RENDERER`): an image is kept by its content in the toolbox's
+    store, this version's key of each view on the document, so a repeat is answered there;
+    the rest go to the workers at once, in chunks, told which images the store holds -- a
+    view an edit left as it was, or the same slide in another document, is keyed, found and
+    not drawn again -- and handed the faces a worker decoded from the deck's embedded
+    fonts, which no worker decodes again.  ``cached`` says an image was not drawn by this
+    call."""
+    entry = call.entry
     # A slide by its id, a layout or master by its key (L2, M0): what the keys are kept by.
     ids = {item: item if isinstance(item, str) else deck.slides[item - 1].slide_id
            for item in items}
+    # A layout or master goes to the worker by its part path.
+    parts = {item: deck._template_by_key(item).part_path for item in dict.fromkeys(items)
+             if isinstance(item, str)}
     # The font folders, resolved here (the session's, else OOXML_FONT_DIRS) and handed to
     # the worker, which sees neither; they key the cache, so renders with different
     # folders do not mix.  The locale likewise: the session's, handed over and keying.
     fonts, locale = font_dirs_of(deck), locale_of(deck)
-    drawn: dict = {}
-    todo = []
-    for item in dict.fromkeys(items):
-        key = entry.render_keys.get((version, ids[item], width, fonts, locale))
-        found = store.get(key) if key is not None else None
-        if found is not None:
-            drawn[item] = (found[0], found[1], True)
-        else:
-            todo.append(item)
-    if not todo:
-        return drawn, ids
-    data = entry.snapshot()
-    held = store.entries()           # what the workers are told is drawn already
-    parts = {item: deck._template_by_key(item).part_path for item in todo
-             if isinstance(item, str)}
-    chunks = [todo[start::call.parallelism] for start in range(call.parallelism)]
-    chunks = [chunk for chunk in chunks if chunk]
     # The faces a worker decoded from the deck's embedded fonts, for the others.
     decoded = {key: found[0] for key in entry.font_keys.keys()
                if (found := call.decoded_fonts.peek(key)) is not None}
-    tasks = [(data, [parts.get(item, item) for item in chunk], width, list(fonts), locale,
-              list(held), decoded) for chunk in chunks]
-    timeouts = [limits.render_timeout_for(len(chunk)) for chunk in chunks]
-    first: list = []
-    if len(tasks) > 1 and not entry.font_keys.keys() and _embeds_fonts(deck):
-        # No worker has decoded this deck's embedded faces yet: one chunk first, alone,
-        # and its faces go with the others, so no worker decodes them a second time.
-        with call.unlocked():
-            first = call.run_all(render_views, tasks[:1], timeouts=timeouts[:1])
-        if not isinstance(first[0], BaseException):
-            fonts_found = first[0]["fonts"]
-            for key, font in fonts_found.items():
-                call.decoded_fonts.put(key, font)
-                entry.font_keys.put(key, True)
-            if not fonts_found:
-                entry.font_keys.put(NO_FACES, True)   # it embeds none a slide uses
-            decoded = {**decoded, **fonts_found}
-            tasks = [(*task[:-1], decoded) for task in tasks]
-    with call.unlocked():
-        results = first + call.run_all(render_views, tasks[len(first):],
-                                       timeouts=timeouts[len(first):])
-    failed = None
-    for chunk, result in zip(chunks, results):
-        if isinstance(result, BaseException):
-            failed = failed or result
-            continue
-        for key, font in result["fonts"].items():
+    # No worker has decoded this deck's embedded faces yet: one chunk first, alone, and its
+    # faces go with the others, so no worker decodes them a second time.
+    first_alone = not entry.font_keys.keys() and _embeds_fonts(deck)
+
+    def on_facts(facts, alone):
+        found = facts["fonts"]
+        for key, font in found.items():
             call.decoded_fonts.put(key, font)
             entry.font_keys.put(key, True)
-        for item, (key, png, missing, new) in zip(chunk, result["views"]):
-            if png is None:
-                png, missing = held[key]
-            else:
-                store.put(key, png, missing)
-            entry.render_keys.put((version, ids[item], width, fonts, locale), key)
-            drawn[item] = (png, missing, not new)
-    if failed is not None:
-        raise failed                     # what the other chunks drew is kept
+        if alone:
+            if not found:
+                entry.font_keys.put(NO_FACES, True)   # it embeds none a slide uses
+            return {**decoded, **found}
+        return None
+
+    drawn, _ = pipeline.draw(call, RENDERER, items, width, ids=ids, fonts=fonts, locale=locale,
+                             wire=parts, state=decoded, first_alone=first_alone,
+                             on_facts=on_facts)
     return drawn, ids
 
 
@@ -442,13 +409,9 @@ def _render_sheet(call, deck, slides, width, sheet) -> Result:
             drawn, _ = draw(call, deck, wanted, tiling.width)
         labels = {n: _sheet_label(deck, n) for n in wanted}
         tiles_cached = [n for n in wanted if drawn[n][2]]
-        with call.unlocked():
-            # The snapshot (the tiles, ids, labels) is taken; the worker draws from it.
-            views = [(drawn[n][0], *png_size(drawn[n][0]), labels[n]) for n in wanted]
-            tiles.check_size(tiling, [h for _, _, h, _ in views], name="sheet",
-                             what="slides", max_edge=limits.max_image_edge)
-            svg, w, h = tiles.tiled_svg(views, tiling)
-            png = call.run(rasterise_tiles, svg, list(fonts))
+        # The snapshot (the tiles, ids, labels) is taken; the worker draws from it.
+        png, w, h = pipeline.draw_tiles(call, RENDERER, [(drawn[n][0], labels[n]) for n in wanted],
+                                        tiling, name="sheet", what="slides", fonts=fonts)
         made = (png, w, h, {n: drawn[n][1] for n in wanted}, tiling)
         entry.render_cache.put(key, made)
     png, w, h, lost, tiling = made
