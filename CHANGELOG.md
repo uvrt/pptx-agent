@@ -6,6 +6,10 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- CI runs nightly (03:07 UTC) and on demand, so a sibling's change that breaks this
+  suite shows the next morning; ooxml-edit's own CI now runs this suite on its pull
+  requests too. No code change.
+
 - The shared `check` takes `layout` in `include`, `min_size` and `styles` (ooxml-edit 0.61.0,
   round 16, F8): a document's layout facts and what they measure against. A deck's handler
   takes neither measure, so ooxml-edit refuses them for a deck (`invalid_arguments`, the
