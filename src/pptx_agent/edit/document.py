@@ -4548,7 +4548,7 @@ class Document(CommentOps):
         render_keys = {"width", "height", "font_mapping", "measurer", "warnings", "locale"}
         numbers, parts, order = self._targets(slides)
         convert_options = pptx2svg.ConvertOptions(
-            slide_numbers=numbers, **_template_options(pptx2svg, parts),
+            slide_numbers=numbers, **_template_options(parts),
             **{k: v for k, v in options.items() if k in render_keys}
         )
         return _in_order(pptx2svg.convert_pptx_to_png(
