@@ -57,7 +57,9 @@ this package uses; what each earlier version added is in that package's CHANGELO
   insertion, undo, id stamping, the tool layer, and in `ooxml_edit.charts` the chart,
   embedded-workbook and SmartArt editing), extracted from this repository with its
   history. 0.62.0 gives public names to what was imported private (`opc.part_for_rels`,
-  `xml.child_ranks`, `charts.chart.series_of`; review, N2).
+  `xml.child_ranks`, `charts.chart.series_of`; review, N2); 0.63.0 the one lookup for
+  `edit_chart`'s series and category and `edit_smartart`'s node (`charts.actions.resolve_*`;
+  review, N4).
 - `ooxml-common>=0.28.0`: the reading core pptx2svg is built on, a dependency rendering
   or not: the package kinds (validate, saving a template as a deck) and the text
   measurement come from it. 0.27.0 carries `drawingml.text_chain`, the inherited text
