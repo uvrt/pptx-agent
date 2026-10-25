@@ -298,15 +298,11 @@ def table_heights(shape: "Shape", measured: "_Measured | None" = None) -> list[i
         import pptx2svg
     except ImportError:                       # pragma: no cover - the extras-less install
         return stored
-    rows = getattr(pptx2svg, "table_row_heights", None)
-    if rows is None:
-        raise ImportError("measuring a table's rows needs a pptx2svg with table_row_heights; "
-                          "upgrade pptx2svg")
     measured = measured or _Measured(shape._slide)
     element, _ = measured.element(shape)
     if element is None or getattr(element, "table", None) is None:
         return stored
-    drawn = rows(_with_empty_lines(element.table), measured.context)
+    drawn = pptx2svg.table_row_heights(_with_empty_lines(element.table), measured.context)
     if len(drawn) != len(stored):
         return stored
     return [max(int(height), round(grown)) for height, grown in zip(stored, drawn)]

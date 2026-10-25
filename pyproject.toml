@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pptx-agent"
-version = "0.0.1"
+version = "0.1.0"
 description = "An AI-editable PowerPoint layer: inspect, mutate and re-render .pptx decks losslessly"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -25,91 +25,16 @@ classifiers = [
     "Topic :: Office/Business :: Office Suites",
     "Topic :: Text Processing :: Markup :: XML",
 ]
-# ooxml-edit is the format-neutral editing core (the OPC package, ordered insertion, undo,
-# id stamping), extracted from this repository with its history so a docx editor can share it.
-# Since 0.2.0 it also carries the chart, embedded-workbook and SmartArt editing, in the
-# optional ooxml_edit.charts subpackage; edit/chart.py adapts a slide's graphic frame to it.
-# It is not on PyPI yet: install it first, from a sibling checkout
-# (`pip install -e ../ooxml-edit`) or from GitHub
-# (`pip install "ooxml-edit @ git+https://github.com/uvrt/ooxml-edit@main"`).
-# markdown-it-py reads the Markdown outline (E6) in docx-agent's dialect: CommonMark with GFM
-# tables and strikethrough.  mdit-py-plugins carries the rest of that dialect (docx-agent's
-# footnotes), which a slide has no place for; it is declared so the two stay one dialect.
-# ooxml-common is the format-neutral reading core pptx2svg is built on; it is a core
-# dependency because the package kinds (validate, saving a template as a deck) and the text
-# measurement come from it, rendering or not.  Like ooxml-edit, install it from a sibling
-# checkout (`pip install -e ../ooxml-common`) or from GitHub until it is on PyPI.
-# ooxml-edit 0.7.0 carries the shared tool definitions, refs and batch that pptx_agent.tools
-# builds on (ooxml_edit.tools.shared), optional nested descriptions, deferred loading by
-# default, DocumentFormat.strict_first, the shared describe, edit_chart's read action and
-# Tool.reads (a changing tool's reading mode).  0.10.0: SmartArt model ids made from the
-# edit (the goldens' bytes repeat), and list_documents gone from the shared tools.
-# 0.13.0: Toolbox(font_dirs=...) and DocumentFormat.configure; ooxml-common 0.8.0 resolves
-# them (office.user_font_dirs, OOXML_FONT_DIRS).  0.14.0: Call.unlocked (render and check
-# on a snapshot, the lock let go) and slide ids in their slides.  0.15.0: chart formatting
-# (axis scales, colours, markers, combination charts, chart text, point labels, bubble and
-# filled radar charts) and edit_chart's actions for it.  0.16.0: DocumentFormat.undo_shared
-# (undo by slide refuses a layout or master change) and decks' stories on find/replace.  0.17.0:
-# worker_task, so a daemonic process's subprocess workers run the slide renderer.
-# ooxml-common 0.12.0: svgimage, which restates an SVG picture's root size in pixels, as
-# PowerPoint reads it, before its fallback PNG is rasterised.
-# ooxml-common 0.15.0: ooxml_common.locales (Locale, EN_US).  ooxml-edit 0.19.0:
-# Toolbox(locale=...), Session.locale and call.locale, add_chart(..., locale=).
-# pptx2svg: ConvertOptions(locale=...) (pptx2svg on main since #28; its version is still 0.1).
-# ooxml-edit 0.22.0: sources (O3) -- Tool.sources, call.source and Rows.provenance, which
-# ppt_add_table's and ppt_edit_table's ``from`` read a dataset or another document's table by.
-# ooxml-edit 0.25.0: provenance records (ooxml_edit.provenance) and the format hooks
-# DocumentFormat.store_provenance/read_provenance, Call.keep_provenance, Session.provenance,
-# which keep a table's or chart's ``from`` in the deck (pptx_agent.edit.provenance).
-# ooxml-edit 0.26.0: batch applies its ops one by one (atomic: true for all or none), and
-# rolls a failed op back with History.savepoint before the format's restored hook.
-# ooxml-edit 0.27.0: value and argument-name aliases (string(aliases=), Tool.aliases,
-# names_as), refusals that say "did you mean", and charts.format.scheme_color, which the
-# deck's colours read Office's theme colour names by.  ooxml-edit 0.30.0: describe lists
-# the session's datasets, the deck's describe too (tested here).  ooxml-edit 0.31.0: a run
-# of a dataset's rows as a source (d:by_region/#10:), which a continued table's tests use.
-# ooxml-edit 0.32.0: edit_chart's add with its look (data_labels, colors, style, part) and
-# charts.actions.add_style_actions/apply_add_style, which the add handler runs.
-# ooxml-edit 0.33.0: text facts (Tool.facts, call.facts, provenance.facts_after_edit), which
-# the text tools' references and the shapes' UVRT_TEXT_FACTS tags are built on.
-# ooxml-edit 0.35.0: folded ref names, namespaced tools in a batch, nesting hints and
-# aliases by path (Tool.aliases "items[].top"), which ppt_format_text's spacing uses.
-# ooxml-edit 0.37.0: a format's own references (DocumentFormat.own_facts), by which
-# {{slide:s:262}} is written and kept (pptx_agent.edit.slidenumbers).  ooxml-edit 0.38.0:
-# date patterns (ooxml_edit.dates; Rows.label's date_format, sources.date_pattern), which
-# the tables' date_format writes by.  ooxml-edit 0.39.0: Chart.category_dates, by which
-# edit_chart read lists a chart's dates as ISO dates.  ooxml-common 0.17.0:
-# powerpoint_auto_title_size, which the chart text check sizes an automatic title by.
-# ooxml-edit 0.40.0: the dot chart (add_chart "dot", Chart.is_dot).
-# ooxml-edit 0.41.0: render's slides description names layouts and masters (L2, M0);
-# pptx2svg: ConvertOptions(templates=...), the template view a layout renders by (R11).
-# ooxml-common 0.18.0: title_states_no_font, by which check lists chart_title_font.
-# ooxml-edit 0.43.0: Result.nothing_given, an empty items list's no-op (round 7, L7).
-# ooxml-edit 0.44.0: a region's date names are its language's (round 7, L5); ooxml-common
-# 0.19.0 draws its codes ([$-80C]) in those names.
-# ooxml-edit 0.45.0: tool roles (Tool.action_roles, call_role, review_core;
-# shared.COMMENT_ACTION_ROLES), by which ppt_comments and the reviewer's core are tagged.
-# ooxml-edit 0.46.0: session views (Session.view), several agents on one deck, which the
-# tools README shows.
-# ooxml-edit 0.47.0: DocumentFormat.tool_hints, which TOOL_HINTS fills (round 9, N5).
-# ooxml-edit 0.49.0: render's sheet and ooxml_edit.tools.tiles, a contact sheet (round 9, N1).
-# ooxml-edit 0.52.0: run_all, warmed workers, ContentStore, DocumentEntry.snapshot and
-# check_images (round 10, O1/O3); ooxml-common 0.24.0: decoded_faces/remember_decoded, file_stamps.
-# ooxml-edit 0.55.0: tiles.fit and Tiling.shrunk, a sheet's tiles narrowed to fit (round 10, O4).
-# ooxml-edit 0.56.0: check's spacing, the tightest spacings on a slide (round 12, Q1).
-# ooxml-common 0.27.0: drawingml.text_chain, the inherited text chain shared with pptx2svg;
-# ooxml-edit 0.59.0: check's contrast (round 15, T1-T3).
-# ooxml-edit 0.62.0: public names for what was imported private (opc.part_for_rels,
-# xml.child_ranks, charts.chart.series_of; review, N2).
+# Why each dependency, and why at its version: CONTRIBUTING.md, "Dependencies".
 dependencies = ["lxml>=4.9", "ooxml-common>=0.27.0", "ooxml-edit>=0.62.0", "markdown-it-py>=3.0",
                 "mdit-py-plugins>=0.4"]
 
 [project.optional-dependencies]
 # Rendering is delegated to pptx2svg; it is optional so the edit layer can be used headless.
-render = ["pptx2svg>=0.1"]
-png = ["pptx2svg[png]>=0.1"]
+render = ["pptx2svg>=0.2.0"]
+png = ["pptx2svg[png]>=0.2.0"]
 # Pillow: golden p5's grader compares the logos (tests/golden/grading/check_p5.py).
-dev = ["pytest>=7", "lxml>=4.9", "pptx2svg>=0.1", "pillow>=10"]
+dev = ["pytest>=7", "lxml>=4.9", "pptx2svg>=0.2.0", "pillow>=10"]
 
 [project.urls]
 Homepage = "https://github.com/uvrt/pptx-agent"
