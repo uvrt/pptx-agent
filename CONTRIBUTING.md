@@ -60,11 +60,13 @@ this package uses; what each earlier version added is in that package's CHANGELO
   `xml.child_ranks`, `charts.chart.series_of`; review, N2); 0.63.0 the one lookup for
   `edit_chart`'s series and category and `edit_smartart`'s node (`charts.actions.resolve_*`;
   review, N4).
-- `ooxml-common>=0.28.0`: the reading core pptx2svg is built on, a dependency rendering
+- `ooxml-common>=0.31.0`: the reading core pptx2svg is built on, a dependency rendering
   or not: the package kinds (validate, saving a template as a deck) and the text
   measurement come from it. 0.27.0 carries `drawingml.text_chain`, the inherited text
   chain shared with pptx2svg (`edit/effective.py`); 0.28.0 `fonts.embedded.forget_decoded`,
-  which the parallel-render test empties the decoded-face cache with (review, N2).
+  which the parallel-render test empties the decoded-face cache with (review, N2); 0.31.0
+  `drawingml.table_styles` and `drawingml.theme`, the built-in table styles and the Office
+  theme a new deck is written with (review, S3).
 - `lxml>=4.9`: the XML tree every edit is made in.
 - `markdown-it-py>=3.0`, `mdit-py-plugins>=0.4`: the Markdown outline in docx-agent's
   dialect (CommonMark with GFM tables and strikethrough; the plugins carry docx-agent's

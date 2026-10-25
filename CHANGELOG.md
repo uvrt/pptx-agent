@@ -5,7 +5,21 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
-## Unreleased
+## 0.1.1 -- unreleased
+
+- **Office's built-in data read from ooxml-common, not copied** (review, S3):
+  `edit.tablestyles.BUILTIN_TABLE_STYLES` (GUID -> name) is derived from
+  `ooxml_common.drawingml.table_styles`, the catalogue pptx2svg draws with, and a built-in
+  style's text colours (`Run.effective_color`, `effective_text`) come from its
+  `builtin_text_colors`; the generated `edit/table_text_colors.py` and
+  `tools/derive_table_text_colors.py`, which copied them out of pptx2svg, are gone, so
+  this no longer needs pptx2svg to regenerate anything. `edit/blank.py` writes the Office
+  theme's colours, faces, per-script faces, gradients and line widths from
+  `ooxml_common.drawingml.theme` (shared with docx-agent's new document), and
+  `oxml.xml.PRESET_GEOMETRIES` is the names of `ooxml_common.drawingml.presets.PRESETS`
+  instead of a list of its own. A test compared each copy with the shared data, once, on
+  the pull request, before the copy went. The same names, colours, theme and presets as
+  before: no behaviour change. ooxml-common floor 0.31.0.
 
 - **A tool's error code says whose mistake it is** (review, N5): the library's own refusals
   of a value it was given are a new `ArgumentError` (a `ValueError`, exported), or
