@@ -6,6 +6,15 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- No private name of a sibling is imported any more (review, N2): ooxml-edit 0.62.0's
+  `opc.part_for_rels` (was `_part_for_rels`; `edit/touched.py`'s own copy is gone),
+  `xml.child_ranks` (was `_ranks`) and `charts.chart.series_of` (was `_series_of`);
+  `oxml.xml` and `oxml.package` no longer re-export `_prefixed_name` and `_part_for_rels`;
+  the parallel-render test empties the decoded-face cache with ooxml-common 0.28.0's
+  `fonts.embedded.forget_decoded()` instead of replacing its private `_decode_cache`.
+  Each owner's `tests/test_public_api.py` now holds every name pptx-agent imports from it.
+  No behaviour change.
+
 - CI runs nightly (03:07 UTC) and on demand, so a sibling's change that breaks this
   suite shows the next morning; ooxml-edit's own CI now runs this suite on its pull
   requests too. No code change.

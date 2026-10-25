@@ -74,13 +74,13 @@ def check_deck_charts(data: bytes, original: bytes | None = None) -> int:
 
 def chart_order_violations(data: bytes | None) -> set[tuple[str, str]]:
     """``(parent, child)`` pairs out of their schema order in a chart part."""
-    from pptx_agent.core.xml import _ranks, prefixed_name
+    from pptx_agent.core.xml import child_ranks, prefixed_name
 
     found = set()
     if data is None:
         return found
     for parent in etree.fromstring(data).iter():
-        ranks = _ranks(prefixed_name(parent))
+        ranks = child_ranks(prefixed_name(parent))
         if not ranks:
             continue
         last = -1

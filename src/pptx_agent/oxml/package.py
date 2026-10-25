@@ -14,8 +14,8 @@ from ooxml_edit.opc import (  # noqa: F401  (re-exported)
     RELS_NS,
     OpcPackage,
     Relationship,
-    _part_for_rels,
     normalize_part_path,
+    part_for_rels,
     rels_path_for,
     resolve_target,
 )

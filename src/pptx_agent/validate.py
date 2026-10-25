@@ -33,7 +33,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from lxml import etree
-from ooxml_edit.xml import _ranks, prefixed_name
+from ooxml_edit.xml import child_ranks, prefixed_name
 
 from .oxml.package import CONTENT_TYPES_PART, PresentationPackage
 from .oxml.xml import Element, qn
@@ -140,7 +140,7 @@ def _order_problems(name: str, root: Element) -> list[Problem]:
         if not isinstance(element.tag, str):
             continue
         parent = prefixed_name(element)
-        ranks = _ranks(parent)
+        ranks = child_ranks(parent)
         if not ranks:
             continue
         unknown = len(ranks) + 1
