@@ -5,6 +5,27 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.2 -- unreleased
+
+- **The render plumbing is ooxml-edit's** (review, S5): `tools/render.py` is now a thin
+  adapter, `SlideRenderer` (`RENDERER`), over pptx2svg for ooxml-edit 0.65.0's shared
+  pipeline (`ooxml_edit.tools.render`), which docx-agent's pages use too. The adapter says
+  what is a deck's: a chunk of slides laid out and drawn in each worker (a slide stands
+  alone), the raster fingerprint (font files, PowerPoint's faces here, embedded faces,
+  `PPTX2SVG_OFFICE_FONTS`), the decoded embedded faces handed between workers, the
+  `glyphs-missing` facts with each image, the contact image's labels drawn without the
+  machine's fonts (`host_fonts=False`: the same sheet everywhere, deliberately, kept). The
+  rest -- `draw`'s cache lookups and keeping, the chunks, the worker tasks, the keys, the
+  warm-up, the contact image's task, `png_size` -- is the shared copy; this repository's
+  `render_views`, `rasterise_tiles`, `raster_key`, `raster_fingerprint`, `_code_stamp` and
+  `png_size` are gone (`render_slides` and `render_slides_reporting`, the serial renderer,
+  stay). The same images byte for byte, the same keys, the same tool definitions and
+  token counts; what changes: every PNG the renderer returns is checked to be one before
+  it is kept (signature and header). Render timings unchanged within noise (4 slides at
+  1,280 px: median 442-473 ms before, 453-454 ms after; a 6-view contact image 433-475 ms
+  before, 417-418 ms after). `tests/test_parallel_render.py` calls the shared tasks with
+  `RENDERER` (the same assertions, the shared shapes). ooxml-edit floor 0.65.0.
+
 ## 0.1.1 -- unreleased
 
 - **Office's built-in data read from ooxml-common, not copied** (review, S3):
