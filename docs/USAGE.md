@@ -48,8 +48,8 @@ paragraph.run(0).size = 14                         # a font size: points
 print(box.left, paragraph.space_after, paragraph.run(0).size)   # -> 914400 76200 14.0
 try:
     paragraph.space_before = 6                     # 6 EMU: points meant, refused
-except ValueError as error:
-    print(type(error).__name__)                    # -> ValueError
+except ValueError as error:                        # an ArgumentError, a ValueError
+    print(type(error).__name__)                    # -> ArgumentError
 ```
 
 This is the one place units are stated; everything else follows it. `Inches(1)` and
@@ -63,7 +63,7 @@ This is the one place units are stated; everything else follows it. `Inches(1)` 
 | `rotation` | degrees, clockwise |
 | Colour modifiers in a colour string (`lumMod=75%`) | percent |
 
-A paragraph spacing over 1,000 pt, or under a hundredth of a point, is refused (`ValueError`
+A paragraph spacing over 1,000 pt, or under a hundredth of a point, is refused (`ArgumentError`
 naming `Pt`): it is points written as EMU. One under a point that is not a `Pt` draws a
 `UnitWarning`.
 
@@ -1108,6 +1108,7 @@ deck.redo()
 
 | | When |
 | --- | --- |
+| `ArgumentError` (a `ValueError`) | a value the library refuses: a colour, a length, a spec, a placeholder a slide already has; the message says what is wrong and what would do. A type it does not take there is an `ArgumentTypeError`, also a `TypeError` |
 | `LabelError` (a `KeyError`) | a row, column, series or category label, or a slide title (`slide_titled`), names nothing or more than one; the message lists the labels, and `label`, `what`, `candidates` and `matches` hold them as data |
 | `MarkdownEscapeWarning` | `set_text` or a `text` setter got text that looks copied from `to_outline` (`\*`, `\-` at a line's start, `11\.`, `**bold**`) that the old text did not have; it is still written as given |
 | `ChartDataWarning` | a chart has no embedded workbook, so only its cache changed |
@@ -1115,6 +1116,6 @@ deck.redo()
 | `OutlineWarning` | `insert_outline` left a chart or SmartArt block out |
 | `TemplateOpenedWarning` | `Document.open` was given a template: it edits the template itself; a deck *from* it is `Document.new(template=...)` |
 | `FullStateError` / `NotFullStateSvg` | `apply_svg` refused an SVG; nothing changed |
-| `UnitWarning` | a paragraph spacing under a point that is not a `Pt`: probably points written as EMU (under a hundredth of a point, or over 1,000 pt, it is a `ValueError`) |
-| `TypeError` from `format` | a formatting key no run property has; the message lists them |
+| `UnitWarning` | a paragraph spacing under a point that is not a `Pt`: probably points written as EMU (under a hundredth of a point, or over 1,000 pt, it is an `ArgumentError`) |
+| `ArgumentTypeError` from `format` | a formatting key no run property has; the message lists them |
 | `KeyError` / `IndexError` | an id, address or position that does not exist |

@@ -40,6 +40,7 @@ from ..oxml.xml import (
     subelement,
 )
 from .color import Color
+from .errors import ArgumentError
 from .labels import find_label
 from .fill import (
     Fill,
@@ -401,7 +402,7 @@ class Table:
             table.set_column_width(0, 1828800)
         """
         if int(width) < 0:
-            raise ValueError("a column width cannot be negative")
+            raise ArgumentError("a column width cannot be negative")
         with self._editing() as table:
             node = self._grid_columns(table)[self._column_index(column, table)]
             delta = int(width) - (get_int(node, "w", 0) or 0)
@@ -417,7 +418,7 @@ class Table:
             table.set_row_height(0, 457200)
         """
         if int(height) < 0:
-            raise ValueError("a row height cannot be negative")
+            raise ArgumentError("a row height cannot be negative")
         with self._editing() as table:
             node = self._rows(table)[self._row_index(row, table)]
             delta = int(height) - (get_int(node, "h", 0) or 0)
@@ -438,7 +439,7 @@ class Table:
 
         points = points_of(size)
         if not 1 <= points <= 4000:
-            raise ValueError("size must be between 1 and 4000 points")
+            raise ArgumentError("size must be between 1 and 4000 points")
         value = str(round(points * 100))
         runs = (qn("a:r"), qn("a:fld"), qn("a:br"))
         with self._editing() as table:
@@ -508,7 +509,7 @@ class Table:
                 overlaps = not (region.bottom < top or region.top > bottom
                                 or region.right < left or region.left > right)
                 if overlaps and not inside:
-                    raise ValueError(f"{self.address}: the merge would cut through the merged "
+                    raise ArgumentError(f"{self.address}: the merge would cut through the merged "
                                      f"region {region}")
             origin = self._tc(top, left, table)
             for row in range(top, bottom + 1):
@@ -588,7 +589,7 @@ class Table:
             rows = self._rows(table)
             index = self._row_index(index, table)
             if len(rows) == 1:
-                raise ValueError(f"{self.address}: a table must keep at least one row")
+                raise ArgumentError(f"{self.address}: a table must keep at least one row")
             regions = self._regions(table)
             for region in regions:
                 if region.height == 1 or not region.top <= index <= region.bottom:
@@ -668,7 +669,7 @@ class Table:
             grid = self._grid_columns(table)
             index = self._column_index(index, table)
             if len(grid) == 1:
-                raise ValueError(f"{self.address}: a table must keep at least one column")
+                raise ArgumentError(f"{self.address}: a table must keep at least one column")
             rows = self._rows(table)
             for region in self._regions(table):
                 if region.width == 1 or not region.left <= index <= region.right:
@@ -697,7 +698,7 @@ class Table:
     def _table(self) -> Element:
         table = _table_element(self._shape()._element)
         if table is None:
-            raise ValueError(f"{self.address} no longer holds a table")
+            raise ArgumentError(f"{self.address} no longer holds a table")
         return table
 
     def _rows(self, table: Element | None = None) -> list[Element]:
@@ -967,7 +968,7 @@ class TableCell:
         try:
             tag = BORDER_TAGS[side]
         except KeyError:
-            raise ValueError(f"side must be one of {sorted(BORDER_TAGS)}") from None
+            raise ArgumentError(f"side must be one of {sorted(BORDER_TAGS)}") from None
         table, row, column = self._table, self.row, self.column
 
         def locate(create: bool) -> Element | None:

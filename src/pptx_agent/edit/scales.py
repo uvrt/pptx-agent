@@ -41,6 +41,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
+from .errors import ArgumentError
+
 #: The parts of a day or a band a position may mean.
 WHERE = ("start", "center", "end")
 #: Date tick intervals.
@@ -101,7 +103,7 @@ def date_label(day: _dt.date, pattern: str, language: str | None = None) -> str:
     return day.strftime(_DIRECTIVE.sub(name, pattern))
 
 
-class ScaleError(ValueError):
+class ScaleError(ArgumentError):
     """A scale or a value that does not make sense; the message says what would."""
 
 

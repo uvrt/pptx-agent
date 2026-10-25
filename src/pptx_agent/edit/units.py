@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import warnings
 
+from .errors import ArgumentError, ArgumentTypeError
+
 EMU_PER_POINT = 12700
 EMU_PER_INCH = 914400
 EMU_PER_CM = 360000
@@ -116,15 +118,15 @@ def spacing(value, what: str, *, stacklevel: int = 3) -> int:
     sub-hundredth-of-a-point values -- what points given as EMU look like -- are refused,
     and a value under a point that is not a :class:`Pt` is warned about."""
     if isinstance(value, bool):
-        raise TypeError(f"{what} is a length in EMU, not {value!r}")
+        raise ArgumentTypeError(f"{what} is a length in EMU, not {value!r}")
     emu = int(value) if isinstance(value, Pt) else round(float(value))
     if emu < 0:
-        raise ValueError(f"{what} cannot be negative")
+        raise ArgumentError(f"{what} cannot be negative")
     if emu > MAX_SPACING:
-        raise ValueError(f"{what}={emu:,} EMU is {emu / EMU_PER_POINT:,.0f} pt; lengths are "
+        raise ArgumentError(f"{what}={emu:,} EMU is {emu / EMU_PER_POINT:,.0f} pt; lengths are "
                          f"EMU (12,700 per point) -- for points write Pt(...)")
     if 0 < emu < SPACING_STEP and not isinstance(value, Pt):
-        raise ValueError(f"{what}={value!r} EMU is under a hundredth of a point and would "
+        raise ArgumentError(f"{what}={value!r} EMU is under a hundredth of a point and would "
                          f"write nothing; lengths are EMU -- for {value!r} points write "
                          f"Pt({value!r})")
     if 0 < emu < EMU_PER_POINT and not isinstance(value, Pt):

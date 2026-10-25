@@ -41,6 +41,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from .errors import ArgumentError
+
 
 def _engine():
     """:mod:`._textlayout`, imported when first needed: it needs ooxml-common, which comes
@@ -463,12 +465,12 @@ def measure_table(slide: "Slide", data=None, *, rows: int | None = None,
     rows = len(data) if rows is None else int(rows)
     columns = max((len(row) for row in data), default=0) if columns is None else int(columns)
     if rows < 1 or columns < 1:
-        raise ValueError("a table needs at least one row and one column: give data, or rows "
+        raise ArgumentError("a table needs at least one row and one column: give data, or rows "
                          "and columns")
     if widths is not None:
         widths = [int(value) for value in widths]
         if len(widths) != columns:
-            raise ValueError(f"{len(widths)} widths for {columns} columns")
+            raise ArgumentError(f"{len(widths)} widths for {columns} columns")
     area = None
     if (width is None and widths is None) or height is None:
         area = slide.content_area
@@ -477,10 +479,10 @@ def measure_table(slide: "Slide", data=None, *, rows: int | None = None,
     elif width is None:
         width = area[2]
     if int(width) <= 0:
-        raise ValueError("width must be positive")
+        raise ArgumentError("width must be positive")
     page_height = area[3] if height is None else int(height)
     if page_height <= 0:
-        raise ValueError("height must be positive: the room for each page, EMU")
+        raise ArgumentError("height must be positive: the room for each page, EMU")
     copy = _scratch(slide.document)
     made = None
     template = getattr(slide, "kind", None) in ("layout", "master")
@@ -490,7 +492,7 @@ def measure_table(slide: "Slide", data=None, *, rows: int | None = None,
         found = copy._template_by_key(slide.slide_id)
         layouts = [found] if slide.kind == "layout" else found.layouts
         if not layouts:
-            raise ValueError(f"{slide.slide_id} has no layout to measure a table on")
+            raise ArgumentError(f"{slide.slide_id} has no layout to measure a table on")
         target = made = copy.add_slide(layouts[0])
     else:
         target = copy.slide(slide.slide_id)
@@ -645,7 +647,7 @@ class _Laid:
 
 def _lay_out(shape: "Shape", measured: _Measured | None = None) -> _Laid:
     if shape.kind != "shape":
-        raise ValueError(f"{shape.id}: a {shape.kind} holds no text to fit")
+        raise ArgumentError(f"{shape.id}: a {shape.kind} holds no text to fit")
     measured = measured or _Measured(shape._slide)
     element, (sx, sy) = measured.element(shape)
     frame_mode = shape.text_frame.autofit
@@ -817,7 +819,7 @@ def measure_text(text, *, font: str | None = None, size: float | None = None,
     if isinstance(deck_or_shape, Shape):
         shape = deck_or_shape
         if shape.kind != "shape":
-            raise ValueError(f"{shape.id}: a {shape.kind} holds no text to measure like")
+            raise ArgumentError(f"{shape.id}: a {shape.kind} holds no text to measure like")
         frame = shape.text_frame
         first = frame.paragraph(0).effective if len(frame) else None
         font = font or (first.font if first else None)
@@ -835,11 +837,11 @@ def measure_text(text, *, font: str | None = None, size: float | None = None,
     elif deck_or_shape is not None:
         raise TypeError("deck_or_shape is a Document, a Slide or a Shape")
     if font is None:
-        raise ValueError("name a font, or pass the deck (its theme's body font) or a shape")
+        raise ArgumentError("name a font, or pass the deck (its theme's body font) or a shape")
     if size is None:
-        raise ValueError("give a size, in points")
+        raise ArgumentError("give a size, in points")
     if size <= 0 or int(width) <= 0:
-        raise ValueError("size and width must be positive")
+        raise ArgumentError("size and width must be positive")
     left, top, right, bottom = insets if insets is not None else engine.DEFAULT_INSETS
     model = engine.model
     properties = model.RunProperties(font_size=float(size), font_family=font,
@@ -983,10 +985,10 @@ def _measure_spec(spec, *, width: int, like=None, preset: str | None = None, whe
     from ..oxml.xml import PRESET_GEOMETRIES
 
     if int(width) <= 0:
-        raise ValueError("width must be positive")
+        raise ArgumentError("width must be positive")
     if like is not None:
         if not isinstance(like, Shape) or like.kind != "shape":
-            raise ValueError("like is an autoshape or text box (kind 'shape') to measure in")
+            raise ArgumentError("like is an autoshape or text box (kind 'shape') to measure in")
         document = like._slide.document
     elif isinstance(where, Shape):
         document = where._slide.document
@@ -995,10 +997,10 @@ def _measure_spec(spec, *, width: int, like=None, preset: str | None = None, whe
     elif isinstance(where, Document):
         document = where
     else:
-        raise ValueError("pass the deck or slide (deck_or_shape= or slide=) the text will "
+        raise ArgumentError("pass the deck or slide (deck_or_shape= or slide=) the text will "
                          "go into, or like= a shape")
     if like is None and preset not in PRESET_GEOMETRIES and preset != "textbox":
-        raise ValueError(f"{preset!r} is not a preset geometry or 'textbox'; see "
+        raise ArgumentError(f"{preset!r} is not a preset geometry or 'textbox'; see "
                          "pptx_agent.PRESETS")
     copy = _scratch(document)
     tall = int(height) if height is not None else int(width)

@@ -30,6 +30,8 @@ import colorsys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Iterable
 
+from .errors import ArgumentError
+
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Shape, Slide
 
@@ -414,7 +416,7 @@ def design_facts(slide: "Slide", *, region=None, within: float = 2 * EMU_PER_POI
     wanted = set(include or KINDS)
     unknown = wanted - set(KINDS)
     if unknown:
-        raise ValueError(f"unknown design facts {sorted(unknown)}; one of {list(KINDS)}")
+        raise ArgumentError(f"unknown design facts {sorted(unknown)}; one of {list(KINDS)}")
     if region is not None:
         left, top, width, height = region
         box = (float(left), float(top), float(left + width), float(top + height))

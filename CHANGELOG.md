@@ -7,6 +7,22 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+- **A tool's error code says whose mistake it is** (review, N5): the library's own refusals
+  of a value it was given are a new `ArgumentError` (a `ValueError`, exported), or
+  `ArgumentTypeError` (also a `TypeError`) where it checks a value's type; `ScaleError`,
+  `LayoutError`, `SvgProfileError` and `FullStateError` are `ArgumentError`s too, so
+  `except ValueError` (and `except TypeError`) catch what they caught. The tools'
+  `library_errors` wrapper turns these, ooxml-edit's `ChartDataError` and a `LabelError`
+  into the codes they had (`invalid_arguments`, `label_not_found`, with the same messages
+  and options), a `KeyError` or `IndexError` into `not_found` as before, and nothing else:
+  a `TypeError` or `ValueError` Python raises itself, or a sibling library's, goes to the
+  dispatcher's mapping, the one docx-agent's and xlsx-agent's tools get. What changes for a
+  model: a mistake in a handler (a `TypeError`) is `internal`, and logged, where it was
+  `invalid_arguments`; a plain `ValueError` from ooxml-edit, pptx2svg or Python is `unit`, as
+  in a document or a workbook (`edit_smartart` removing a diagram's last node was
+  `invalid_arguments` in a deck only); an ooxml-edit `LimitError` is `limit`. The tool
+  definitions are unchanged.
+
 - **One lookup for `edit_chart`'s series and category** (review, N4): the handler finds
   them, and `edit_smartart` its node, with ooxml-edit 0.63.0's
   `charts.actions.resolve_series`, `resolve_category` and `resolve_node`, the lookup

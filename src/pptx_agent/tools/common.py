@@ -10,9 +10,11 @@ from __future__ import annotations
 import functools
 from typing import Any, Callable, Iterable, Mapping
 
+from ooxml_edit.charts import ChartDataError
 from ooxml_edit.tools import Param, ToolError, array, boolean, integer, number, obj, string
 
 from ..edit.effective import TEXT_KINDS, size_overrides_json, small_text_json, text_minimums
+from ..edit.errors import ArgumentError
 from ..edit.labels import LabelError
 from ..edit.textspec import ParagraphSpec, RunSpec, TextSpec
 from ..edit.units import EMU_PER_POINT, Pt
@@ -232,9 +234,17 @@ def _position(deck, item: str, field: str) -> int:
 
 
 def library_errors(handler: Callable[..., Any]) -> Callable[..., Any]:
-    """Run a handler, turning the library's argument errors into tool errors the model can
-    act on: a ``ValueError``/``TypeError`` is ``invalid_arguments`` (the library's message
-    says what is allowed), a ``LabelError`` ``label_not_found`` with the labels there are."""
+    """Run a handler, turning the library's own refusals into tool errors the model can act
+    on: an :class:`~pptx_agent.edit.errors.ArgumentError` (the library's check of a value
+    it was given, its message saying what is allowed) and ooxml-edit's
+    :class:`~ooxml_edit.charts.ChartDataError` (a chart's) are ``invalid_arguments``, a
+    ``LabelError`` ``label_not_found`` with the labels there are, a ``KeyError`` or
+    ``IndexError`` ``not_found``.
+
+    Nothing else is caught: a ``TypeError`` or ``ValueError`` Python raises itself (a
+    mistake in a handler) or a sibling library's goes to the dispatcher, which maps it as
+    for every format -- a ``ValueError`` is ``unit``, a :class:`~ooxml_edit.tools.LimitError`
+    ``limit``, and anything unexpected ``internal``, logged."""
 
     @functools.wraps(handler)
     def run(call, **arguments):
@@ -245,7 +255,7 @@ def library_errors(handler: Callable[..., Any]) -> Callable[..., Any]:
         except LabelError as exc:
             raise ToolError("label_not_found", str(exc),
                             valid_options=exc.candidates[:50]) from None
-        except (ValueError, TypeError) as exc:
+        except (ArgumentError, ChartDataError) as exc:
             raise ToolError("invalid_arguments", _message(exc)) from None
         except (KeyError, IndexError) as exc:
             raise ToolError("not_found", _message(exc)) from None

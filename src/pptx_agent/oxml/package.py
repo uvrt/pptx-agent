@@ -6,6 +6,7 @@ Everything about reading, editing and losslessly writing parts lives in
 
 from __future__ import annotations
 
+from ..edit.errors import ArgumentError
 from . import xml as _xml  # noqa: F401  registers the p:/a: namespaces before qn() is used
 from ooxml_edit.opc import (  # noqa: F401  (re-exported)
     CONTENT_TYPES_PART,
@@ -147,7 +148,7 @@ class PresentationPackage(OpcPackage):
         """
         extension = (extension or sniff_image_extension(data) or "").lower().lstrip(".")
         if extension not in IMAGE_CONTENT_TYPES:
-            raise ValueError(
+            raise ArgumentError(
                 "unsupported image format; expected one of "
                 + ", ".join(sorted(set(IMAGE_CONTENT_TYPES)))
             )
@@ -163,7 +164,7 @@ class PresentationPackage(OpcPackage):
             return main
         if self.has_part("ppt/presentation.xml"):
             return "ppt/presentation.xml"
-        raise ValueError("not a PowerPoint package: no presentation part")
+        raise ArgumentError("not a PowerPoint package: no presentation part")
 
     def slide_parts(self) -> list[tuple[int, str]]:
         """``(sldId, part path)`` for every slide, in presentation order.

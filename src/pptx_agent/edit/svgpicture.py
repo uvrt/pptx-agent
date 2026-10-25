@@ -30,6 +30,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Sequence
 
+from .errors import ArgumentError
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..oxml.package import PresentationPackage
 
@@ -118,7 +120,7 @@ def size_emu(root, width: int | None, height: int | None) -> tuple[int, int]:
         return int(width), int(height)
     native = native_size(root)
     if native is None:
-        raise ValueError("the SVG states no size (width, height or viewBox): pass width "
+        raise ArgumentError("the SVG states no size (width, height or viewBox): pass width "
                          "and height")
     natural_w = round(native[0] * _EMU_PER_INCH / 96)
     natural_h = round(native[1] * _EMU_PER_INCH / 96)
@@ -135,7 +137,7 @@ def rasterise(data: bytes, width_emu: int, height_emu: int, dpi: float = 300,
     :data:`FALLBACK_MAX_PX`), drawn by pptx2svg's rasteriser; an ``ImportError`` naming
     ``pptx-agent[png]`` without it."""
     if dpi <= 0:
-        raise ValueError("fallback_dpi must be above 0")
+        raise ArgumentError("fallback_dpi must be above 0")
     width = width_emu * dpi / _EMU_PER_INCH
     height = height_emu * dpi / _EMU_PER_INCH
     scale = min(1.0, FALLBACK_MAX_PX / max(width, height, 1))
@@ -154,7 +156,7 @@ def rasterise(data: bytes, width_emu: int, height_emu: int, dpi: float = 300,
 
     data = with_pixel_size(data) or data
     if not _is_utf8(data):
-        raise ValueError("the SVG is not UTF-8 text")
+        raise ArgumentError("the SVG is not UTF-8 text")
     text = data.decode("utf-8-sig")
     try:
         return svg_to_png(text, width=width, height=height,
@@ -319,7 +321,7 @@ def _selector(text: str) -> tuple[list[tuple[str, tuple]], tuple[int, int, int]]
             continue
         match = _COMPOUND.match(token)
         if match is None or not token:
-            raise ValueError(f"the SVG's style sheet has the selector {text.strip()!r}: only "
+            raise ArgumentError(f"the SVG's style sheet has the selector {text.strip()!r}: only "
                              "tags, classes, ids and descendant or child selectors can be "
                              "carried over when a recolour replaces the style sheet; "
                              "simplify the SVG's styles first")
@@ -333,7 +335,7 @@ def _selector(text: str) -> tuple[list[tuple[str, tuple]], tuple[int, int, int]]
         steps.append((combinator, (tag, classes, ids)))
         combinator = " "
     if not steps:
-        raise ValueError(f"the SVG's style sheet has an empty selector in {text!r}")
+        raise ArgumentError(f"the SVG's style sheet has an empty selector in {text!r}")
     return steps, tuple(specificity)
 
 
@@ -392,7 +394,7 @@ def _style_sheet(text: str) -> list[tuple[str, list, tuple, list]]:
     selector of each rule; ``ValueError`` for an at-rule (``@media``, ``@font-face``...)."""
     text = _COMMENT.sub("", text).replace("<!--", "").replace("-->", "")
     if "@" in text:
-        raise ValueError("the SVG's style sheet has an at-rule (@media, @import, "
+        raise ArgumentError("the SVG's style sheet has an at-rule (@media, @import, "
                          "@font-face...), which cannot be carried over when a recolour "
                          "replaces the style sheet; simplify the SVG's styles first")
     rules = []
@@ -400,7 +402,7 @@ def _style_sheet(text: str) -> list[tuple[str, list, tuple, list]]:
         selectors, separator, body = block.partition("{")
         if not separator:
             if selectors.strip():
-                raise ValueError(f"the SVG's style sheet cannot be read near "
+                raise ArgumentError(f"the SVG's style sheet cannot be read near "
                                  f"{selectors.strip()[:40]!r}")
             continue
         declarations = _declarations(body)
@@ -433,7 +435,7 @@ def _carry_styles(root, rules) -> None:
                 winners[name] = (key, value)
         for name, (_, value) in winners.items():
             if name not in _PRESENTATION:
-                raise ValueError(f"the SVG's styles set {name!r}, which has no presentation "
+                raise ArgumentError(f"the SVG's styles set {name!r}, which has no presentation "
                                  "attribute to carry it over when a recolour replaces the "
                                  "styles; simplify the SVG's styles first")
             element.set(name, value)
@@ -467,7 +469,7 @@ def stroke_units(root, width_emu: int, height_emu: int) -> float:
     if not box or box[0] <= 0 or box[1] <= 0:
         box = native_size(root)
     if not box or width_emu <= 0 or height_emu <= 0:
-        raise ValueError("the SVG states no size (width, height or viewBox) to scale an "
+        raise ArgumentError("the SVG states no size (width, height or viewBox) to scale an "
                          "outline weight by")
     pixels_per_unit = min(width_emu / 9525 / box[0], height_emu / 9525 / box[1])
     return 1 / (pixels_per_unit * 9525)
@@ -535,7 +537,7 @@ def recolor(data: bytes, fill: str | None = None, fill_class: str | None = None,
                and not any(isinstance(a.tag, str) and a.tag[len(svg):] in _NOT_DRAWN
                            for a in element.iterancestors())]
     if not painted:
-        raise ValueError("the SVG has no shape to recolour (no path, basic shape, text or "
+        raise ArgumentError("the SVG has no shape to recolour (no path, basic shape, text or "
                          "use element outside a clip path or mask)")
     own_stroke = {id(element): (element.get("stroke") or "none").strip().lower()
                   not in ("none", "inherit") for element in painted}

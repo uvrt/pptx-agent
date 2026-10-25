@@ -31,6 +31,7 @@ from ..oxml.xml import (
     serialize,
     subelement,
 )
+from .errors import ArgumentError
 
 #: ``p:ext`` URI of PowerPoint 2010's sections.
 SECTION_EXT_URI = "{521415D9-36F7-43E2-AB2F-B90AF26B5E84}"
@@ -219,7 +220,7 @@ class _TemplatePart:
 
     def _sheet(self):
         if self._document is None:
-            raise ValueError(f"this {type(self).__name__} was made by hand; take it from "
+            raise ArgumentError(f"this {type(self).__name__} was made by hand; take it from "
                              f"deck.{type(self).__name__.lower()}s")
         return self._document._template_sheet(self.part_path)
 
@@ -500,7 +501,7 @@ class Layout(_TemplatePart):
 
     def _require_package(self):
         if self._package is None:
-            raise ValueError("this Layout was made by hand; take it from deck.layouts")
+            raise ArgumentError("this Layout was made by hand; take it from deck.layouts")
         return self._package
 
     def _tree(self) -> list[Element]:
@@ -639,7 +640,7 @@ def _presentation(package: PresentationPackage) -> tuple[str, Element]:
     path = package.presentation_part()
     root = package.tree(path)
     if root is None:
-        raise ValueError("the presentation part is missing")
+        raise ArgumentError("the presentation part is missing")
     return path, root
 
 
@@ -688,7 +689,7 @@ def new_slide_id(root: Element, above: int = 0, seen: Iterable[int] = ()) -> int
         candidate = next((i for i in range(MIN_SLIDE_ID, MAX_SLIDE_ID + 1) if i not in taken),
                          None)
         if candidate is None:
-            raise ValueError("every slide id from 256 to 2147483647 is taken")
+            raise ArgumentError("every slide id from 256 to 2147483647 is taken")
     return candidate
 
 
@@ -818,7 +819,7 @@ def unlink_references(package: PresentationPackage, slide_part: str, keep: set[s
                               for name, value in node.attrib.items())]
             for node in holders:
                 if local_name(node) not in _HYPERLINK_TAGS:
-                    raise ValueError(
+                    raise ArgumentError(
                         f"{source} refers to {slide_part} through <{local_name(node)}>, which "
                         "cannot be unlinked safely")
             for node in holders:
@@ -868,7 +869,7 @@ def slide_from_layout(package: PresentationPackage, layout_part: str,
     layout = package.tree(layout_part)
     tree = find(layout, "p:cSld/p:spTree")
     if tree is None:
-        raise ValueError(f"{layout_part} has no shape tree")
+        raise ArgumentError(f"{layout_part} has no shape tree")
     slide = make_root("p:sld", {prefix: NAMESPACES[prefix] for prefix in ("a", "r", "p")})
     shapes = subelement(subelement(slide, "p:cSld"), "p:spTree")
     group_nv = subelement(shapes, "p:nvGrpSpPr")

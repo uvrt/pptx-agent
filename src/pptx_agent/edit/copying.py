@@ -46,6 +46,7 @@ from ..oxml.package import (
     SHARED_ON_DUPLICATE,
 )
 from ..oxml.xml import NAMESPACES, append_in_order, local_name, make, qn, remove
+from .errors import ArgumentError
 from ooxml_edit.xml import parse_xml, serialize
 
 if TYPE_CHECKING:
@@ -86,18 +87,18 @@ def copy_shapes(shapes: "Sequence[Shape]", to_slide: "Slide | None" = None, *,
     copy is offset by ``(dx, dy)`` from where the originals are.  See the module docstring.
     """
     if not shapes:
-        raise ValueError("copy_shapes needs at least one shape")
+        raise ArgumentError("copy_shapes needs at least one shape")
     source = shapes[0]._slide
     for shape in shapes:
         if shape._slide.document is not source.document or shape._slide.slide_id != source.slide_id:
-            raise ValueError(f"{shape.id}: every shape to copy must be on one slide "
+            raise ArgumentError(f"{shape.id}: every shape to copy must be on one slide "
                              f"(s:{source.slide_id})")
     chosen = _top_level(shapes)
     target = to_slide if to_slide is not None else source
     bounds = [shape.slide_bounds for shape in chosen]
     for shape, box in zip(chosen, bounds):
         if box is None:
-            raise ValueError(f"{shape.id} has no position to copy from")
+            raise ArgumentError(f"{shape.id} has no position to copy from")
     if at is not None:
         dx = int(at[0]) - min(box[0] for box in bounds)
         dy = int(at[1]) - min(box[1] for box in bounds)
@@ -229,12 +230,12 @@ def _carry_relationships(holder, source_package, source_part, package, target_pa
 def _carry(rel_id, source_package, source_part, package, target_part, imported) -> str:
     relationship = source_package.relationships(source_part).get(rel_id)
     if relationship is None:
-        raise ValueError(f"the shapes use {rel_id}, which {source_part} does not define")
+        raise ArgumentError(f"the shapes use {rel_id}, which {source_part} does not define")
     if relationship.is_external:
         return package.add_external_relationship(target_part, relationship.type,
                                                  relationship.target)
     if relationship.type in _STRUCTURAL:
-        raise ValueError(f"a shape cannot carry a {relationship.type.rsplit('/', 1)[-1]} "
+        raise ArgumentError(f"a shape cannot carry a {relationship.type.rsplit('/', 1)[-1]} "
                          "relationship")
     part = relationship.target_part
     if package is source_package:
@@ -242,7 +243,7 @@ def _carry(rel_id, source_package, source_part, package, target_part, imported) 
             part = package.copy_part(part, share=lambda rel: rel.type in SHARED_ON_DUPLICATE)
     else:
         if relationship.type == REL_SLIDE:
-            raise ValueError("a link to another slide cannot be copied into another deck; "
+            raise ArgumentError("a link to another slide cannot be copied into another deck; "
                              "remove the link first")
         part = _import(source_package, package, part, imported)
     return package.add_relationship(target_part, relationship.type, part)
@@ -254,7 +255,7 @@ def _import(source, package, path: str, imported: dict[str, str]) -> str:
         return imported[path]
     data = source.read(path)
     if data is None:
-        raise ValueError(f"the shapes relate to {path}, which is missing")
+        raise ArgumentError(f"the shapes relate to {path}, which is missing")
     content_type = source.content_type(path)
     directory = posixpath.dirname(path)
     if path.startswith("ppt/media/"):
@@ -275,7 +276,7 @@ def _import(source, package, path: str, imported: dict[str, str]) -> str:
             if relationship is None or relationship.is_external or relationship.target_part is None:
                 continue
             if relationship.type in _STRUCTURAL or relationship.type == REL_SLIDE:
-                raise ValueError(f"{path} relates to {relationship.target_part}, which cannot "
+                raise ArgumentError(f"{path} relates to {relationship.target_part}, which cannot "
                                  "be copied into another deck")
             if not source.has_part(relationship.target_part):
                 continue

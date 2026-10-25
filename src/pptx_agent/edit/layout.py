@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Iterable, Mapping, Sequence
 
 from .arrange import Box, drawn_box, move_to, outermost, place, resize
+from .errors import ArgumentError
 
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Shape, Slide
@@ -45,7 +46,7 @@ SIDES = ("right", "left", "above", "below")
 _PT = 12700
 
 
-class LayoutError(ValueError):
+class LayoutError(ArgumentError):
     """The shapes do not fit their box: ``needed`` and ``available`` say by how much."""
 
     def __init__(self, message: str, *, needed: float | None = None,
@@ -67,7 +68,7 @@ def _line(shapes: Sequence["Shape"], axis: int, *, box: Box, gap: float, align: 
           justify: str, equal: bool, fit_text: bool) -> list[Box]:
     shapes = outermost(shapes)
     if not shapes:
-        raise ValueError("no shapes to arrange")
+        raise ArgumentError("no shapes to arrange")
     count = len(shapes)
     main = box[2] if axis == 0 else box[3]
     cross = box[3] if axis == 0 else box[2]
@@ -153,7 +154,7 @@ def grid(shapes: Sequence["Shape"], *, box: Box, rows: int | None = None,
     shapes = outermost(shapes)
     count = len(shapes)
     if not count:
-        raise ValueError("no shapes to arrange")
+        raise ArgumentError("no shapes to arrange")
     if rows is None and columns is None:
         columns = math.ceil(math.sqrt(count))
     if columns is None:
@@ -161,7 +162,7 @@ def grid(shapes: Sequence["Shape"], *, box: Box, rows: int | None = None,
     if rows is None:
         rows = math.ceil(count / columns)
     if rows < 1 or columns < 1:
-        raise ValueError("rows and columns are 1 or more")
+        raise ArgumentError("rows and columns are 1 or more")
     if rows * columns < count:
         raise LayoutError(f"{count} shapes do not fit {rows} x {columns} cells: give more "
                           "rows or columns, or leave one out", needed=count,
@@ -213,9 +214,9 @@ def flow(shapes: Sequence["Shape"], *, box: Box, gutter: tuple[float, float] = (
     boxes, in order."""
     shapes = outermost(shapes)
     if not shapes:
-        raise ValueError("no shapes to arrange")
+        raise ArgumentError("no shapes to arrange")
     if columns is not None and columns < 1:
-        raise ValueError("columns is 1 or more")
+        raise ArgumentError("columns is 1 or more")
     gx, gy = gutter
     sizes = [drawn_box(shape)[2:] for shape in shapes]
     width = max(w for w, _ in sizes)
@@ -245,7 +246,7 @@ def flow(shapes: Sequence["Shape"], *, box: Box, gutter: tuple[float, float] = (
 
 def _check(value: str, allowed: Sequence[str], name: str) -> None:
     if value not in allowed:
-        raise ValueError(f"{name} must be one of {', '.join(allowed)}, not {value!r}")
+        raise ArgumentError(f"{name} must be one of {', '.join(allowed)}, not {value!r}")
 
 
 # -- labels --------------------------------------------------------------------------------------

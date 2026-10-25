@@ -33,6 +33,7 @@ from ..oxml.xml import (
     subelement,
 )
 from .color import Color
+from .errors import ArgumentError, ArgumentTypeError
 
 ANGLE_UNIT = 60000
 POSITION_UNIT = 100000
@@ -153,7 +154,7 @@ def gradient_fill(
     element.append(gs_list)
     if path is not None:
         if path not in {"circle", "rect", "shape"}:
-            raise ValueError("path must be 'circle', 'rect' or 'shape'")
+            raise ArgumentError("path must be 'circle', 'rect' or 'shape'")
         shade = make("a:path", path=path)
         shade.append(make("a:fillToRect", l="50000", t="50000", r="50000", b="50000"))
         element.append(shade)
@@ -186,7 +187,7 @@ def fill_element(spec: "str | Color | Fill | None") -> Element | None:
         return no_fill()
     if isinstance(spec, (str, Color)):
         return solid_fill(spec)
-    raise TypeError(f"cannot use {spec!r} as a fill; use set_gradient_fill/set_image_fill")
+    raise ArgumentTypeError(f"cannot use {spec!r} as a fill; use set_gradient_fill/set_image_fill")
 
 
 def write_fill(container: Element, element: Element | None, choices: Iterable[str] = FILL_TAGS) -> None:
@@ -196,7 +197,7 @@ def write_fill(container: Element, element: Element | None, choices: Iterable[st
 def _normalise_stops(stops) -> list[tuple[float, Color]]:
     items = list(stops)
     if len(items) < 2:
-        raise ValueError("a gradient needs at least two stops")
+        raise ArgumentError("a gradient needs at least two stops")
     if all(isinstance(item, (str, Color)) for item in items):
         last = len(items) - 1
         return [(index / last, Color.parse(item)) for index, item in enumerate(items)]
@@ -204,7 +205,7 @@ def _normalise_stops(stops) -> list[tuple[float, Color]]:
     for item in items:
         position, color = item
         if not 0.0 <= float(position) <= 1.0:
-            raise ValueError(f"gradient stop position {position} is outside 0..1")
+            raise ArgumentError(f"gradient stop position {position} is outside 0..1")
         result.append((float(position), Color.parse(color)))
     return result
 
@@ -398,7 +399,7 @@ class LineFormat:
     @width.setter
     def width(self, emu: int | None) -> None:
         if emu is not None and not 0 <= int(emu) <= 20116800:
-            raise ValueError("line width must be between 0 and 20116800 EMU (1584 pt)")
+            raise ArgumentError("line width must be between 0 and 20116800 EMU (1584 pt)")
         with self._change() as line:
             set_int(line, "w", None if emu is None else int(emu))
 
@@ -423,7 +424,7 @@ class LineFormat:
     @dash.setter
     def dash(self, value: str | None) -> None:
         if value is not None and value not in DASH_STYLES:
-            raise ValueError(f"dash must be one of {sorted(DASH_STYLES)}")
+            raise ArgumentError(f"dash must be one of {sorted(DASH_STYLES)}")
         with self._change() as line:
             replace_choice(line, ("a:prstDash", "a:custDash"),
                            None if value is None else make("a:prstDash", val=value))
@@ -431,7 +432,7 @@ class LineFormat:
     @cap.setter
     def cap(self, value: str | None) -> None:
         if value is not None and value not in LINE_CAPS:
-            raise ValueError(f"cap must be one of {sorted(LINE_CAPS)}")
+            raise ArgumentError(f"cap must be one of {sorted(LINE_CAPS)}")
         with self._change() as line:
             set_attr(line, "cap", value)
 
@@ -454,7 +455,7 @@ class LineFormat:
         """
         names = {"head": "head", "start": "head", "tail": "tail", "end": "tail"}
         if end not in names:
-            raise ValueError("end must be 'start' ('head') or 'end' ('tail')")
+            raise ArgumentError("end must be 'start' ('head') or 'end' ('tail')")
         value = None if type is None else Arrowhead(type, width, length)
         self._set_arrowhead(f"a:{names[end]}End", value)
         return self
@@ -488,10 +489,10 @@ class LineFormat:
             value = Arrowhead(value)
         if value is not None:
             if value.type not in ARROWHEADS:
-                raise ValueError(f"arrowhead must be one of {sorted(ARROWHEADS)}")
+                raise ArgumentError(f"arrowhead must be one of {sorted(ARROWHEADS)}")
             for size in (value.width, value.length):
                 if size is not None and size not in ARROWHEAD_SIZES:
-                    raise ValueError(f"arrowhead sizes must be one of {sorted(ARROWHEAD_SIZES)}")
+                    raise ArgumentError(f"arrowhead sizes must be one of {sorted(ARROWHEAD_SIZES)}")
         with self._change() as line:
             replace_choice(line, (tag,), None)
             if value is not None:

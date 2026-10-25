@@ -50,6 +50,7 @@ from datetime import datetime
 from lxml import etree
 
 from ..oxml.xml import NAMESPACES, Element, qn, serialize
+from .errors import ArgumentError
 
 #: Named slide sizes, EMU.
 SLIDE_SIZES: dict[str, tuple[int, int]] = {
@@ -698,17 +699,17 @@ def slide_size(size) -> tuple[int, int]:
     """``"16:9"``, ``"4:3"`` or ``(cx, cy)`` in EMU, checked against the schema's range."""
     if isinstance(size, str):
         if size not in SLIDE_SIZES:
-            raise ValueError(f"slide size {size!r} is not one of {sorted(SLIDE_SIZES)} or "
+            raise ArgumentError(f"slide size {size!r} is not one of {sorted(SLIDE_SIZES)} or "
                              f"(width, height) in EMU")
         return SLIDE_SIZES[size]
     try:
         width, height = (int(v) for v in size)
     except (TypeError, ValueError):
-        raise ValueError(f"slide size must be '16:9', '4:3' or (width, height), not "
+        raise ArgumentError(f"slide size must be '16:9', '4:3' or (width, height), not "
                          f"{size!r}") from None
     for value in (width, height):
         if not MIN_SIDE <= value <= MAX_SIDE:
-            raise ValueError(f"a slide side must be {MIN_SIDE}..{MAX_SIDE} EMU, not {value}")
+            raise ArgumentError(f"a slide side must be {MIN_SIDE}..{MAX_SIDE} EMU, not {value}")
     return width, height
 
 

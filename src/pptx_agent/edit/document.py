@@ -16,6 +16,8 @@ import os
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, BinaryIO, Iterator, NamedTuple
 
+from .errors import ArgumentError, ArgumentTypeError
+
 if TYPE_CHECKING:  # pragma: no cover
     import datetime as _datetime_module  # noqa: F401
     from datetime import datetime
@@ -189,7 +191,7 @@ class Shape(ShapeFactory):
     def name(self, value: str) -> None:
         properties = cnv_pr(self._element)
         if properties is None:
-            raise ValueError(f"{self.id}: shape has no cNvPr to name")
+            raise ArgumentError(f"{self.id}: shape has no cNvPr to name")
         self._before_change()
         properties.set("name", value)
         self._slide._touch()
@@ -362,9 +364,9 @@ class Shape(ShapeFactory):
     def preset(self, name: str) -> None:
         """Give the shape another preset geometry.  Its adjustments go with the old one."""
         if local_name(self._element) not in {"sp", "pic", "cxnSp"}:
-            raise ValueError(f"{self.id}: a {self.kind} has no geometry of its own")
+            raise ArgumentError(f"{self.id}: a {self.kind} has no geometry of its own")
         if name not in PRESET_GEOMETRIES:
-            raise ValueError(f"{name!r} is not a preset geometry (ST_ShapeType)")
+            raise ArgumentError(f"{name!r} is not a preset geometry (ST_ShapeType)")
         if self.preset == name:
             return
         self._before_change()
@@ -421,10 +423,10 @@ class Shape(ShapeFactory):
             shape.move_by(dx=914400, dy=-457200)
         """
         if space not in {"parent", "slide"}:
-            raise ValueError("space must be 'parent' or 'slide'")
+            raise ArgumentError("space must be 'parent' or 'slide'")
         left, top = self.left, self.top
         if left is None or top is None:
-            raise ValueError(f"{self.id}: cannot move a shape with no resolvable position")
+            raise ArgumentError(f"{self.id}: cannot move a shape with no resolvable position")
         if space == "slide":
             scale_x, scale_y = self._parent_scale()
             dx, dy = round(dx / scale_x), round(dy / scale_y)
@@ -567,7 +569,7 @@ class Shape(ShapeFactory):
             group.fit_to_children()
         """
         if local_name(self._element) != "grpSp":
-            raise ValueError(f"{self.id}: only a group has children to fit")
+            raise ArgumentError(f"{self.id}: only a group has children to fit")
         self._before_change()
         self._refit()
         self._after_change()
@@ -712,7 +714,7 @@ class Shape(ShapeFactory):
         """
         frame = self.text_frame
         if frame is None:
-            raise ValueError(f"{self.id}: a {self.kind} cannot hold text directly")
+            raise ArgumentError(f"{self.id}: a {self.kind} cannot hold text directly")
         frame.set_text(value)
         return self
 
@@ -748,14 +750,14 @@ class Shape(ShapeFactory):
             body.set_prompt("Typ hier uw bevinding")
         """
         if not self._on_layout() or self._ph_node() is None:
-            raise ValueError(f"{self.id}: a prompt belongs to a layout's placeholder; this is "
+            raise ArgumentError(f"{self.id}: a prompt belongs to a layout's placeholder; this is "
                              f"{'not a placeholder' if self._ph_node() is None else 'on a ' + self._slide.kind}")
         if self._ph_node().get("type") in _HEADER_FOOTER:
-            raise ValueError(f"{self.id}: a {self._ph_node().get('type')} placeholder has no "
+            raise ArgumentError(f"{self.id}: a {self._ph_node().get('type')} placeholder has no "
                              "prompt; Document.set_footer fills it")
         frame = self.text_frame
         if frame is None:
-            raise ValueError(f"{self.id}: a {self.kind} holds no text")
+            raise ArgumentError(f"{self.id}: a {self.kind} holds no text")
         lines = str(text).split("\n")
         with self._slide.document.batch():
             for index, line in enumerate(lines):
@@ -772,7 +774,7 @@ class Shape(ShapeFactory):
     def _on_a_slide(self, what: str) -> None:
         kind = getattr(self._slide, "kind", None)
         if kind is not None:
-            raise ValueError(f"{self.id} is on a {kind}: {what} measures a slide's shape; check "
+            raise ArgumentError(f"{self.id} is on a {kind}: {what} measures a slide's shape; check "
                              f"the slides it shows on (deck.affected_slides({self.id!r}))")
 
     def _on_layout(self) -> bool:
@@ -1027,7 +1029,7 @@ class Shape(ShapeFactory):
             shape.adjustments["adj"] = 30000
         """
         if local_name(self._element) not in {"sp", "pic", "cxnSp"}:
-            raise ValueError(f"{self.id}: a {self.kind} has no geometry to adjust")
+            raise ArgumentError(f"{self.id}: a {self.kind} has no geometry to adjust")
         return Adjustments(self)
 
     @property
@@ -1077,14 +1079,14 @@ class Shape(ShapeFactory):
         """
         sites = self.connection_sites
         if not sites:
-            raise ValueError(f"{self.id}: a {self.kind} has no connection sites")
+            raise ArgumentError(f"{self.id}: a {self.kind} has no connection sites")
         if isinstance(which, int) and not isinstance(which, bool):
             if not 0 <= which < len(sites):
                 raise IndexError(f"{self.id} has connection sites 0..{len(sites) - 1}")
             return (self, which)
         axes = {"top": (1, -1), "bottom": (1, 1), "left": (0, -1), "right": (0, 1)}
         if which not in axes:
-            raise ValueError("a connection site is 'top', 'right', 'bottom', 'left' or an index")
+            raise ArgumentError("a connection site is 'top', 'right', 'bottom', 'left' or an index")
         axis, sign = axes[which]
         middle = sum(point[1 - axis] for point in sites) / len(sites)
         best = min(range(len(sites)),
@@ -1156,7 +1158,7 @@ class Shape(ShapeFactory):
         """
         self._require_connector()
         if which not in {"begin", "end", "both"}:
-            raise ValueError("which must be 'begin', 'end' or 'both'")
+            raise ArgumentError("which must be 'begin', 'end' or 'both'")
         references = {w: _creating.connection(self._element, w) for w in ("begin", "end")}
         for name in ("begin", "end"):
             if which in (name, "both"):
@@ -1178,7 +1180,7 @@ class Shape(ShapeFactory):
         """
         self._require_connector()
         if _creating.connector_kind(self._element) is None:
-            raise ValueError(f"{self.id}: only straight, elbow and curved connectors are routed")
+            raise ArgumentError(f"{self.id}: only straight, elbow and curved connectors are routed")
         with self._slide.document.batch():
             self._before_change()
             _creating.route_connector(self._slide, self._element)
@@ -1213,11 +1215,11 @@ class Shape(ShapeFactory):
 
     def _require_connector(self) -> None:
         if local_name(self._element) != "cxnSp":
-            raise ValueError(f"{self.id}: a {self.kind} is not a connector")
+            raise ArgumentError(f"{self.id}: a {self.kind} is not a connector")
 
     def _factory(self):
         if local_name(self._element) != "grpSp":
-            raise ValueError(f"{self.id}: shapes can be added to a slide or a group, not to "
+            raise ArgumentError(f"{self.id}: shapes can be added to a slide or a group, not to "
                              f"a {self.kind}")
         return self._slide, self._element, self
 
@@ -1396,7 +1398,7 @@ class Shape(ShapeFactory):
             tag = "p:spPr"
         else:
             if create:
-                raise ValueError(f"{self.id}: a {self.kind} has no fill of its own")
+                raise ArgumentError(f"{self.id}: a {self.kind} has no fill of its own")
             return None
         if create:
             return subelement(self._element, tag)
@@ -1427,7 +1429,7 @@ class Shape(ShapeFactory):
         """
         dependants = self.inherited_by()
         if dependants:
-            raise ValueError(
+            raise ArgumentError(
                 f"{self.id}: {', '.join(dependants[:20])} inherit position and format from "
                 "this placeholder and would lose them; delete those first (or leave this "
                 "one: an empty layout placeholder draws nothing on a slide)")
@@ -1530,17 +1532,17 @@ class Shape(ShapeFactory):
 
         ph = self._ph_node()
         if ph is None or ph.get("type") != "pic" or local_name(self._element) != "sp":
-            raise ValueError(f"{self.id} is not an empty picture placeholder; replace a "
+            raise ArgumentError(f"{self.id} is not an empty picture placeholder; replace a "
                              "picture's image with replace_image, or add one with add_picture")
         if getattr(self._slide, "kind", None) is not None:
-            raise ValueError(f"{self.id} is on a {self._slide.kind}; fill the placeholder on a "
+            raise ArgumentError(f"{self.id} is on a {self._slide.kind}; fill the placeholder on a "
                              "slide made on it")
         if (self.text or "").strip():
-            raise ValueError(f"{self.id} holds text; a picture placeholder takes a picture "
+            raise ArgumentError(f"{self.id} holds text; a picture placeholder takes a picture "
                              "only when empty")
         frame = self.bounds
         if frame is None:
-            raise ValueError(f"{self.id} has no box to fill, its own or its layout's")
+            raise ArgumentError(f"{self.id} has no box to fill, its own or its layout's")
         slide = self._slide
         data = image if isinstance(image, (bytes, bytearray)) else open(image, "rb").read()
         old = self._element
@@ -1596,31 +1598,31 @@ class Shape(ShapeFactory):
             icon.replace_image(recoloured_png, svg=recoloured_svg)
         """
         if self._blip() is None:
-            raise ValueError(f"{self.id}: a {self.kind} has no image to replace")
+            raise ArgumentError(f"{self.id}: a {self.kind} has no image to replace")
         if keep not in ("frame", "height", "width", "none"):
-            raise ValueError("keep is 'frame', 'height', 'width' or 'none'")
+            raise ArgumentError("keep is 'frame', 'height', 'width' or 'none'")
         if anchor not in _ANCHORS:
-            raise ValueError(f"anchor is one of {sorted(_ANCHORS)}")
+            raise ArgumentError(f"anchor is one of {sorted(_ANCHORS)}")
         data, suffix = _read_image(image)
         vector = None
         if _svgpicture.looks_like_svg(data, suffix):
             if svg is not None:
-                raise ValueError("image is an SVG already: give svg with a raster image")
+                raise ArgumentError("image is an SVG already: give svg with a raster image")
             vector, data, suffix = data, None, None
         elif svg is not None:
             vector, svg_suffix = _read_image(svg)
             if not _svgpicture.looks_like_svg(vector, svg_suffix):
-                raise ValueError("svg is not an SVG document")
+                raise ArgumentError("svg is not an SVG document")
         root = _svgpicture.parse(vector) if vector is not None else None
         native = _svgpicture.native_size(root) if root is not None else None
         pixels = native if native is not None else (image_size(data) if data else None)
         frame = None
         if keep != "frame":
             if pixels is None or not all(pixels):
-                raise ValueError("cannot read this image's size; keep='frame' needs none")
+                raise ArgumentError("cannot read this image's size; keep='frame' needs none")
             left, top, width, height = self.left, self.top, self.width, self.height
             if None in (left, top, width, height):
-                raise ValueError(f"{self.id}: the picture has no frame to keep")
+                raise ArgumentError(f"{self.id}: the picture has no frame to keep")
             if keep == "height":
                 new_w, new_h = round(height * pixels[0] / pixels[1]), height
             elif keep == "width":
@@ -1633,7 +1635,7 @@ class Shape(ShapeFactory):
         if data is None:
             size = frame[2:] if frame is not None else (self.width, self.height)
             if None in size:
-                raise ValueError(f"{self.id}: the picture has no size to draw the SVG at")
+                raise ArgumentError(f"{self.id}: the picture has no size to draw the SVG at")
             data = _svgpicture.rasterise(vector, size[0], size[1], fallback_dpi,
                                          self._slide.document.font_dirs)
         package = self._slide.document.package
@@ -1691,12 +1693,12 @@ class Shape(ShapeFactory):
         """
         blip = self._blip()
         if blip is None:
-            raise ValueError(f"{self.id}: a {self.kind} has no image to give an SVG")
+            raise ArgumentError(f"{self.id}: a {self.kind} has no image to give an SVG")
         vector = None
         if svg is not None:
             vector, suffix = _read_image(svg)
             if not _svgpicture.looks_like_svg(vector, suffix):
-                raise ValueError("svg is not an SVG document")
+                raise ArgumentError("svg is not an SVG document")
             _svgpicture.parse(vector)
         package = self._slide.document.package
         with self._slide.document.batch():
@@ -1742,15 +1744,15 @@ class Shape(ShapeFactory):
             icon.recolor("#1F4E79", line="accent5", line_width=Pt(1))
         """
         if self._blip() is None:
-            raise ValueError(f"{self.id}: a {self.kind} has no image to recolour")
+            raise ArgumentError(f"{self.id}: a {self.kind} has no image to recolour")
         vector = self.vector
         if vector is None:
-            raise ValueError(f"{self.id} is a bitmap picture: only an SVG picture can be "
+            raise ArgumentError(f"{self.id} is a bitmap picture: only an SVG picture can be "
                              "recoloured; replace its image with an SVG to recolour it")
         if color is None and line is None and line_width is None:
-            raise ValueError("give a colour, an outline colour or an outline weight")
+            raise ArgumentError("give a colour, an outline colour or an outline weight")
         if None in (self.width, self.height):
-            raise ValueError(f"{self.id}: the picture has no size to draw the SVG at")
+            raise ArgumentError(f"{self.id}: the picture has no size to draw the SVG at")
         fill = fill_class = stroke = stroke_class = width = None
         opacity = 1.0
         if color is not None:
@@ -1760,7 +1762,7 @@ class Shape(ShapeFactory):
             stroke, stroke_class, stroke_opacity = self._graphic_color(line, "Stroke")
         if line_width is not None:
             if line_width < 0:
-                raise ValueError("line_width must be 0 or more")
+                raise ArgumentError("line_width must be 0 or more")
             width = line_width * _svgpicture.stroke_units(_svgpicture.parse(vector),
                                                           self.width, self.height)
         # A weight alone strokes shapes that had none in PowerPoint's default outline
@@ -1800,7 +1802,7 @@ class Shape(ShapeFactory):
             if name == "alpha" and value is not None:
                 alpha = value
             elif name.startswith("alpha"):
-                raise ValueError("give an SVG picture's transparency as alpha=50%")
+                raise ArgumentError("give an SVG picture's transparency as alpha=50%")
             else:
                 others.append(name)
         theme_class = (_svgpicture.theme_class(parsed.value, part)
@@ -1862,7 +1864,7 @@ class Shape(ShapeFactory):
             members = group.ungroup()
         """
         if local_name(self._element) != "grpSp":
-            raise ValueError(f"{self.id}: only a group can be ungrouped")
+            raise ArgumentError(f"{self.id}: only a group can be ungrouped")
         with self._slide.document.batch():
             self._before_change()
             children = self.children
@@ -1964,7 +1966,7 @@ class Shape(ShapeFactory):
         """
         parent = self._element.getparent()
         if parent is None:
-            raise ValueError(f"{self.id}: shape is not attached to a slide")
+            raise ArgumentError(f"{self.id}: shape is not attached to a slide")
 
         self._before_change()
         clone = copy.deepcopy(self._element)
@@ -2018,7 +2020,7 @@ class Shape(ShapeFactory):
     def _step(self, direction: int) -> "Shape":
         parent = self._element.getparent()
         if parent is None:
-            raise ValueError(f"{self.id}: shape is not attached to a slide")
+            raise ArgumentError(f"{self.id}: shape is not attached to a slide")
         members = [child for child in parent if prefixed_name(child) in SHAPE_TREE_MEMBERS]
         position = members.index(self._element)
         neighbour = position + direction
@@ -2047,7 +2049,7 @@ class Shape(ShapeFactory):
     def _reorder(self, position: int) -> "Shape":
         parent = self._element.getparent()
         if parent is None:
-            raise ValueError(f"{self.id}: shape is not attached to a slide")
+            raise ArgumentError(f"{self.id}: shape is not attached to a slide")
         self._before_change()
         siblings = [child for child in parent if local_name(child) in _XFRM_PARENT]
         remove(self._element)
@@ -2358,14 +2360,14 @@ class Slide(ShapeFactory):
             else:
                 data, suffix = _read_image(fallback)
                 if _svgpicture.looks_like_svg(data, suffix):
-                    raise ValueError("fallback is the bitmap shown where SVG is not drawn "
+                    raise ArgumentError("fallback is the bitmap shown where SVG is not drawn "
                                      "(PNG, JPEG...), not an SVG")
         elif fallback is not None:
-            raise ValueError("fallback is for an SVG picture; this image is not an SVG")
+            raise ArgumentError("fallback is for an SVG picture; this image is not an SVG")
         pixels = image_size(data)
         if width is None or height is None:
             if pixels is None or not all(pixels):
-                raise ValueError("cannot read this image's size; pass width and height")
+                raise ArgumentError("cannot read this image's size; pass width and height")
             natural_w, natural_h = (dimension * EMU_PER_INCH // 96 for dimension in pixels)
             if width is None and height is None:
                 width, height = natural_w, natural_h
@@ -2733,12 +2735,12 @@ class Slide(ShapeFactory):
         """
         members = [self.shape(s) if isinstance(s, str) else s for s in shapes]
         if len(members) < 2:
-            raise ValueError("a group needs at least two shapes")
+            raise ArgumentError("a group needs at least two shapes")
         parent = members[0]._element.getparent()
         if parent is None or any(m._element.getparent() is not parent for m in members):
-            raise ValueError("grouped shapes must share a container (the slide or one group)")
+            raise ArgumentError("grouped shapes must share a container (the slide or one group)")
         if len({id(m._element) for m in members}) != len(members):
-            raise ValueError("a shape was listed twice")
+            raise ArgumentError("a shape was listed twice")
 
         with self.document.batch():
             boxes = []
@@ -2747,7 +2749,7 @@ class Slide(ShapeFactory):
                 # Materialise inherited placeholder geometry: inside a group it must be explicit.
                 left, top, width, height = member.left, member.top, member.width, member.height
                 if None in (left, top, width, height):
-                    raise ValueError(f"{member.id}: cannot group a shape with no position")
+                    raise ArgumentError(f"{member.id}: cannot group a shape with no position")
                 if not member.has_explicit_transform:
                     member.left = left
                     member.width = width
@@ -2802,7 +2804,7 @@ class Slide(ShapeFactory):
     def title(self, value: str) -> None:
         shape = self._title_shape()
         if shape is None:
-            raise ValueError(f"slide {self.slide_id} has no title placeholder; its layout "
+            raise ArgumentError(f"slide {self.slide_id} has no title placeholder; its layout "
                              f"({self.layout.name if self.layout else 'none'}) gives none, or "
                              f"it was deleted")
         shape.set_text(value)
@@ -2934,7 +2936,7 @@ class Slide(ShapeFactory):
         for position, slide in enumerate(self.document.slides):
             if slide.slide_id == self.slide_id:
                 return _Position(position)
-        raise ValueError(f"slide {self.slide_id} is no longer in the presentation")
+        raise ArgumentError(f"slide {self.slide_id} is no longer in the presentation")
 
     def render_svg(self, *, rewrite_ids: bool = True, full_state: bool = False,
                    agent: bool = False, **options) -> str:
@@ -2957,13 +2959,13 @@ class Slide(ShapeFactory):
         """
         if agent:
             if full_state:
-                raise ValueError("the agent view is read-only: no full state")
+                raise ArgumentError("the agent view is read-only: no full state")
             svg = self.document.render_svg(slides=[self.index + 1], agent=True)[0]
             return self._rewrite_ids(svg).replace('data-pptx-id="', 'data-id="')
         svg = self.document.render_svg(slides=[self.index + 1], **options)[0]
         if full_state:
             if not rewrite_ids:
-                raise ValueError("a full-state SVG is addressed by this library's ids")
+                raise ArgumentError("a full-state SVG is addressed by this library's ids")
             from ..fullstate import emit_full_state
 
             return emit_full_state(self, self._rewrite_ids(svg))
@@ -3047,10 +3049,10 @@ class Slide(ShapeFactory):
     def _sp_tree(self) -> Element:
         root = self.document.package.tree(self.part_path)
         if root is None:
-            raise ValueError(f"slide part {self.part_path} is missing")
+            raise ArgumentError(f"slide part {self.part_path} is missing")
         tree = find(root, "p:cSld/p:spTree")
         if tree is None:
-            raise ValueError(f"slide part {self.part_path} has no shape tree")
+            raise ArgumentError(f"slide part {self.part_path} has no shape tree")
         return tree
 
     def _ensure_index(self) -> SlideShapeIndex:
@@ -3072,7 +3074,7 @@ class Slide(ShapeFactory):
         index = self._ensure_index()
         shape_id = index.id_of(element)
         if shape_id is None:
-            raise ValueError("shape is not present in this slide's index")
+            raise ArgumentError("shape is not present in this slide's index")
         return Shape(self, element, shape_id)
 
     def _next_shape_id(self) -> int:
@@ -3242,7 +3244,7 @@ class _TemplateSheet(Slide):
         return None if shape is None else find(shape, "p:spPr/a:xfrm")
 
     def _not_a_slide(self, what: str):
-        return ValueError(f"{self.slide_id} is a {self.kind}, not a slide: it has no {what}")
+        return ArgumentError(f"{self.slide_id} is a {self.kind}, not a slide: it has no {what}")
 
     @property
     def index(self) -> int:  # type: ignore[override]
@@ -3297,7 +3299,7 @@ class _NotesHost:
             if shape is None:
                 if not create:
                     return None
-                raise ValueError(f"{part} has no notes placeholder to write to")
+                raise ArgumentError(f"{part} has no notes placeholder to write to")
         body = shape.find(qn("p:txBody"))
         if body is None and create:
             body = subelement(shape, "p:txBody")
@@ -3494,7 +3496,7 @@ class Document(CommentOps):
 
         kind = target_kind(target)
         if kind is not None and not kind[1]:
-            raise ValueError(f"a template is saved as .potx (or .potm), not "
+            raise ArgumentError(f"a template is saved as .potx (or .potm), not "
                              f"{os.path.splitext(os.fspath(target))[1]}; use save() for a deck")
         self.update_slide_numbers()
         self.package.save(target, self._replacements(
@@ -3668,7 +3670,7 @@ class Document(CommentOps):
         from . import deck
 
         if not isinstance(value, str) or not value.strip():
-            raise ValueError("a language is a tag like 'en-US'")
+            raise ArgumentError("a language is a tag like 'en-US'")
         with self.batch():
             self.history.checkpoint()
             deck.set_language(self, value.strip())
@@ -4028,7 +4030,7 @@ class Document(CommentOps):
             last = self.slides[-1].layout if self.slides else None
             layout = last or (self.layouts[0] if self.layouts else None)
             if layout is None:
-                raise ValueError("the presentation has no slide layouts")
+                raise ArgumentError("the presentation has no slide layouts")
         elif isinstance(layout, str):
             layout = self.layout(layout)
         package = self.package
@@ -4119,7 +4121,7 @@ class Document(CommentOps):
         if position is None:
             raise TypeError("move_slide needs the new 0-based position: move_slide(slide, to=n)")
         if isinstance(position, bool) or not isinstance(position, int):
-            raise TypeError(f"the new position is a 0-based int, not {position!r}")
+            raise ArgumentTypeError(f"the new position is a 0-based int, not {position!r}")
         slide = self._as_slide(slide, "move_slide")
         count = len(self.slides)
         if not 0 <= position < count:
@@ -4521,7 +4523,7 @@ class Document(CommentOps):
         numbers, parts, order = self._targets(slides)
         if options.pop("agent", False):
             if parts:
-                raise ValueError("the agent view is of slides; render a layout or master "
+                raise ArgumentError("the agent view is of slides; render a layout or master "
                                  "without agent=True")
             return pptx2svg.convert_pptx_to_agent_svg(
                 self.to_bytes(), pptx2svg.ConvertOptions(slide_numbers=numbers,
@@ -4619,7 +4621,7 @@ def _slide_id_of(slide: object) -> int:
         text = text[2:] if text.startswith("s:") else text
         if text.isdigit():
             return int(text)
-        raise ValueError(f"a slide is a Slide, an sldId or 's:<sldId>', not {slide!r}")
+        raise ArgumentError(f"a slide is a Slide, an sldId or 's:<sldId>', not {slide!r}")
     raise TypeError(f"not a slide: {slide!r}; pass a Slide, an sldId or 's:<sldId>'")
 
 

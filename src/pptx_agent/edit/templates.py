@@ -61,6 +61,7 @@ from ..oxml.xml import (
     serialize,
     subelement,
 )
+from .errors import ArgumentError
 from .ids import TEMPLATE_ID_BASE
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -147,11 +148,11 @@ def _check_name(document: "Document", master_part: str, name: str,
                 skip: str | None = None) -> str:
     name = str(name).strip()
     if not name:
-        raise ValueError("a layout needs a name")
+        raise ArgumentError("a layout needs a name")
     for layout in document.layouts:
         if layout.master_part == master_part and layout.name == name \
                 and layout.part_path != skip:
-            raise ValueError(f"the master already has a layout named {name!r} ({layout.id}); "
+            raise ArgumentError(f"the master already has a layout named {name!r} ({layout.id}); "
                              "layouts are found by name, so names stay unique")
     return name
 
@@ -179,7 +180,7 @@ def add_layout(document: "Document", name: str, master: "Master | None",
     if master is None:
         master = after.master if after is not None else document.masters[0]
     if after is not None and after.master_part != master.part_path:
-        raise ValueError(f"{after.id} belongs to {after.master.id}, not {master.id}")
+        raise ArgumentError(f"{after.id} belongs to {after.master.id}, not {master.id}")
     name = _check_name(document, master.part_path, name)
     with document.batch():
         document.history.checkpoint()
@@ -283,15 +284,15 @@ def delete_layout(document: "Document", layout: "Layout",
     package = document.package
     using = layout.slides
     if using and reassign_to is None:
-        raise ValueError(
+        raise ArgumentError(
             f"{layout.id} {layout.name!r} is in use by slide(s) "
             f"{', '.join(f's:{s.slide_id}' for s in using)}; PowerPoint does not delete a "
             "layout in use either. Move them to another layout (reassign_to) or delete them "
             "first")
     if reassign_to is not None and reassign_to.part_path == layout.part_path:
-        raise ValueError("reassign_to is the layout being deleted")
+        raise ArgumentError("reassign_to is the layout being deleted")
     if len([lay for lay in document.layouts if lay.master_part == layout.master_part]) == 1:
-        raise ValueError(f"{layout.id} is its master's only layout")
+        raise ArgumentError(f"{layout.id} is its master's only layout")
     moved = []
     with document.batch():
         document.history.checkpoint()
@@ -353,17 +354,17 @@ def add_placeholder(document: "Document", layout: "Layout", kind: str,
                     box: tuple[int, int, int, int], name: str | None = None):
     """See :meth:`Layout.add_placeholder <pptx_agent.Layout.add_placeholder>`."""
     if kind not in ADDABLE_PLACEHOLDERS:
-        raise ValueError(f"a layout placeholder of type {kind!r} is not added here; one of "
+        raise ArgumentError(f"a layout placeholder of type {kind!r} is not added here; one of "
                          f"{', '.join(sorted(ADDABLE_PLACEHOLDERS))}")
     ph_type = ADDABLE_PLACEHOLDERS[kind]
     left, top, width, height = (int(round(value)) for value in box)
     if width <= 0 or height <= 0:
-        raise ValueError("a placeholder needs a width and a height over 0")
+        raise ArgumentError("a placeholder needs a width and a height over 0")
     sheet = document._template_sheet(layout.part_path)
     tree = sheet._sp_tree()
     if ph_type == "title" and any(ph.get("type") in ("title", "ctrTitle")
                                   for _, ph in _placeholders_in(tree)):
-        raise ValueError(f"{layout.id} already has a title placeholder; a layout has one")
+        raise ArgumentError(f"{layout.id} already has a title placeholder; a layout has one")
     with document.batch():
         document.history.checkpoint()
         shape_id = sheet._next_shape_id()
@@ -452,7 +453,7 @@ def add_layout_placeholder(slide: "Slide", which: "int | str"):
     document = slide.document
     layout_part = inherit.layout_of(document.package, slide.part_path)
     if layout_part is None:
-        raise ValueError(f"s:{slide.slide_id} has no layout")
+        raise ArgumentError(f"s:{slide.slide_id} has no layout")
     offered = _placeholders_in(find(document.package.tree(layout_part), "p:cSld/p:spTree"))
     title = which in ("title", "ctrTitle")
     wanted = next(((shape, ph) for shape, ph in offered
@@ -464,14 +465,14 @@ def add_layout_placeholder(slide: "Slide", which: "int | str"):
                        f"has {have}")
     source, source_ph = wanted
     if source_ph.get("type") in FOOTER_TYPES or source_ph.get("type") == "hdr":
-        raise ValueError("a date, footer or slide-number placeholder comes with "
+        raise ArgumentError("a date, footer or slide-number placeholder comes with "
                          "Document.set_footer")
     tree = slide._sp_tree()
     present = _placeholders_in(tree)
     for _, ph in present:
         if (ph.get("type") in ("title", "ctrTitle") if title
                 else ph.get("idx") == source_ph.get("idx")):
-            raise ValueError(f"s:{slide.slide_id} already has the placeholder {which!r}")
+            raise ArgumentError(f"s:{slide.slide_id} already has the placeholder {which!r}")
     with document.batch():
         document.history.checkpoint()
         sp = empty_placeholder(source, source_ph, slide._next_shape_id(),

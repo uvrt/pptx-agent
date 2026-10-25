@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Mapping, NamedTuple
 from ..oxml.package import REL_SLIDE_LAYOUT, REL_SLIDE_MASTER
 from ..oxml.xml import Element, find, make, qn, subelement
 from . import inherit
+from .errors import ArgumentError
 
 if TYPE_CHECKING:  # pragma: no cover
     from .color import Color
@@ -99,18 +100,18 @@ class Theme:
         for name, value in dict(colors).items():
             slot = self._color_map.get(name, name) if name in MAPPED else name
             if slot not in SLOTS:
-                raise ValueError(f"{name!r} is not a theme colour; the slots are "
+                raise ArgumentError(f"{name!r} is not a theme colour; the slots are "
                                  f"{', '.join(SLOTS)} (or {', '.join(MAPPED)})")
             match = re.fullmatch(r"#?([0-9A-Fa-f]{6})", str(value).strip())
             if match is None:
-                raise ValueError(f"{name}: a theme colour is RGB, '#RRGGBB', not {value!r}")
+                raise ArgumentError(f"{name}: a theme colour is RGB, '#RRGGBB', not {value!r}")
             changes[slot] = match.group(1).upper()
         scheme = self._element("a:themeElements/a:clrScheme")
         with self._editing():
             for slot, rgb in changes.items():
                 node = scheme.find(qn(f"a:{slot}"))
                 if node is None:
-                    raise ValueError(f"the theme has no {slot} to set")
+                    raise ArgumentError(f"the theme has no {slot} to set")
                 for child in list(node):
                     node.remove(child)
                 node.text = None
@@ -138,7 +139,7 @@ class Theme:
                 if face is None:
                     continue
                 if not str(face).strip():
-                    raise ValueError("a typeface is a name, like 'Arial'")
+                    raise ArgumentError("a typeface is a name, like 'Arial'")
                 font = subelement(subelement(scheme, holder), script)
                 for attribute in ("panose", "pitchFamily", "charset"):
                     font.attrib.pop(attribute, None)          # they described the old face
@@ -194,7 +195,7 @@ class Theme:
         root = document.package.tree(part) if part else None
         node = find(root, path) if root is not None else None
         if node is None:
-            raise ValueError(f"the theme has no {path.rpartition('/')[2]} to change")
+            raise ArgumentError(f"the theme has no {path.rpartition('/')[2]} to change")
         return node
 
     def _editing(self):
@@ -217,7 +218,7 @@ class Theme:
 
     def _require_document(self):
         if self._document is None or self._master is None:
-            raise ValueError("this Theme was not read from a deck; take it from deck.theme")
+            raise ArgumentError("this Theme was not read from a deck; take it from deck.theme")
         return self._document
 
 
@@ -296,11 +297,11 @@ def resolve_with(color: "str | Color", scheme: dict, mapping: dict) -> str:
     parsed = Color.parse(color) if isinstance(color, str) else color
     source = parse_color_node(parsed.to_element())
     if source is None:
-        raise ValueError(f"cannot resolve the colour {parsed}")
+        raise ArgumentError(f"cannot resolve the colour {parsed}")
     context = ColorContext(_SchemeTheme(scheme), mapping)
     resolved = resolve_color(context, source)
     if resolved is None:
-        raise ValueError(f"cannot resolve the colour {parsed}")
+        raise ArgumentError(f"cannot resolve the colour {parsed}")
     return "#" + resolved.hex.lstrip("#").upper()
 
 
@@ -474,7 +475,7 @@ _LIGHT_STEPS = (("Darker 10%", 90, 0), ("Darker 25%", 75, 0), ("Darker 50%", 50,
 
 def theme_tints(theme: Theme, slot: str) -> tuple[Tint, ...]:
     if slot not in theme.colors:
-        raise ValueError(f"{slot!r} is not a theme colour; they are {', '.join(SLOTS)}")
+        raise ArgumentError(f"{slot!r} is not a theme colour; they are {', '.join(SLOTS)}")
     luminance = _luminance(theme.colors[slot])
     steps = _DARK_STEPS if luminance < 0.2 else _LIGHT_STEPS if luminance > 0.8 else _MID_STEPS
     out = []

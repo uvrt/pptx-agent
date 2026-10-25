@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..edit import notes as _notes
+from ..edit.errors import ArgumentError
 from ..oxml.package import REL_SLIDE_LAYOUT, REL_SLIDE_MASTER
 from ..oxml.xml import Element, find, local_name, qn
 from .markdown import comment, destination, escape, inline_markdown
@@ -83,7 +84,7 @@ def outline_blocks(document: "Document", slides=None, scope: str = "slides"
                    ) -> list[TextBlock]:
     """See :meth:`pptx_agent.edit.document.Document.outline_blocks`."""
     if scope not in SCOPES:
-        raise ValueError(f"scope is one of {', '.join(SCOPES)}, not {scope!r}")
+        raise ArgumentError(f"scope is one of {', '.join(SCOPES)}, not {scope!r}")
     out: list[TextBlock] = []
     if scope in ("slides", "all"):
         for slide in select(document, slides):
@@ -167,7 +168,7 @@ def select(document: "Document", slides) -> list["Slide"]:
             chosen.append(document.slide(item.slide_id))
         elif isinstance(item, str):
             if not item.startswith("s:"):
-                raise ValueError(f"a slide is a 1-based number, a Slide or 's:<sldId>', "
+                raise ArgumentError(f"a slide is a 1-based number, a Slide or 's:<sldId>', "
                                  f"not {item!r}")
             chosen.append(document.slide(item))
         elif isinstance(item, int) and not isinstance(item, bool):

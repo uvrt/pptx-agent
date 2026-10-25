@@ -62,6 +62,7 @@ from ooxml_edit.charts.dmltext import (  # noqa: F401  (re-exported)
     runs as _runs,
 )
 from .color import Color
+from .errors import ArgumentError, ArgumentTypeError
 from .fill import read_fill, solid_fill
 
 if False:  # pragma: no cover - for type checkers only
@@ -312,7 +313,7 @@ def check_format_keys(formatting: dict) -> None:
     """Refuse a formatting key no run property has, naming the ones there are."""
     unknown = set(formatting) - FORMAT_KEYS
     if unknown:
-        raise TypeError(f"unknown run formatting {sorted(unknown)}; the keys are "
+        raise ArgumentTypeError(f"unknown run formatting {sorted(unknown)}; the keys are "
                         f"{_FORMAT_HELP}.  Paragraph properties (alignment, space_after, "
                         f"bullets...) are set on the paragraph itself")
 
@@ -422,7 +423,7 @@ class TextFrame:
             frame.add_paragraph("速報値", like=0, bold=True)
         """
         if "\n" in text:
-            raise ValueError("one paragraph at a time; use '\\v' for a line break")
+            raise ArgumentError("one paragraph at a time; use '\\v' for a line break")
         check_format_keys(formatting)
         host = self._resolve()
         with _editing(host):
@@ -506,9 +507,9 @@ class TextFrame:
 
         host = self._host()
         if mode is not None and mode not in effective.AUTOFIT_NAMES:
-            raise ValueError(f"autofit is one of {sorted(effective.AUTOFIT_NAMES)} or None")
+            raise ArgumentError(f"autofit is one of {sorted(effective.AUTOFIT_NAMES)} or None")
         if font_scale is not None and mode != "normal":
-            raise ValueError("a font scale belongs to autofit 'normal'")
+            raise ArgumentError("a font scale belongs to autofit 'normal'")
         with _editing(host):
             body = host._text_body(True)
             assert body is not None
@@ -561,7 +562,7 @@ class TextFrame:
             return
         values = tuple(value)
         if len(values) != 4:
-            raise ValueError("insets are (left, top, right, bottom), EMU")
+            raise ArgumentError("insets are (left, top, right, bottom), EMU")
         self.set_insets(*values)
 
     def set_insets(self, left: int | None = None, top: int | None = None,
@@ -583,7 +584,7 @@ class TextFrame:
                 continue
             value = int(value)
             if value < 0:
-                raise ValueError("an inset cannot be negative")
+                raise ArgumentError("an inset cannot be negative")
             changes[name] = str(value)
         self._set_frame_attributes(changes)
         return self
@@ -607,7 +608,7 @@ class TextFrame:
     def anchor(self, value: str | None) -> None:
         if value is not None:
             if value not in ANCHORS and value not in _ANCHOR_NAMES:
-                raise ValueError(f"anchor is one of {sorted(ANCHORS)} (or 't', 'ctr', 'b')")
+                raise ArgumentError(f"anchor is one of {sorted(ANCHORS)} (or 't', 'ctr', 'b')")
             value = ANCHORS.get(value, value)
         self._set_frame_attributes({"anchor": value})
 
@@ -628,7 +629,7 @@ class TextFrame:
     @wrap.setter
     def wrap(self, value: bool | None) -> None:
         if self._is_cell():
-            raise ValueError(f"{self.address}: a table cell always wraps")
+            raise ArgumentError(f"{self.address}: a table cell always wraps")
         self._set_frame_attributes({"wrap": None if value is None
                                     else ("square" if value else "none")})
 
@@ -762,7 +763,7 @@ class Paragraph:
     @text.setter
     def text(self, value: str) -> None:
         if "\n" in value:
-            raise ValueError("a paragraph cannot contain '\\n'; use '\\v' for a line break")
+            raise ArgumentError("a paragraph cannot contain '\\n'; use '\\v' for a line break")
         _warn_if_escaped(value, self.text, self.address)
         with self._change() as element:
             _rebuild_paragraph(element, value)
@@ -803,7 +804,7 @@ class Paragraph:
             paragraph.add_run("（予定）", size=10, italic=True)
         """
         if "\n" in text or _LINE_BREAK in text:
-            raise ValueError("a run cannot contain line breaks; add a paragraph instead")
+            raise ArgumentError("a run cannot contain line breaks; add a paragraph instead")
         check_format_keys(formatting)
         with self._change() as element:
             runs = _runs(element)
@@ -849,9 +850,9 @@ class Paragraph:
         pieces = [str(piece) for piece in pieces]
         for piece in pieces:
             if not piece or "\n" in piece or (_LINE_BREAK in piece and piece != _LINE_BREAK):
-                raise ValueError(f"{piece!r} is not a run's text or a single line break")
+                raise ArgumentError(f"{piece!r} is not a run's text or a single line break")
         if "".join(pieces) != self.text:
-            raise ValueError("the pieces must join to the paragraph's text; use set_text "
+            raise ArgumentError("the pieces must join to the paragraph's text; use set_text "
                              "to change the text")
         if self._pieces() == pieces:
             return self
@@ -923,7 +924,7 @@ class Paragraph:
         if value is not None:
             value = ALIGNMENTS.get(value, value)
             if value not in _ALIGNMENT_NAMES:
-                raise ValueError(f"alignment must be one of {sorted(ALIGNMENTS)}")
+                raise ArgumentError(f"alignment must be one of {sorted(ALIGNMENTS)}")
         self._ppr_set("algn", value)
 
     @property
@@ -941,7 +942,7 @@ class Paragraph:
     def level(self, value: int) -> None:
         level = int(value)
         if not 0 <= level <= 8:
-            raise ValueError("level must be between 0 and 8")
+            raise ArgumentError("level must be between 0 and 8")
         if level == 0 and self._ppr_get("lvl") is None:
             return  # already the default; do not create a:pPr just to say so
         self._ppr_set("lvl", str(level))
@@ -1104,7 +1105,7 @@ class Paragraph:
                 self.set_numbering(value.scheme or "arabicPeriod", start_at=value.start_at,
                                    font=value.font, color=value.color, size=value.size)
             else:
-                raise ValueError("picture bullets cannot be set through this API")
+                raise ArgumentError("picture bullets cannot be set through this API")
         elif value == "none":
             self.set_no_bullet()
         else:
@@ -1128,7 +1129,7 @@ class Paragraph:
             paragraph.set_bullet("–", color="accent1", size=0.8)
         """
         if not char:
-            raise ValueError("a bullet character cannot be empty")
+            raise ArgumentError("a bullet character cannot be empty")
         if isinstance(hanging, bool):
             amount = None
             if hanging and self.effective.indent >= 0:
@@ -1136,7 +1137,7 @@ class Paragraph:
         else:
             amount = int(hanging)
             if amount < 0:
-                raise ValueError("a hanging indent is a positive length, EMU")
+                raise ArgumentError("a hanging indent is a positive length, EMU")
         with self._change() as element:
             properties = _ppr(element, create=True)
             self._write_bullet_decoration(properties, font, color, size)
@@ -1156,7 +1157,7 @@ class Paragraph:
             paragraph.set_numbering("arabicPeriod", start_at=3)
         """
         if scheme not in NUMBERING_SCHEMES:
-            raise ValueError(f"unknown numbering scheme {scheme!r}")
+            raise ArgumentError(f"unknown numbering scheme {scheme!r}")
         with self._change() as element:
             properties = _ppr(element, create=True)
             self._write_bullet_decoration(properties, font, color, size)
@@ -1332,7 +1333,7 @@ class Run:
     @text.setter
     def text(self, value: str) -> None:
         if "\n" in value or _LINE_BREAK in value:
-            raise ValueError("a run cannot contain line breaks; use the paragraph API")
+            raise ArgumentError("a run cannot contain line breaks; use the paragraph API")
         _warn_if_escaped(value, self.text, self.address)
         with self._change() as element:
             subelement(element, "a:t").text = value
@@ -1417,7 +1418,7 @@ class Run:
         elif value is False:
             value = "none"
         if value is not None and value not in UNDERLINES:
-            raise ValueError(f"underline must be a bool or one of {sorted(UNDERLINES)}")
+            raise ArgumentError(f"underline must be a bool or one of {sorted(UNDERLINES)}")
         self._rpr_set("u", value)
 
     @property
@@ -1437,7 +1438,7 @@ class Run:
 
         points = None if points is None else points_of(points)
         if points is not None and not 1 <= float(points) <= 4000:
-            raise ValueError("size must be between 1 and 4000 points")
+            raise ArgumentError("size must be between 1 and 4000 points")
         self._rpr_set("sz", None if points is None else str(round(float(points) * SIZE_UNIT)))
 
     @property
@@ -1536,7 +1537,7 @@ class Run:
             return effective.size_source(host, paragraph, element)
         if attribute == "color":
             return effective.color_source(host, paragraph, element)[1]
-        raise ValueError(f"effective_source takes 'size' or 'color', not {attribute!r}")
+        raise ArgumentError(f"effective_source takes 'size' or 'color', not {attribute!r}")
 
     @property
     def color(self) -> Color | None:
@@ -1606,14 +1607,14 @@ class Run:
             run.set_hyperlink("https://example.org/ir", tooltip="IR")
         """
         if target is None:
-            raise ValueError("use remove_hyperlink() to remove a link")
+            raise ArgumentError("use remove_hyperlink() to remove a link")
         with self._change() as element:
             slide = self._paragraph._frame._host()._slide
             package = slide.document.package
             node = make("a:hlinkClick")
             if isinstance(target, str):
                 if not target:
-                    raise ValueError("a hyperlink needs an address")
+                    raise ArgumentError("a hyperlink needs an address")
                 rel_id = package.add_external_relationship(slide.part_path, REL_HYPERLINK, target)
                 node.set(qn("r:id"), rel_id)
             else:

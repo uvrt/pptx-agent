@@ -51,6 +51,7 @@ from typing import TYPE_CHECKING, Any, Iterable, Mapping
 from ooxml_edit import provenance as _records
 
 from ..oxml.xml import NAMESPACES, append_in_order, find, make, qn, remove, serialize
+from .errors import ArgumentError
 
 if TYPE_CHECKING:
     from .document import Document, Shape
@@ -75,7 +76,7 @@ class ProvenanceWarning(UserWarning):
 
 def _frame(shape: "Shape") -> None:
     if shape._element.tag != qn("p:graphicFrame"):
-        raise ValueError(f"{shape.id} is a {shape.kind}: a source address is kept on a "
+        raise ArgumentError(f"{shape.id} is a {shape.kind}: a source address is kept on a "
                          "table's or a chart's graphic frame")
 
 
@@ -204,7 +205,7 @@ def _new_part(shape: "Shape") -> str:
     if holder is None:
         nv_pr = _nv_pr(shape)
         if nv_pr is None:
-            raise ValueError(f"{shape.id}: the shape has no p:nvPr")
+            raise ArgumentError(f"{shape.id}: the shape has no p:nvPr")
         custom = find(nv_pr, "p:custDataLst")
         if custom is None:
             custom = append_in_order(nv_pr, make("p:custDataLst"))

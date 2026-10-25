@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable, Sequence
 
+from .errors import ArgumentError
+
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Shape
 
@@ -38,7 +40,7 @@ def drawn_box(shape: "Shape") -> Box:
     shape with no position."""
     bounds = shape.drawn_bounds
     if bounds is None:
-        raise ValueError(f"{shape.id} has no position to arrange")
+        raise ArgumentError(f"{shape.id} has no position to arrange")
     return bounds
 
 
@@ -83,10 +85,10 @@ def resize(shape: "Shape", width: float | None = None, height: float | None = No
     if width is None and height is None:
         return
     if shape.kind == "connector":
-        raise ValueError(f"{shape.id} is a connector: its ends set its size")
+        raise ArgumentError(f"{shape.id} is a connector: its ends set its size")
     turn = round(shape.rotation or 0) % 180
     if turn not in (0, 90) or abs((shape.rotation or 0) - round(shape.rotation or 0)) > 1e-6:
-        raise ValueError(f"{shape.id} is turned {shape.rotation:g} degrees: only an unturned "
+        raise ArgumentError(f"{shape.id} is turned {shape.rotation:g} degrees: only an unturned "
                          "shape, or one turned a quarter, can be resized to a box")
     if turn == 90:
         width, height = height, width
@@ -110,7 +112,7 @@ def selection_box(shapes: Iterable["Shape"]) -> Box:
     """The box around the drawn boxes of ``shapes``."""
     boxes = [drawn_box(shape) for shape in shapes]
     if not boxes:
-        raise ValueError("no shapes")
+        raise ArgumentError("no shapes")
     left = min(b[0] for b in boxes)
     top = min(b[1] for b in boxes)
     right = max(b[0] + b[2] for b in boxes)
@@ -126,11 +128,11 @@ def _reference(shapes: Sequence["Shape"], to: str, box: Box | None) -> Box:
         return 0, 0, width, height
     if to == "box":
         if box is None:
-            raise ValueError("to='box' needs a box")
+            raise ArgumentError("to='box' needs a box")
         return box
     if to == "first":
         return drawn_box(shapes[0])
-    raise ValueError(f"to must be one of {', '.join(RELATIVE)}, not {to!r}")
+    raise ArgumentError(f"to must be one of {', '.join(RELATIVE)}, not {to!r}")
 
 
 def align(shapes: Sequence["Shape"], edge: str, *, to: str = "selection",
@@ -145,12 +147,12 @@ def align(shapes: Sequence["Shape"], edge: str, *, to: str = "selection",
         align([chevron, column], "center", to="first")
     """
     if edge not in EDGES:
-        raise ValueError(f"edge must be one of {', '.join(EDGES)}, not {edge!r}")
+        raise ArgumentError(f"edge must be one of {', '.join(EDGES)}, not {edge!r}")
     shapes = outermost(shapes)
     if not shapes:
         return []
     if to == "selection" and len(shapes) < 2:
-        raise ValueError("aligning to the selection needs two shapes or more; give "
+        raise ArgumentError("aligning to the selection needs two shapes or more; give "
                          "to='slide' or to='box' to align one")
     ref = _reference(shapes, to, box)
     moved = []
@@ -191,12 +193,12 @@ def distribute(shapes: Sequence["Shape"], axis: str, *, to: str = "selection",
     Returns the shapes that moved.
     """
     if axis not in ("horizontal", "vertical"):
-        raise ValueError(f"axis must be horizontal or vertical, not {axis!r}")
+        raise ArgumentError(f"axis must be horizontal or vertical, not {axis!r}")
     if to == "first":
-        raise ValueError("distribute spreads over the selection, the slide or a box")
+        raise ArgumentError("distribute spreads over the selection, the slide or a box")
     shapes = outermost(shapes)
     if len(shapes) < 2 or (len(shapes) < 3 and to == "selection" and gap is None):
-        raise ValueError("distributing needs three shapes or more (two with to='slide', "
+        raise ArgumentError("distributing needs three shapes or more (two with to='slide', "
                          "to='box' or a gap)")
     i = 0 if axis == "horizontal" else 1
     boxes = {shape.id: drawn_box(shape) for shape in shapes}
@@ -213,7 +215,7 @@ def distribute(shapes: Sequence["Shape"], axis: str, *, to: str = "selection",
         room = end - start - sum(sizes)
         step = room / (len(ordered) - 1)
         if step < 0:
-            raise ValueError(f"the shapes are {sum(sizes) / 12700:.2f} pt long and the room "
+            raise ArgumentError(f"the shapes are {sum(sizes) / 12700:.2f} pt long and the room "
                              f"is {(end - start) / 12700:.2f} pt: they cannot be spread "
                              "without overlapping")
     else:

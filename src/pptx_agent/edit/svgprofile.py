@@ -26,6 +26,7 @@ from typing import Any
 from lxml import etree
 
 from ..oxml.xml import PRESET_GEOMETRIES, make, replace_choice, subelement
+from .errors import ArgumentError
 
 SVG_NS = "http://www.w3.org/2000/svg"
 EMU_PER_PT = 12700
@@ -74,7 +75,7 @@ ARROWS = {"none", "triangle", "stealth", "diamond", "oval", "arrow"}
 SIDES = {"top", "right", "bottom", "left"}
 
 
-class SvgProfileError(ValueError):
+class SvgProfileError(ArgumentError):
     """The SVG uses something outside the authoring profile, or uses it wrongly.
     Nothing on the slide has changed."""
 
