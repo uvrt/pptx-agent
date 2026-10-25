@@ -19,7 +19,8 @@ snapshot commit; the development history before it is summarised here.
   stored heights). Each version that reaches `main` is tagged by the new tag workflow,
   and CI's `build` job checks that `pyproject.toml`'s version is the one this file's top
   version section names (`tools/check_version.py`). The dependency notes moved from
-  `pyproject.toml` to CONTRIBUTING.md, "Dependencies".
+  `pyproject.toml` to CONTRIBUTING.md, "Dependencies", and the ooxml-common floor is raised
+  from 0.27.0 to 0.28.0, which the tests' `fonts.embedded.forget_decoded` needs.
 
 - No private name of a sibling is imported any more (review, N2): ooxml-edit 0.62.0's
   `opc.part_for_rels` (was `_part_for_rels`; `edit/touched.py`'s own copy is gone),

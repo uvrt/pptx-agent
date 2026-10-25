@@ -58,10 +58,11 @@ this package uses; what each earlier version added is in that package's CHANGELO
   embedded-workbook and SmartArt editing), extracted from this repository with its
   history. 0.62.0 gives public names to what was imported private (`opc.part_for_rels`,
   `xml.child_ranks`, `charts.chart.series_of`; review, N2).
-- `ooxml-common>=0.27.0`: the reading core pptx2svg is built on, a dependency rendering
+- `ooxml-common>=0.28.0`: the reading core pptx2svg is built on, a dependency rendering
   or not: the package kinds (validate, saving a template as a deck) and the text
   measurement come from it. 0.27.0 carries `drawingml.text_chain`, the inherited text
-  chain shared with pptx2svg (`edit/effective.py`).
+  chain shared with pptx2svg (`edit/effective.py`); 0.28.0 `fonts.embedded.forget_decoded`,
+  which the parallel-render test empties the decoded-face cache with (review, N2).
 - `lxml>=4.9`: the XML tree every edit is made in.
 - `markdown-it-py>=3.0`, `mdit-py-plugins>=0.4`: the Markdown outline in docx-agent's
   dialect (CommonMark with GFM tables and strikethrough; the plugins carry docx-agent's
