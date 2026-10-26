@@ -1108,7 +1108,7 @@ deck.redo()
 
 | | When |
 | --- | --- |
-| `ArgumentError` (a `ValueError`) | a value the library refuses: a colour, a length, a spec, a placeholder a slide already has; the message says what is wrong and what would do. A type it does not take there is an `ArgumentTypeError`, also a `TypeError` |
+| `ArgumentError` (a `ValueError`) | a value the library refuses: a colour, a length, a spec, a placeholder a slide already has; the message says what is wrong and what would do. A type it does not take there is an `ArgumentTypeError`, also a `TypeError`. Both are of ooxml-edit's family (`ooxml_edit.errors`), so one `except` catches a deck's refusals and ooxml-edit's |
 | `LabelError` (a `KeyError`) | a row, column, series or category label, or a slide title (`slide_titled`), names nothing or more than one; the message lists the labels, and `label`, `what`, `candidates` and `matches` hold them as data |
 | `MarkdownEscapeWarning` | `set_text` or a `text` setter got text that looks copied from `to_outline` (`\*`, `\-` at a line's start, `11\.`, `**bold**`) that the old text did not have; it is still written as given |
 | `ChartDataWarning` | a chart has no embedded workbook, so only its cache changed |

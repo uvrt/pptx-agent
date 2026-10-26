@@ -110,7 +110,7 @@ from .outline import OutlineWarning
 from .outline.read import TextBlock
 from .oxml.package import OoxmlPackage, PresentationPackage
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 __all__ = [
     "Adjustments",

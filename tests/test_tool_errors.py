@@ -3,8 +3,9 @@
 The library's own refusals (:class:`~pptx_agent.ArgumentError`, a chart's ``ChartDataError``,
 ``LabelError``) are the model's to act on; a ``TypeError`` or ``ValueError`` Python raises
 itself -- a mistake in a handler -- is not.  That goes to the dispatcher's mapping, the one
-docx-agent's and xlsx-agent's tools get: a ``ValueError`` is ``unit``, anything unexpected
-``internal``, logged.
+docx-agent's and xlsx-agent's tools get: ooxml-edit's ``ArgumentError`` (which the library's
+derives from, S9) is ``invalid_arguments``, its ``UnitError`` and any other ``ValueError``
+``unit``, anything unexpected ``internal``, logged.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import logging
 import pytest
 
 from conftest import FIXTURE_DIR
+from ooxml_edit import errors as edit_errors
 from ooxml_edit.charts import ChartDataError
 from ooxml_edit.tools import Toolbox
 
@@ -48,6 +50,10 @@ def _shape(toolbox, session, **item):
 def test_the_librarys_refusals_are_value_and_type_errors_still():
     assert issubclass(ArgumentError, ValueError)
     assert issubclass(ArgumentTypeError, ArgumentError) and issubclass(ArgumentTypeError, TypeError)
+    # One family with ooxml-edit's (S9): the dispatcher's code for either is the same.
+    assert issubclass(ArgumentError, edit_errors.ArgumentError)
+    assert issubclass(ArgumentTypeError, edit_errors.ArgumentTypeError)
+    assert not issubclass(ArgumentError, edit_errors.UnitError)
     for refusal in (ScaleError, LayoutError, SvgProfileError, FullStateError):
         assert issubclass(refusal, ArgumentError)
     deck = Document.new()
@@ -81,6 +87,19 @@ def test_pythons_own_valueerror_in_a_handler_is_unit_as_in_every_format(toolbox,
     assert result.error.code == "unit"
 
 
+def test_a_shared_librarys_unit_error_is_unit(toolbox, session, monkeypatch):
+    """A number out of its range is ooxml-edit's ``UnitError``: ``unit``, the code that says
+    so, in a deck as in a document (S9)."""
+    from ooxml_edit.sheets.workbook import number_text
+
+    def broken(self, *args, **kwargs):
+        return number_text(float("inf"))
+
+    monkeypatch.setattr(Document, "add_slide", broken)
+    result = toolbox.dispatch(session, "ppt_add_slide", {"doc": "d1", "layout": "Title Only"})
+    assert result.error.code == "unit" and "not a finite number" in result.error.message
+
+
 def test_the_librarys_argument_errors_keep_their_codes(toolbox, session):
     colour = _shape(toolbox, session, fill="notacolour")
     assert colour.error.code == "invalid_arguments"
@@ -108,9 +127,9 @@ def test_a_charts_refusal_is_invalid_arguments(toolbox, session):
     assert label.error.code == "label_not_found" and issubclass(LabelError, KeyError)
 
 
-def test_a_shared_librarys_valueerror_gets_the_code_it_gets_in_a_document(toolbox):
-    """ooxml-edit's ``Diagram.remove_node`` keeps the last node with a plain ValueError:
-    ``unit`` here, as in docx-agent (it was ``invalid_arguments`` in a deck only)."""
+def test_a_shared_librarys_refusal_gets_the_code_it_gets_in_a_document(toolbox):
+    """ooxml-edit's ``Diagram.remove_node`` keeps the last node with its ``ArgumentError``:
+    ``invalid_arguments`` here, as in docx-agent (it was ``unit`` in both before S9)."""
     session = toolbox.session()
     session.open((FIXTURE_DIR / "powerpoint-smartart.pptx").read_bytes(), "s.pptx")
     for _ in range(10):
@@ -118,4 +137,5 @@ def test_a_shared_librarys_valueerror_gets_the_code_it_gets_in_a_document(toolbo
             "doc": "d1", "target": "256.3", "action": "remove_node", "node": 0})
         if not result.ok:
             break
-    assert result.error.code == "unit" and "at least one node" in result.error.message
+    assert result.error.code == "invalid_arguments"
+    assert "at least one node" in result.error.message
