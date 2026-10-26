@@ -5,6 +5,30 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.6 -- unreleased
+
+- **Import a slide from another open deck** (production round 17, P1): `ppt_manage_slides`
+  action `import` with `source_doc`, `slide` (in the source) and `to` (`at` is read as
+  `to`), library `Document.import_slide` (`edit/importing.py`). The slide part comes with
+  what it relates to -- pictures and other media imported once by content (a picture the
+  target holds byte for byte is shared), charts with their embedded workbooks, SmartArt
+  parts, tags, external links, its notes page (on the target's notes master, added when
+  missing) -- every part under a new name. The layout is the target's of the same name on
+  the master of the same name (any master's when none has that name); a target without it
+  refuses (`not_found`, its layouts as `valid_options`) unless `bring_layout: true` copies
+  the source's layout onto the master of the same name -- and the source's master with its
+  theme too when the target has none of that name, since a layout draws from its master.
+  Shape names and `cNvPr` ids stay: `created` is the new slide, `renamed` maps every source
+  shape (`"d2/300.4"`) to its copy (`"412.4"`), `data.layout` the layout's name. Theme
+  references are kept; a target theme with other colours or fonts gives `theme_differs:
+  true` and the colours used that change (`theme_changes`), nothing converted. Comments,
+  links jumping to the source's other slides (reported in `dropped_links`) and slide
+  numbers by reference are left behind. One undo step on the target; the source is only
+  read. PowerPoint opens the results without a repair prompt (oracle, 2026-10-26).
+  Every definition 13,277 -> 13,355 estimated tokens (guard 13,357), the core unchanged;
+  a reviewer's every definition 4,759 -> 4,835 (guard 4,837). The strict set changes:
+  ppt_manage_slides takes two optional parameters, so `edit_smartart` is sent non-strict.
+
 ## 0.1.5 -- unreleased
 
 - **`edit_chart` and `edit_smartart` as in a Word document** (review, S10; needs ooxml-edit

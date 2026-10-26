@@ -136,25 +136,39 @@ def ppt_draft_slides(call, doc, markdown, at=None):
                                    for s in drafted]})
 
 
+def _manage_documents(arguments) -> list[str]:
+    """The deck changed, and for import the deck copied from (locked, only read)."""
+    docs = [arguments["doc"]] if isinstance(arguments.get("doc"), str) else []
+    source = arguments.get("source_doc")
+    if arguments.get("action") == "import" and isinstance(source, str) and source not in docs:
+        docs.append(source)
+    return docs
+
+
 @tool("ppt_manage_slides",
-      "Duplicate, move or delete a slide, find one by its title, delete its empty "
+      "Duplicate, move or delete a slide, import one from another deck, find one by its "
+      "title, delete its empty "
       "placeholders (not a title or one with a fill), or set_layout as PowerPoint's Layout "
       "menu. Returns the slide order.",
       {"doc": string("Document id."),
        "action": string("What to do.", enum=["duplicate", "move", "delete", "find_by_title",
-                                             "delete_empty_placeholders", "set_layout"]),
-       "slide": string("The slide, s:256 or $ref.", optional=True),
-       "to": integer("move, duplicate: new position from 1. Default after it.", minimum=1,
-                     maximum=10000, optional=True),
+                                             "delete_empty_placeholders", "set_layout",
+                                             "import"]),
+       "slide": string("The slide, s:256 or $ref (import: in source_doc).", optional=True),
+       "to": integer("move, duplicate, import: new position from 1. Default after it; "
+                     "import: last.", minimum=1, maximum=10000, optional=True),
        "notes": string("duplicate: the copy's notes.", optional=True),
        "title": string("find_by_title: the title.", optional=True),
-       "ref": string("duplicate: ref name for the copy.", optional=True),
-       "layout": string("set_layout: L2 or its name.", optional=True)},
-      kind=KIND, group=SLIDES, mutates=True, refs=("slide",),
-      action_roles={"find_by_title": REVIEW})
+       "ref": string("duplicate, import: ref name for the copy.", optional=True),
+       "layout": string("set_layout: L2 or its name.", optional=True),
+       "source_doc": string("import: the deck to copy from, d2.", optional=True),
+       "bring_layout": boolean("import: copy the source's layout in if missing.",
+                               optional=True)},
+      kind=KIND, group=SLIDES, mutates=True, refs=("slide",), documents=_manage_documents,
+      aliases={"at": "to"}, action_roles={"find_by_title": REVIEW})
 @library_errors
 def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=None,
-                      ref=None, layout=None):
+                      ref=None, layout=None, source_doc=None, bring_layout=None):
     deck = call.document
     if action == "find_by_title":
         if title is None:
@@ -165,6 +179,8 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
                             "order": _order(deck)})
     if slide is None:
         raise ToolError("invalid_arguments", f"{action} needs slide", field="slide")
+    if action == "import":
+        return _import(call, deck, slide, to, ref, source_doc, bring_layout)
     target = slide_at(deck, slide)
     if action == "duplicate":
         index = _position(deck, to, "to")
@@ -210,6 +226,60 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
         return Result(summary=f"Deleted {address}", removed=[address],
                       data={"order": _order(deck)})
     raise ToolError("invalid_arguments", f"unknown action {action!r}", field="action")
+
+
+def _import(call, deck, slide, to, ref, source_doc, bring_layout) -> Result:
+    """ppt_manage_slides import: a slide of another open deck copied in, its layout this
+    deck's of the same name (:meth:`Document.import_slide`)."""
+    from ..edit.importing import find_layout
+
+    if not source_doc:
+        raise ToolError("invalid_arguments", "import needs source_doc, the open deck to copy "
+                        "from", field="source_doc")
+    if source_doc == call.entry.doc_id:
+        raise ToolError("invalid_arguments", "import copies from another open deck; within "
+                        "this one, duplicate the slide", field="source_doc")
+    entry = call.entries.get(source_doc)
+    if entry is None or entry.kind != call.entry.kind:
+        raise ToolError("invalid_arguments", f"{source_doc} is not an open deck",
+                        field="source_doc")
+    source = slide_at(entry.document, slide)
+    index = _position(deck, to, "to")
+    wanted = source.layout
+    if wanted is not None and not bring_layout \
+            and find_layout(deck, wanted.name, wanted.master.name) is None:
+        raise ToolError("not_found", f"this deck has no layout {wanted.name!r} (master "
+                        f"{wanted.master.name!r}): pass bring_layout: true to copy it in, or "
+                        "pick one of these with set_layout in the source deck first",
+                        field="slide", valid_options=[lay.name for lay in deck.layouts][:50])
+    made = deck.import_slide(source, index=index, bring_layout=bool(bring_layout))
+    address = f"s:{made.slide.slide_id}"
+    if ref:
+        call.define_ref(ref, address)
+    call.touch(made.slide.slide_id)
+    data: dict[str, Any] = {"slide": address, "layout": made.layout.name,
+                            "order": _order(deck)}
+    notes = []
+    if made.brought:
+        data["brought"] = [f"{made.layout.id} ({made.layout.name})"] + (
+            [f"master {made.master!r}"] if "master" in made.brought else [])
+        if "master" in made.brought:
+            notes.append("this deck had no master of that name, so the source's came with "
+                         "the layout: a layout draws from its master")
+    if made.theme_differs:
+        data["theme_differs"] = True
+        if made.theme_changes:
+            data["theme_changes"] = made.theme_changes
+        notes.append("the slide now takes this deck's theme colours and fonts: theme "
+                     "references are kept, nothing is converted")
+    if made.dropped_links:
+        data["dropped_links"] = made.dropped_links
+        notes.append("links to other slides of the source deck were taken off")
+    if notes:
+        data["note"] = "; ".join(notes)
+    renamed = {f"{source_doc}/{old}": new for old, new in made.mapping.items()}
+    return Result(summary=f"Imported {source_doc} s:{source.slide_id} as {address} "
+                  f"({made.layout.name})", created=[address], renamed=renamed, data=data)
 
 
 @tool("ppt_set_theme",

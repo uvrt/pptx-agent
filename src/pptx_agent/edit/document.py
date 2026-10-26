@@ -4053,6 +4053,29 @@ class Document(CommentOps):
                 self.slide(slide_id).set_notes(notes)
         return self.slide(slide_id)
 
+    def import_slide(self, slide: "Slide", *, index: int | None = None,
+                     bring_layout: bool = False):
+        """Copy ``slide``, a slide of another open deck, into this one at 0-based ``index``
+        (default last); returns an :class:`~pptx_agent.edit.importing.ImportResult`: the
+        new slide, its layout, ``mapping`` from every source shape's id to its copy's, and
+        whether the theme differs.
+
+        The layout is this deck's of the same name, on the master of the same name; a deck
+        without one refuses, listing its layouts, unless ``bring_layout`` copies the
+        source's layout in (and its master, when this deck has none of that name).  Media
+        is imported once by content; charts, workbooks, diagrams and the notes page are
+        copied; shape names and ids stay, theme colours stay theme references.  One undo
+        step on this deck; see :mod:`pptx_agent.edit.importing`.
+
+        For example::
+
+            result = deck.import_slide(samples.slide("s:300"), index=6)
+            result.slide.slide_id, result.mapping            # 412, {'300.4': '412.4', ...}
+        """
+        from .importing import import_slide
+
+        return import_slide(self, slide, index, bring_layout=bring_layout)
+
     def move_slide(self, slide: "Slide | int | str", index: int | None = None, *,
                    to: int | None = None) -> Slide:
         """Move a slide to a new 0-based position; returns it.  Ids do not change.
