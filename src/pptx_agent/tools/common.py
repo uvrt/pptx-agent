@@ -241,10 +241,12 @@ def library_errors(handler: Callable[..., Any]) -> Callable[..., Any]:
     ``LabelError`` ``label_not_found`` with the labels there are, a ``KeyError`` or
     ``IndexError`` ``not_found``.
 
-    Nothing else is caught: a ``TypeError`` or ``ValueError`` Python raises itself (a
-    mistake in a handler) or a sibling library's goes to the dispatcher, which maps it as
-    for every format -- a ``ValueError`` is ``unit``, a :class:`~ooxml_edit.tools.LimitError`
-    ``limit``, and anything unexpected ``internal``, logged."""
+    Nothing else is caught: ooxml-edit's own refusals and a ``TypeError`` or ``ValueError``
+    Python raises itself (a mistake in a handler) go to the dispatcher, which maps them as
+    for every format -- an ``ooxml_edit.errors.ArgumentError`` is ``invalid_arguments``, its
+    ``UnitError`` ``unit``, any other ``ValueError`` ``unit``, a
+    :class:`~ooxml_edit.tools.LimitError` ``limit``, and anything unexpected ``internal``,
+    logged."""
 
     @functools.wraps(handler)
     def run(call, **arguments):

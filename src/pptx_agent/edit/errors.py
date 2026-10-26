@@ -7,20 +7,30 @@ refusals always were, so ``except ValueError`` still catches it.  A check of a v
 type raises :class:`ArgumentTypeError`, both an :class:`ArgumentError` and the
 :class:`TypeError` it always was.
 
-The tool layer tells the model ``invalid_arguments`` for these and for nothing else
-(:func:`pptx_agent.tools.common.library_errors`): a ``ValueError`` or ``TypeError``
-Python raises itself, or a sibling library's, is not the library's refusal and goes to
-the dispatcher's own mapping, as in the other formats' tools.
+Both are of ooxml-edit's family (:mod:`ooxml_edit.errors`): an ``ArgumentError`` here is
+an ``ooxml_edit.errors.ArgumentError``, an ``ArgumentTypeError`` an
+``ooxml_edit.errors.ArgumentTypeError``, so a refusal is one class whichever library
+raised it, in a deck or in a document.
+
+The tool layer tells the model ``invalid_arguments`` for these
+(:func:`pptx_agent.tools.common.library_errors`), as the dispatcher does for ooxml-edit's
+own refusals (the last node of a diagram, a cell reference that is not one); ooxml-edit's
+``UnitError`` (a value out of its range) is ``unit``.  A ``ValueError`` or ``TypeError``
+Python raises itself is not a refusal and goes to the dispatcher's own mapping, as in the
+other formats' tools.
 """
 
 from __future__ import annotations
 
+from ooxml_edit.errors import ArgumentError as _ArgumentError
+from ooxml_edit.errors import ArgumentTypeError as _ArgumentTypeError
 
-class ArgumentError(ValueError):
+
+class ArgumentError(_ArgumentError):
     """A value the library refuses; the message says what is wrong and what would do."""
 
 
-class ArgumentTypeError(ArgumentError, TypeError):
+class ArgumentTypeError(ArgumentError, _ArgumentTypeError):
     """A value of a type the library does not take there; the message says which it does."""
 
 

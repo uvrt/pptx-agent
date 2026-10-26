@@ -5,6 +5,18 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.4 -- unreleased
+
+- **One refusal family with ooxml-edit** (review, S9; needs ooxml-edit 0.66.0).
+  `ArgumentError` is now an `ooxml_edit.errors.ArgumentError`, and `ArgumentTypeError` an
+  `ooxml_edit.errors.ArgumentTypeError` too; the names, messages and `ValueError`/
+  `TypeError` bases are as before. ooxml-edit's own refusals are typed now, and its
+  dispatcher gives an `ArgumentError` `invalid_arguments` and a `UnitError` (a value out of
+  its range) `unit`. What a model sees change: `edit_smartart` removing a diagram's last node
+  is `invalid_arguments` again, as in a Word document (since N5 it was `unit` in both).
+  `library_errors` is unchanged; a plain `ValueError` is still `unit`. Tool definitions are
+  unchanged.
+
 ## 0.1.3 -- unreleased
 
 - **A linter, and `py.typed`** (review, S8): ruff checks pyflakes and a few bug-finding rules
