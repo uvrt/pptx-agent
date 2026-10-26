@@ -5,6 +5,18 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.8 -- unreleased
+
+- **SVG pictures on ooxml-edit's `pictures`** (round 17, P6, docx-agent's lane; needs
+  ooxml-edit 0.68.0). What is the same in a deck and a Word document -- the blip's SVG
+  extension, an SVG's native size, the recolouring as Graphics Fill and Outline rewrite one
+  (PowerPoint for Mac, 2026-10-15), the theme slots and classes, the outline weight's units
+  -- moved to `ooxml_edit.pictures` so docx-agent tints an icon the same way (Word draws it
+  alike, measured 2026-10-26). `pptx_agent.edit.svgpicture` keeps every name, re-exported;
+  `parse`, the frame's size in EMU, the PNG fallback and the media part stay here, and
+  `recolor` reads the SVG with this module's `parse` first, so what is refused is refused
+  as before. Nothing a deck writes changes; no tool definition changes.
+
 ## 0.1.5 -- unreleased
 
 - **`edit_chart` and `edit_smartart` as in a Word document** (review, S10; needs ooxml-edit
