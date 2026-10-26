@@ -28,7 +28,6 @@ from ooxml_edit.charts.chart import (  # noqa: F401  (re-exported)
 )
 from ooxml_edit.charts.create import POWERPOINT_LOOK
 from ooxml_edit.charts.host import GraphicHost, chart_part
-from ooxml_edit.xml import qn
 
 from .labels import find_label
 
@@ -392,10 +391,7 @@ class Chart(_chart.Chart):
             chart.number_formats
             # {'values': 'General', 'data_labels': None, 'value_axis': 'General'}
         """
-        root = self._root()
-        values = self.number_format
-        return {"values": values, "data_labels": _label_format(root, values),
-                "value_axis": _format_of(self._axis(root, "value"), values)}
+        return super().number_formats
 
 
 class SeriesList(list):
@@ -501,54 +497,6 @@ def _position(chart: Chart, category) -> int:
     if isinstance(category, int) and not isinstance(category, bool):
         return category
     return chart.category_index(category)
-
-
-def _flag(owner, tag: str) -> bool | None:
-    node = owner.find(qn(tag))
-    return None if node is None else node.get("val", "1") in ("1", "true")
-
-
-def _shows_number(owner) -> bool | None:
-    """Whether a ``c:dLbls`` or ``c:dLbl`` shows a value or a percentage; ``None`` when it
-    does not say."""
-    if owner is None:
-        return None
-    if _flag(owner, "c:delete"):
-        return False
-    flags = [_flag(owner, "c:showVal"), _flag(owner, "c:showPercent")]
-    if all(flag is None for flag in flags):
-        return None
-    return any(flags)
-
-
-def _format_of(owner, values: str | None) -> str | None:
-    if owner is None:
-        return None
-    node = owner.find(qn("c:numFmt"))
-    if node is None or node.get("sourceLinked") in ("1", "true"):
-        return values
-    return node.get("formatCode")
-
-
-def _label_format(root, values: str | None) -> str | None:
-    """The format of the first data label that shows a number: a point's own ``c:dLbl``
-    wins over its series' ``c:dLbls``, which wins over its plot's."""
-    for series in _chart.series_of(root):
-        own = series.element.find(qn("c:dLbls"))
-        plot = series.plot.find(qn("c:dLbls")) if series.plot is not None else None
-        points = {node.find(qn("c:idx")).get("val"): node
-                  for node in (own.findall(qn("c:dLbl")) if own is not None else [])
-                  if node.find(qn("c:idx")) is not None}
-        for index in range(max(series.values.count, 1)):
-            chain = [points.get(str(index)), own, plot]
-            for owner in chain:
-                shown = _shows_number(owner)
-                if shown is None:
-                    continue
-                if shown:
-                    return _format_of(owner, values)
-                break
-    return None
 
 
 def chart_part_of(shape: "Shape") -> str | None:
