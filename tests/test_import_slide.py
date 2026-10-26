@@ -227,13 +227,18 @@ def test_the_tool_refuses_a_missing_layout_and_a_deck_copied_into_itself(toolbox
                                {"doc": d1, "action": "import", "source_doc": d2,
                                 "slide": "s:256"})
     assert not missing.ok and missing.error.code == "not_found"
-    assert "bring_layout" in missing.error.message
+    assert 'layout: "source"' in missing.error.message
     assert "Title Slide" in missing.error.valid_options
     brought = toolbox.dispatch(session, "ppt_manage_slides",
                                {"doc": d1, "action": "import", "source_doc": d2,
-                                "slide": "s:256", "bring_layout": True})
+                                "slide": "s:256", "layout": "source"})
     assert brought.ok, brought.error
     assert brought.data["brought"][0].endswith("(Sample Item)")
+    other = toolbox.dispatch(session, "ppt_manage_slides",
+                             {"doc": d1, "action": "import", "source_doc": d2,
+                              "slide": "s:256", "layout": "Title Slide"})
+    assert not other.ok and other.error.field == "layout"
+    assert other.error.valid_options == ["source"]
     itself = toolbox.dispatch(session, "ppt_manage_slides",
                               {"doc": d2, "action": "import", "source_doc": d2,
                                "slide": "s:256"})
@@ -253,3 +258,10 @@ def test_the_tool_reads_at_as_to(toolbox, decks):
                                "slide": "s:256", "at": 1})
     assert result.ok and result.data["order"][0] == result.created[0]
 
+
+
+def test_import_keeps_every_strict_tool_strict(toolbox):
+    strict = [d["name"] for d in toolbox.definitions("anthropic", defer=False)
+              if d.get("strict")]
+    assert strict == ["replace_text", "set_properties", "ppt_add_slide", "ppt_draft_slides",
+                      "ppt_manage_slides", "edit_smartart"]

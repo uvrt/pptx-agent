@@ -15,7 +15,7 @@ snapshot commit; the development history before it is summarised here.
   parts, tags, external links, its notes page (on the target's notes master, added when
   missing) -- every part under a new name. The layout is the target's of the same name on
   the master of the same name (any master's when none has that name); a target without it
-  refuses (`not_found`, its layouts as `valid_options`) unless `bring_layout: true` copies
+  refuses (`not_found`, its layouts as `valid_options`) unless `layout: "source"` copies
   the source's layout onto the master of the same name -- and the source's master with its
   theme too when the target has none of that name, since a layout draws from its master.
   Shape names and `cNvPr` ids stay: `created` is the new slide, `renamed` maps every source
@@ -25,9 +25,13 @@ snapshot commit; the development history before it is summarised here.
   links jumping to the source's other slides (reported in `dropped_links`) and slide
   numbers by reference are left behind. One undo step on the target; the source is only
   read. PowerPoint opens the results without a repair prompt (oracle, 2026-10-26).
-  Every definition 13,277 -> 13,355 estimated tokens (guard 13,357), the core unchanged;
-  a reviewer's every definition 4,759 -> 4,835 (guard 4,837). The strict set changes:
-  ppt_manage_slides takes two optional parameters, so `edit_smartart` is sent non-strict.
+  `layout` takes only `"source"` with import (the library's `bring_layout=True`): a separate
+  `bring_layout` parameter would have pushed `edit_smartart` out of Claude's strict set (24
+  optional parameters over the strict tools), so `ppt_manage_slides` gains one optional
+  parameter (`source_doc`) and the strict set is unchanged. `at` is read as `to` (a
+  tool-level alias, no schema parameter). Every definition 13,277 -> 13,343 estimated tokens
+  (guard 13,345), the core unchanged; a reviewer's every definition 4,759 -> 4,823 (guard
+  4,825).
 
 ## 0.1.5 -- unreleased
 
