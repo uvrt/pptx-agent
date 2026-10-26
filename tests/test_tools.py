@@ -259,8 +259,8 @@ def test_the_tool_set_and_its_groups(toolbox):
         "ppt_add_slide", "ppt_draft_slides", "ppt_manage_slides",
         "ppt_set_theme"}
     groups = {}
-    for tool in toolbox.tools.values():
-        groups.setdefault(tool.group, []).append(tool.name)
+    for definition in toolbox.tools.values():
+        groups.setdefault(definition.group, []).append(definition.name)
     assert all(len(members) < 10 for group, members in groups.items() if group != "core")
     assert set(groups) - {"core"} <= {group.name for group in GROUPS}
 
@@ -289,18 +289,18 @@ def test_the_loaded_core_is_within_budget_and_every_definition_within_its_guard(
 def test_no_tool_takes_a_path_and_the_prompt_has_no_house_style():
     from ooxml_edit.tools.schema import is_path_name, walk_properties
 
-    for tool in TOOLS:
-        for dotted, _, _ in walk_properties(tool.canonical):
-            assert not is_path_name(dotted.split(".")[-1].rstrip("[]")), (tool.name, dotted)
+    for definition in TOOLS:
+        for dotted, _, _ in walk_properties(definition.canonical):
+            assert not is_path_name(dotted.split(".")[-1].rstrip("[]")), (definition.name, dotted)
     words = PROMPT.lower()
     for rule in ("palette", "rainbow", "legend", "font size must", "at most two"):
         assert rule not in words
 
 
 def test_the_shared_tools_are_the_shared_definitions():
-    for tool in TOOLS:
-        if tool.name in shared.SPECS:
-            assert tool.same_definition(shared.definition(tool.name))
+    for definition in TOOLS:
+        if definition.name in shared.SPECS:
+            assert definition.same_definition(shared.definition(definition.name))
 
 
 # -- reading -------------------------------------------------------------------------------------
@@ -742,7 +742,7 @@ def test_arrange_grid_refusals(toolbox, session):
 
 
 def test_connector_sides_face_each_other(toolbox, session):
-    made = ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
+    ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256", items=[
         {"preset": "rect", "box": {"x": 300, "y": 150, "w": 100, "h": 40}, "ref": "top"},
         {"preset": "rect", "box": {"x": 100, "y": 300, "w": 100, "h": 40}, "ref": "low"}]))
     link = ok(call(toolbox, session, "ppt_add_connector", doc="d1", items=[
@@ -1241,8 +1241,7 @@ def test_check_and_save_behind_the_gate(toolbox, session):
     assert saved.data["validate"]["new"] == []
     (output,) = session.take_outputs()
     assert Document.open(output.data).slides[0].title == "Plan"
-    outline = ok(call(toolbox, session, "save_document", doc="d1", name="out.md",
-                      format="outline"))
+    ok(call(toolbox, session, "save_document", doc="d1", name="out.md", format="outline"))
     assert session.take_outputs()[0].data.startswith(b"<!--")
 
 

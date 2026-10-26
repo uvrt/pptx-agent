@@ -32,7 +32,7 @@ from __future__ import annotations
 import copy
 import posixpath
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterable, Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from lxml import etree
 from ooxml_edit.opc import RELS_NS, numbered_template, rels_path_for

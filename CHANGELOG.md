@@ -5,6 +5,18 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.3 -- unreleased
+
+- **A linter, and `py.typed`** (review, S8): ruff checks pyflakes and a few bug-finding rules
+  (`[tool.ruff]` in pyproject.toml; no formatter, no import sorting), as a step of CI's build
+  job, pinned in the dev extra. What it found is fixed: unused imports and locals, and
+  `TextSpec`, which `Shape.set_text` and `TextFrame.set_text` name in their annotations
+  without importing it (now imported for type checkers only). Four methods nothing called,
+  in the package, its tests or a sibling, are gone: `Shape.fit_to_children` (a group still
+  re-fits itself after a child's geometry changes), `Shape.set_no_fill`, `Slide.find_shapes`
+  and the private `Document._as_layout`. The wheel and sdist now carry `py.typed`, so a caller's
+  type checker reads the annotations. mypy is not run here yet. Tools behave as before.
+
 ## 0.1.2 -- unreleased
 
 - **The render plumbing is ooxml-edit's** (review, S5): `tools/render.py` is now a thin

@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # common.py beside it
-from common import INPUTS, main, norm  # noqa: E402
+from common import INPUTS, main  # noqa: E402
 from design import (IN, box, common_checks, fill_key, find_exact, leaf_shapes, ntext, run_sizes,  # noqa: E402
                     text_shapes)
 

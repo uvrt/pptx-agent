@@ -68,8 +68,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Iterable
 
-from ..oxml.xml import Element, find, findall, make, parse_xml, qn, register_namespaces, \
-    serialize
+from ..oxml.xml import Element, find, findall, make, qn, register_namespaces
 from .errors import ArgumentError
 
 if TYPE_CHECKING:  # pragma: no cover

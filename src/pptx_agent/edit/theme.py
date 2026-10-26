@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Mapping, NamedTuple
 
 from ..oxml.package import REL_SLIDE_LAYOUT, REL_SLIDE_MASTER
 from ..oxml.xml import Element, find, make, qn, subelement
-from . import inherit
 from .errors import ArgumentError
 
 if TYPE_CHECKING:  # pragma: no cover

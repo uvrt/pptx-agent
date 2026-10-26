@@ -6,7 +6,6 @@ from __future__ import annotations
 from pptx_agent import Document, Pt
 from pptx_agent.edit.creating import connection
 from pptx_agent.edit.ids import cnv_pr
-from lxml import etree
 
 
 def _group_with_connector():

@@ -70,7 +70,6 @@ from .fill import (
     fill_element,
     gradient_fill,
     image_fill,
-    no_fill,
     read_fill,
     solid_fill,
     write_fill,
@@ -87,6 +86,7 @@ from .creating import Adjustments, ShapeFactory
 
 if TYPE_CHECKING:  # pragma: no cover
     from .chart import Chart
+    from .textspec import TextSpec
     from .diagram import Diagram
     from .fit import TextFit
     from .theme import Theme
@@ -554,27 +554,6 @@ class Shape(ShapeFactory):
 
         return route(self)
 
-    def fit_to_children(self) -> "Shape":
-        """Re-fit a group's frame to its children without moving anything on the slide.
-
-        PowerPoint does this whenever a child is moved or resized: the group's child space
-        (``chOff``/``chExt``) becomes the children's bounding box and its frame
-        (``off``/``ext``) moves and resizes by the same amount through the group's scale, so
-        every child stays exactly where it was drawn.  Called automatically after a child's
-        geometry changes; rotated or flipped groups are left alone, because re-fitting one
-        moves its rotation centre and so would move the children.
-
-        For example::
-
-            group.fit_to_children()
-        """
-        if local_name(self._element) != "grpSp":
-            raise ArgumentError(f"{self.id}: only a group has children to fit")
-        self._before_change()
-        self._refit()
-        self._after_change()
-        return self
-
     def _xfrm_child(self, tag: str) -> Element | None:
         xfrm = self._xfrm(create=False)
         return None if xfrm is None else xfrm.find(qn(tag))
@@ -970,16 +949,6 @@ class Shape(ShapeFactory):
             assert container is not None
             write_fill(container, image_fill(rel_id, stretch=stretch))
             self._after_change()
-        return self
-
-    def set_no_fill(self) -> "Shape":
-        """No fill at all (transparent), whatever the style says.
-
-        For example::
-
-            shape.set_no_fill()
-        """
-        self._write_fill(no_fill())
         return self
 
     def clear_fill(self) -> "Shape":
@@ -2479,20 +2448,6 @@ class Slide(ShapeFactory):
             raise KeyError(f"no shape {parsed} on slide {self.slide_id}")
         return Shape(self, element, parsed)
 
-    def find_shapes(self, *, name: str | None = None, kind: str | None = None) -> list[Shape]:
-        """The shapes with this ``name`` and/or ``kind``, groups' members included, each
-        once, in the order of :attr:`shapes`.
-
-        For example::
-
-            slide.find_shapes(kind="picture")
-        """
-        return [
-            shape
-            for shape in self.shapes
-            if (name is None or shape.name == name) and (kind is None or shape.kind == kind)
-        ]
-
     def text_below(self, points) -> list:
         """The text on this slide drawn smaller than ``points``, by its effective size --
         inherited from a layout or master and scaled by a stored autofit, as
@@ -3916,9 +3871,6 @@ class Document(CommentOps):
         return [self.slide(int(head))]
 
     # -- masters and layouts ---------------------------------------------------------------
-
-    def _as_layout(self, layout: "Layout | str") -> Layout:
-        return self.layout(layout)
 
     def add_layout(self, name: str = "Custom Layout", *, master: "Master | str | None" = None,
                    after: "Layout | str | None" = None) -> Layout:

@@ -3,7 +3,6 @@ runs added a scratch slide per layout to see its placeholders."""
 
 from __future__ import annotations
 
-import dataclasses
 
 import pytest
 

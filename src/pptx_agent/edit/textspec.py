@@ -25,8 +25,8 @@ Lengths are EMU, as everywhere in the library; font sizes are points.  A propert
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any, Mapping, Sequence
 
 from .errors import ArgumentError, ArgumentTypeError
 
