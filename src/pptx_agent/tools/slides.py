@@ -160,15 +160,14 @@ def _manage_documents(arguments) -> list[str]:
        "notes": string("duplicate: the copy's notes.", optional=True),
        "title": string("find_by_title: the title.", optional=True),
        "ref": string("duplicate, import: ref name for the copy.", optional=True),
-       "layout": string("set_layout: L2 or its name.", optional=True),
-       "source_doc": string("import: the deck to copy from, d2.", optional=True),
-       "bring_layout": boolean("import: copy the source's layout in if missing.",
-                               optional=True)},
+       "layout": string("set_layout: L2 or its name. import: source copies the source's "
+                        "layout in if missing.", optional=True),
+       "source_doc": string("import: the deck to copy from, d2.", optional=True)},
       kind=KIND, group=SLIDES, mutates=True, refs=("slide",), documents=_manage_documents,
       aliases={"at": "to"}, action_roles={"find_by_title": REVIEW})
 @library_errors
 def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=None,
-                      ref=None, layout=None, source_doc=None, bring_layout=None):
+                      ref=None, layout=None, source_doc=None):
     deck = call.document
     if action == "find_by_title":
         if title is None:
@@ -180,7 +179,7 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
     if slide is None:
         raise ToolError("invalid_arguments", f"{action} needs slide", field="slide")
     if action == "import":
-        return _import(call, deck, slide, to, ref, source_doc, bring_layout)
+        return _import(call, deck, slide, to, ref, source_doc, layout)
     target = slide_at(deck, slide)
     if action == "duplicate":
         index = _position(deck, to, "to")
@@ -228,10 +227,18 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
     raise ToolError("invalid_arguments", f"unknown action {action!r}", field="action")
 
 
-def _import(call, deck, slide, to, ref, source_doc, bring_layout) -> Result:
+def _import(call, deck, slide, to, ref, source_doc, layout) -> Result:
     """ppt_manage_slides import: a slide of another open deck copied in, its layout this
-    deck's of the same name (:meth:`Document.import_slide`)."""
+    deck's of the same name (:meth:`Document.import_slide`); ``layout: "source"`` brings the
+    source's when this deck has none of the name (``bring_layout``)."""
     from ..edit.importing import find_layout
+
+    if layout not in (None, "source"):
+        raise ToolError("invalid_arguments", "import maps the layout by name; layout takes "
+                        "only \"source\": copy the source's layout in when this deck has "
+                        "none of its name (set_layout after the import moves it to another)",
+                        field="layout", valid_options=["source"])
+    bring_layout = layout == "source"
 
     if not source_doc:
         raise ToolError("invalid_arguments", "import needs source_doc, the open deck to copy "
@@ -249,7 +256,7 @@ def _import(call, deck, slide, to, ref, source_doc, bring_layout) -> Result:
     if wanted is not None and not bring_layout \
             and find_layout(deck, wanted.name, wanted.master.name) is None:
         raise ToolError("not_found", f"this deck has no layout {wanted.name!r} (master "
-                        f"{wanted.master.name!r}): pass bring_layout: true to copy it in, or "
+                        f"{wanted.master.name!r}): pass layout: \"source\" to copy it in, or "
                         "pick one of these with set_layout in the source deck first",
                         field="slide", valid_options=[lay.name for lay in deck.layouts][:50])
     made = deck.import_slide(source, index=index, bring_layout=bool(bring_layout))

@@ -202,20 +202,20 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: rises to 13,279.  The strict set is unchanged in its members: on OpenAI ``min_size`` is one
 #: more nullable number, ``styles`` a nullable array of strings.
 #: Round 17, P1: ppt_manage_slides' ``import`` (a slide of another open deck, its layout by
-#: name: ``source_doc``, ``bring_layout``; ``to`` and ``ref`` described for it) +78 to every
-#: definition (13,277 -> 13,355), none to the core (3,822): the tool is deferred.  The guard
-#: rises to 13,357.  The strict set changes: ppt_manage_slides, strict and early in the
-#: order, takes an eighth optional parameter, so edit_smartart no longer fits Claude's 24
-#: and is sent non-strict (the dispatcher still validates it).
+#: name: ``source_doc``; ``layout: "source"`` brings a missing layout; ``to`` and ``ref``
+#: described for it) +66 to every definition (13,277 -> 13,343), none to the core (3,822):
+#: the tool is deferred.  The guard rises to 13,345.  The strict set is unchanged: one more
+#: optional parameter on ppt_manage_slides makes 24 over the strict tools, the limit (a
+#: separate ``bring_layout`` would have pushed edit_smartart out).
 #: Round 17, P2: ppt_compare_slides' ``reference`` ({doc, slide}: its values the expected
-#: ones, every difference fixed toward it) +82 to every definition (13,355 -> 13,437), none
+#: ones, every difference fixed toward it) +82 to every definition (13,343 -> 13,425), none
 #: to the core (3,822): the tool is deferred (in a reviewer's core: 2,511 -> 2,593).  The
-#: guard rises to 13,440.  The strict set is unchanged: ppt_compare_slides is a reading
+#: guard rises to 13,427.  The strict set is unchanged: ppt_compare_slides is a reading
 #: tool, never strict.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13440
+ALL_GUARD = 13427
 
 
 def estimate_tokens(definitions) -> int:
