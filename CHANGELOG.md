@@ -5,6 +5,23 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.7 -- unreleased
+
+- **Copies compared against their sample** (production round 17, P2): `ppt_compare_slides`
+  takes `reference` (`{"doc", "slide"}`, `doc` defaulting to the deck compared; another open
+  deck is locked and only read), library `Document.compare_slides(reference=...)`. The
+  reference's values are the expected ones instead of the majority's -- two copies of three
+  drifting the same way are now reported, not the one left alone. The reference is matched
+  with the slides as one of the run (placeholders, names, position, as before); each
+  differing property keeps today's entry (`value`, now the reference's, `on`, `near`,
+  `other`, `from`) and adds `reference`; every difference a tool writes gets a `fix` toward
+  it, not only near-misses; an entry names the reference's shape (`reference_shape`,
+  `d2/300.4` for another deck's); `missing_on` lists copies without a shape the reference
+  has, `only` the shapes it has none of; one slide is enough. Without `reference` nothing
+  changes. Every definition 13,355 -> 13,437 estimated tokens (guard 13,440), the core
+  unchanged; a reviewer's core 2,511 -> 2,593 (guard 2,595), every definition 4,835 ->
+  4,916 (guard 4,918). The strict set is unchanged.
+
 ## 0.1.6 -- unreleased
 
 - **Import a slide from another open deck** (production round 17, P1): `ppt_manage_slides`

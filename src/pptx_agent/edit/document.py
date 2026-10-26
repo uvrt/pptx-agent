@@ -4372,7 +4372,7 @@ class Document(CommentOps):
 
         return overflows(self, slides, boxes=boxes)
 
-    def compare_slides(self, slides, *, within: float = 2.0):
+    def compare_slides(self, slides, *, within: float = 2.0, reference: "Slide | None" = None):
         """A run of like slides compared shape by shape
         (:class:`~pptx_agent.edit.compare.Comparison`): their corresponding shapes matched
         -- placeholders by type and idx, then unique names, then kind and nearest box, a
@@ -4380,17 +4380,21 @@ class Document(CommentOps):
         level, colour and typeface, fill, outline),
         the majority's value and the shapes that differ from it, near-misses within
         ``within`` points apart.  ``slides``: :class:`Slide` objects, ids (``257``,
-        ``"s:257"``), at least two.  Measures only; see :mod:`pptx_agent.edit.compare`.
+        ``"s:257"``), at least two.  ``reference``, a :class:`Slide` of this deck or
+        another (a sample the slides were copied from), makes its values the expected ones:
+        every difference from it is reported with a fix toward it, and one slide is enough.
+        Measures only; see :mod:`pptx_agent.edit.compare`.
 
         For example::
 
             found = deck.compare_slides(["s:257", "s:258", "s:259"]).to_json()
             [entry["shape"] for entry in found["shapes"]]          # the shapes that differ
+            deck.compare_slides(["s:412"], reference=samples.slide("s:300"))
         """
         from .compare import compare_slides
 
         chosen = [item if isinstance(item, Slide) else self.slide(item) for item in slides]
-        return compare_slides(chosen, within=within)
+        return compare_slides(chosen, within=within, reference=reference)
 
     def outline_blocks(self, slides=None, *, scope: str = "slides") -> "list[TextBlock]":
         r"""Every piece of text in the deck, raw, with its address -- the outline's blocks

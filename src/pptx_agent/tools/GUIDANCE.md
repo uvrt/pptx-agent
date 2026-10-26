@@ -27,7 +27,7 @@ the deck as PowerPoint will show it, with shape addresses:
 | `validate` | every changing call, `check` | validation problems the call added (`new`) or removed (`fixed`) against the deck as opened |
 | `missing_glyphs` | `render` | text the image leaves out because the renderer has no font for it (`face`, `script`, `sample`); the deck is unchanged and PowerPoint draws it (`missing_glyphs_note`): install `pptx2svg-fonts` where the tools run |
 | `unresolved` | `save_document` | the overflows, collisions, off-slide shapes and empty placeholders still in the deck when it was saved (the save goes ahead) |
-| like slides compared | `ppt_compare_slides` | per corresponding shape on a run of slides: name, box, text size, colour, font, text layout (alignment, line spacing, space before and after, bullets, anchor, insets, autofit, direction; as drawn, inherited values resolved), fill, outline and tables against the majority; near-misses and every layout difference with a fix, larger differences, shapes missing or only on some (a shape renamed on one slide is matched by kind and place, its name listed as a difference) |
+| like slides compared | `ppt_compare_slides` | per corresponding shape on a run of slides: name, box, text size, colour, font, text layout (alignment, line spacing, space before and after, bullets, anchor, insets, autofit, direction; as drawn, inherited values resolved), fill, outline and tables against the majority or a `reference` slide (a sample, another open deck's too); near-misses and every layout difference with a fix, larger differences, shapes missing or only on some (a shape renamed on one slide is matched by kind and place, its name listed as a difference) |
 | design facts | `ppt_design_facts`, `check` with `design` | palette and theme roles, sets of like shapes with their colours and whether a legend covers them, the largest empty regions, alignment lines and near-misses, shape vocabulary, text sizes, lines over text |
 | problem facts | `check` with `facts` | colours that are not theme colours; wrap margins of titles and text boxes |
 
@@ -151,7 +151,14 @@ mark, a placeholder's prompt -- lives on the slide master or a layout, not on th
   is matched by kind and place, the names listed) -- 1 pt drifts and a size set on one slide
   against the layout's as near-misses with the one call that fixes them, a heading centred
   on three slides of nine with the `ppt_format_text` items that align it as the six. It only measures: a slide
-  that is meant to differ stays as it is.
+  that is meant to differ stays as it is.  Copies of a sample slide (`ppt_manage_slides
+  import` from a deck of samples) are compared with `reference: {"doc": "d2", "slide":
+  "s:300"}`: the sample's values are the expected ones, so two copies drifting the same way
+  are reported, not the copy left alone.
+- **A slide from another open deck is `ppt_manage_slides import`** (`source_doc`, `slide`,
+  `to`): it comes with its pictures, charts, SmartArt and notes, on this deck's layout of the
+  same name (`bring_layout: true` copies a missing one in); shape names stay, and `renamed`
+  maps `d2/300.4` to the copy's `412.4`.
 - **A finished slide onto another layout is `ppt_manage_slides set_layout`**, PowerPoint's
   Layout menu: placeholders move by kind and idx and take the new layout's boxes -- a box
   set on the slide is dropped (`boxes_dropped`), its text formatting kept. Content the

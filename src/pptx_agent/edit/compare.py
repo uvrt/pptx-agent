@@ -81,6 +81,16 @@ majority's value: ``ppt_set_shape`` for a box, fill or outline, ``ppt_format_tex
 text -- ``size: 0`` where the majority's size is the layout's and the shape's layout gives
 the same (:meth:`TextFrame.clear_size <pptx_agent.TextFrame.clear_size>`).
 
+**Against a reference** (round 17, P2): copies of a sample are compared with the sample,
+not with each other -- two of three copies drifting the same way would otherwise make the
+untouched one the outlier.  ``reference`` (a slide of this deck or another) is matched with
+the slides as one of the run, under the key :data:`REFERENCE`; per property its value is
+the expected one (``value`` and ``reference``, ``on`` how many compared shapes have it),
+every compared shape that differs is listed (``near`` or ``other``; ``None`` where the
+shape has no such value) and fixed toward it where the tools write the value, and a
+group's ``reference_shape`` is the reference's.  ``missing_on`` lists the compared slides
+without a shape the reference has; ``only`` the shapes the reference has none of.
+
 For example::
 
     comparison = deck.compare_slides(["s:257", "s:258", "s:259", "s:260"])
@@ -510,14 +520,19 @@ def _overlap(a, b) -> bool:
             and a[1] < b[1] + b[3] and b[1] < a[1] + a[3])
 
 
-def match(slides: list["Slide"]) -> list[ShapeGroup]:
+def match(slides: list["Slide"], slide_key=None) -> list[ShapeGroup]:
     """The slides' shapes in groups of corresponding shapes (the module's matching rules),
-    ordered by the first slide each is on, then back to front there."""
+    ordered by the first slide each is on, then back to front there.  ``slide_key(slide)``:
+    how a group's ``shapes`` names each slide (default its ``sldId``; slides of two decks
+    may share one)."""
+    if slide_key is None:
+        def slide_key(slide):
+            return slide.slide_id
     groups: list[ShapeGroup] = []
     order: dict[int, tuple[int, int]] = {}             # id(group) -> (slide, z) first seen
     left: dict[int, list[tuple[int, "Shape"]]] = {}
     for slide in slides:
-        left[slide.slide_id] = [(z, shape) for z, shape in enumerate(slide.shapes)
+        left[slide_key(slide)] = [(z, shape) for z, shape in enumerate(slide.shapes)
                                 if shape.parent_group is None]
 
     def add(group: ShapeGroup, slide_index: int, z: int) -> None:
@@ -529,7 +544,7 @@ def match(slides: list["Slide"]) -> list[ShapeGroup]:
     for index, slide in enumerate(slides):
         taken = set()
         rest = []
-        for z, shape in left[slide.slide_id]:
+        for z, shape in left[slide_key(slide)]:
             if shape.placeholder is None:
                 rest.append((z, shape))
                 continue
@@ -542,30 +557,30 @@ def match(slides: list["Slide"]) -> list[ShapeGroup]:
             if group is None:
                 group = by_key[key] = ShapeGroup("placeholder", kind_of(shape))
                 add(group, index, z)
-            group.shapes[slide.slide_id] = shape
-        left[slide.slide_id] = rest
+            group.shapes[slide_key(slide)] = shape
+        left[slide_key(slide)] = rest
     # 2. names unique on their slide, on two slides or more, of one kind
     named: dict[tuple[str, str], list[int]] = {}
     for slide in slides:
-        names = Counter(shape.name for _, shape in left[slide.slide_id] if shape.name)
-        for _, shape in left[slide.slide_id]:
+        names = Counter(shape.name for _, shape in left[slide_key(slide)] if shape.name)
+        for _, shape in left[slide_key(slide)]:
             if shape.name and names[shape.name] == 1:
-                named.setdefault((shape.name, kind_of(shape)), []).append(slide.slide_id)
+                named.setdefault((shape.name, kind_of(shape)), []).append(slide_key(slide))
     by_name: dict[tuple[str, str], ShapeGroup] = {}
     for index, slide in enumerate(slides):
         rest = []
-        for z, shape in left[slide.slide_id]:
+        for z, shape in left[slide_key(slide)]:
             key = (shape.name, kind_of(shape))
             if not shape.name or len(named.get(key, ())) < 2 \
-                    or slide.slide_id not in named[key]:
+                    or slide_key(slide) not in named[key]:
                 rest.append((z, shape))
                 continue
             group = by_name.get(key)
             if group is None:
                 group = by_name[key] = ShapeGroup("name", key[1])
                 add(group, index, z)
-            group.shapes[slide.slide_id] = shape
-        left[slide.slide_id] = rest
+            group.shapes[slide_key(slide)] = shape
+        left[slide_key(slide)] = rest
     # 2b. name groups on some slides each, joined by kind and position (renamed shapes)
     total = len(slides)
     partial = [group for group in by_name.values() if len(group.shapes) < total]
@@ -597,14 +612,14 @@ def match(slides: list["Slide"]) -> list[ShapeGroup]:
     for index, slide in enumerate(slides):
         pairs = []
         pool = [*named_groups, *placed]
-        for z, shape in left[slide.slide_id]:
+        for z, shape in left[slide_key(slide)]:
             box = shape.bounds
             if box is None:
                 continue
             for number, group in enumerate(pool):
                 other = group.first.bounds
                 if group.kind != kind_of(shape) or other is None \
-                        or slide.slide_id in group.shapes:
+                        or slide_key(slide) in group.shapes:
                     continue
                 distance = _distance(box, other)
                 if _overlap(box, other) or distance <= POSITION_REACH:
@@ -616,13 +631,13 @@ def match(slides: list["Slide"]) -> list[ShapeGroup]:
                 continue
             used_shapes.add(z)
             used_groups.add(number)
-            pool[number].shapes[slide.slide_id] = shape
-        for z, shape in left[slide.slide_id]:
+            pool[number].shapes[slide_key(slide)] = shape
+        for z, shape in left[slide_key(slide)]:
             if z not in used_shapes:
-                group = ShapeGroup("position", kind_of(shape), {slide.slide_id: shape})
+                group = ShapeGroup("position", kind_of(shape), {slide_key(slide): shape})
                 placed.append(group)
                 add(group, index, z)
-    position = {slide.slide_id: index for index, slide in enumerate(slides)}
+    position = {slide_key(slide): index for index, slide in enumerate(slides)}
     for group in named_groups:          # a shape joined by position: back in slide order
         group.shapes = dict(sorted(group.shapes.items(), key=lambda item: position[item[0]]))
     groups.sort(key=lambda group: order[id(group)])
@@ -738,7 +753,13 @@ class Comparison:
     slides: list[int]
     groups: list[ShapeGroup]
     within: float = WITHIN
+    #: The slide whose values are the expected ones (round 17, P2), or ``None``: the
+    #: majority's are.  Its shapes are under :data:`REFERENCE` in each group's ``shapes``.
+    reference: "Slide | None" = None
+    #: Put before the reference's addresses in the output (``"d2/"`` for another deck's).
+    reference_prefix: str = ""
     _layouts: dict = field(default_factory=dict, repr=False, compare=False)
+    _reference_layouts: dict = field(default_factory=dict, repr=False, compare=False)
 
     def to_json(self) -> dict[str, Any]:
         """``{"slides", "matched", "agree", "shapes": [...], "only": [...]}``: ``matched``
@@ -756,11 +777,16 @@ class Comparison:
         (the majority's, and each value's).  A name group whose names differ has
         ``{"property": "name", "value", "on", "other"}`` first."""
         entries, only = self.entries()
-        return {"slides": [f"s:{sid}" for sid in self.slides], "matched": len(self.groups),
-                "agree": len(self.groups) - len(entries) - len(only),
-                "shapes": entries, "only": only}
+        out = {"slides": [f"s:{sid}" for sid in self.slides], "matched": len(self.groups),
+               "agree": len(self.groups) - len(entries) - len(only),
+               "shapes": entries, "only": only}
+        if self.reference is not None:
+            out["reference"] = f"{self.reference_prefix}s:{self.reference.slide_id}"
+        return out
 
     def entries(self) -> tuple[list[dict], list[dict]]:
+        if self.reference is not None:
+            return self._reference_entries()
         total = len(self.slides)
         entries: list[dict] = []
         only: list[dict] = []
@@ -859,35 +885,164 @@ class Comparison:
         return out
 
 
-def _name_difference(group: ShapeGroup) -> list[dict]:
+    # -- against a reference (round 17, P2) ---------------------------------------------------
+
+    def _reference_entries(self) -> tuple[list[dict], list[dict]]:
+        """Each group against the reference's shape: ``only`` the groups the reference has
+        no shape in; a group's ``reference_shape`` the reference's, ``missing_on`` the
+        compared slides without one."""
+        entries: list[dict] = []
+        only: list[dict] = []
+        for group in self.groups:
+            expected = group.shapes.get(REFERENCE)
+            compared = [shape for sid, shape in group.shapes.items() if sid != REFERENCE]
+            if expected is None:
+                head = {"shape": compared[0].id}
+                if compared[0].name:
+                    head["name"] = compared[0].name
+                if group.by == "position":
+                    head["by"] = "position"
+                only.append({**head, "shapes": [shape.id for shape in compared]})
+                continue
+            entry: dict[str, Any] = {
+                "shape": compared[0].id if compared else self.reference_prefix + expected.id,
+                "reference_shape": self.reference_prefix + expected.id}
+            if expected.name:
+                entry["name"] = expected.name
+            if group.by == "position":
+                entry["by"] = "position"
+            differ = self._reference_differences(group, expected) if compared else []
+            if differ:
+                entry["differ"] = differ
+            missing = [f"s:{sid}" for sid in self.slides if sid not in group.shapes]
+            if missing:
+                entry["missing_on"] = missing
+            if differ or missing:
+                entries.append(entry)
+        return entries, only
+
+    def _reference_differences(self, group: ShapeGroup, expected: "Shape") -> list[dict]:
+        """Per property, the compared shapes whose value is not the reference's: ``value``
+        and ``reference`` the reference's, ``on`` how many have it, ``near``/``other`` the
+        others (``None``: the shape has no such value), and a ``fix`` toward the reference
+        for every difference a tool writes."""
+        wanted = measure(expected, self._reference_layouts)
+        measured = {sid: measure(shape, self._layouts) for sid, shape in group.shapes.items()
+                    if sid != REFERENCE}
+        keys = list(wanted)
+        for values in measured.values():
+            keys += [key for key in values if key not in keys]
+        keys.sort(key=lambda key: (PROPERTIES.index(key[0]), key[1]))
+        out = _name_difference(group, expected.name) if group.by == "name" else []
+        for name, level in keys:
+            target = wanted.get((name, level))
+            expected_value = None if target is None else target.value
+            near: dict[tuple, list] = {}
+            other: dict[tuple, list] = {}
+            fixes: list | None = []
+            on = 0
+            for sid, values in measured.items():
+                value = values.get((name, level))
+                if value is None and target is None:
+                    continue
+                if value is not None and target is not None and value.value == expected_value:
+                    on += 1
+                    continue
+                shape = group.shapes[sid]
+                shown = None if value is None else value.value
+                close = value is not None and target is not None \
+                    and _near(name, value.value, expected_value, self.within)
+                bucket = near if close else other
+                bucket.setdefault((shown, None if value is None else value.source),
+                                  []).append(shape.id)
+                comparable = value is not None and target is not None and not (
+                    name in _SERIES and len(value.value) != len(expected_value))
+                items = _fix_item(name, level, shape, value, target) if comparable else None
+                if items is None:
+                    fixes = None
+                elif fixes is not None:
+                    fixes += items
+            if not near and not other:
+                continue
+            entry: dict[str, Any] = {"property": name}
+            if level:
+                entry["level"] = level
+            entry["value"] = entry["reference"] = _number(expected_value)
+            entry["on"] = on
+            if target is not None and name == "row_h":
+                entry["rows"] = [target.rows]
+            sources = {source for (_, source) in [*near, *other]}
+            shown_from = target is not None and target.source is not None \
+                and sources - {target.source}
+            if shown_from:
+                entry["from"] = target.source
+            for label, bucket in (("near", near), ("other", other)):
+                if bucket:
+                    entry[label] = [
+                        {"value": _number(value),
+                         **({"from": source} if shown_from and source is not None else {}),
+                         "shapes": shapes}
+                        for (value, source), shapes in bucket.items()]
+            if fixes:
+                tool = _FIX_TOOL.get(name, "ppt_set_shape")
+                entry["fix"] = {"tool": tool,
+                                "calls" if tool in _ONE_TARGET else "items": fixes}
+            out.append(entry)
+        return out
+
+
+def _name_difference(group: ShapeGroup, expected: str | None = None) -> list[dict]:
     """A name group's names when they differ: ``{"property": "name", "value": the
     majority's, "on", "other": [{"value", "shapes"}]}`` -- no fix, a name being no
     near-miss."""
-    names = [(shape.name, shape.id) for shape in group.shapes.values()]
+    names = [(shape.name, shape.id) for sid, shape in group.shapes.items()
+             if sid != REFERENCE]
     counts = Counter(name for name, _ in names)
-    if len(counts) < 2:
+    if expected is not None:
+        if set(counts) <= {expected}:
+            return []
+        top = expected
+    elif len(counts) < 2:
         return []
-    top = _dominant(counts)
+    else:
+        top = _dominant(counts)
     other: dict[str, list[str]] = {}
     for name, address in names:
         if name != top:
             other.setdefault(name, []).append(address)
-    return [{"property": "name", "value": top, "on": counts[top],
+    return [{"property": "name", "value": top, "on": counts.get(top, 0),
              "other": [{"value": name, "shapes": shapes} for name, shapes in other.items()]}]
 
 
-def compare_slides(slides: list["Slide"], *, within: float = WITHIN) -> Comparison:
+#: A group's key for the reference's shape (no ``sldId`` is below 256).
+REFERENCE = 0
+
+
+def compare_slides(slides: list["Slide"], *, within: float = WITHIN,
+                   reference: "Slide | None" = None) -> Comparison:
     """``slides``' corresponding shapes and where they differ (the module's rules);
-    ``within`` the near-miss tolerance in points.  Raises ``ValueError`` for fewer than two
-    slides or a slide given twice."""
-    if len(slides) < 2:
-        raise ArgumentError("compare at least two slides")
+    ``within`` the near-miss tolerance in points.  With ``reference`` -- a slide of this
+    deck or another, matched with them as one of the run -- its values are the expected
+    ones: every shape that differs from it is reported, with a fix toward it, and one slide
+    is enough.  Raises ``ArgumentError`` for fewer than two slides (one with a reference),
+    a slide given twice, or the reference among the slides."""
+    if len(slides) < (1 if reference is not None else 2):
+        raise ArgumentError("compare at least two slides" if reference is None
+                            else "compare at least one slide with the reference")
     ids = [slide.slide_id for slide in slides]
     if len(set(ids)) != len(ids):
         repeated = next(sid for sid in ids if ids.count(sid) > 1)
         raise ArgumentError(f"s:{repeated} is given twice; name each slide once")
-    return Comparison(ids, match(slides), float(within))
+    if reference is None:
+        return Comparison(ids, match(slides), float(within))
+    if any(slide.document is reference.document and slide.slide_id == reference.slide_id
+           for slide in slides):
+        raise ArgumentError(f"s:{reference.slide_id} is the reference; compare other slides "
+                            "with it")
+    groups = match([reference, *slides],
+                   lambda slide: REFERENCE if slide is reference else slide.slide_id)
+    return Comparison(ids, groups, float(within), reference)
 
 
-__all__ = ["Comparison", "NEAR_CHANNEL", "POSITION_REACH", "PROPERTIES", "ShapeGroup",
-           "WITHIN", "compare_slides", "kind_of", "match", "measure"]
+__all__ = ["Comparison", "NEAR_CHANNEL", "POSITION_REACH", "PROPERTIES", "REFERENCE",
+           "ShapeGroup", "WITHIN", "compare_slides", "kind_of", "match", "measure"]
