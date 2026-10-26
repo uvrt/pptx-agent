@@ -5,6 +5,23 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.5 -- unreleased
+
+- **`edit_chart` and `edit_smartart` as in a Word document** (review, S10; needs ooxml-edit
+  0.67.0). The handlers (`tools/charts.py`) are now ooxml-edit's `charts.actions` --
+  the data actions, the missing-argument messages, `add`'s checks and look, the SmartArt
+  actions and the results -- with only finding the frame and its `address` here;
+  `_expected`, `_categories` and the legend table are gone, and `Chart.number_formats`
+  is ooxml-edit's (the same reading, its helpers moved there). What a model sees change:
+  every `edit_chart` result has `legend` (read had it already); `hide_data_labels` with a
+  `number_format` is refused (`invalid_arguments`: "a number format is for labels shown"),
+  as in a document, where it was ignored; `set_legend` with a label position (`center`...)
+  is `invalid_arguments` saying the legend's positions, where it was `not_found`; a read
+  whose workbook cannot be read says `"unreadable: ..."` in `workbook` instead of
+  failing. Everything else replays as before (the golden transcripts unchanged).
+  `tests/test_chart_cases.py` runs ooxml-edit's table (`charts.cases`) through these
+  tools, as docx-agent's does through its own. Tool definitions are unchanged.
+
 ## 0.1.4 -- unreleased
 
 - **One refusal family with ooxml-edit** (review, S9; needs ooxml-edit 0.66.0).
