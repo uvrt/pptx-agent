@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ooxml_edit.tools import (CORE, Result, ToolError, array, integer, page_list, page_text,
+from ooxml_edit.tools import (CORE, Result, ToolError, array, page_list, page_text,
                               shared, string, tool)
 
 from ..edit.units import EMU_PER_POINT

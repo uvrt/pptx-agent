@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import warnings
 
-import pytest
 
 from conftest import FIXTURE_DIR
 from pptx_agent import ChartDataWarning, Document

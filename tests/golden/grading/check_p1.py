@@ -67,8 +67,6 @@ def body(c, out: Path):
                   and sh.placeholder[0] not in ("title", "ctrTitle")]
         got = paras(bodies[0]) if bodies else []
         c.check(f"slide {n} bullets and levels", got == want, got)
-        if bodies:
-            bulleted = all(p.bullet is not None or True for p in bodies[0].text_frame.paragraphs)
     if len(slides) >= 4:
         texts = [norm(sh.text) for sh in slides[3].shapes]
         c.check("big number slide: 38% and its sentence",

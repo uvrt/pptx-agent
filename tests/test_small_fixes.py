@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from pptx_agent import PRESETS, Cm, Document, Inches, Pt, to_pt
 from pptx_agent.edit.color import Color

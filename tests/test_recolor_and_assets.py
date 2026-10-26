@@ -12,10 +12,8 @@ colour.  The icons here are hand-written, the keywords made up."""
 
 from __future__ import annotations
 
-import io
 import json
 import struct
-import zipfile
 import zlib
 
 import pytest
@@ -24,7 +22,6 @@ from lxml import etree
 from images import ORANGE
 from ooxml_edit.tools import FolderCatalogue, Toolbox
 from pptx_agent import Document
-from pptx_agent.edit import svgpicture
 from pptx_agent.tools import FORMAT, GROUPS, TOOLS, deck_format
 
 pytest.importorskip("resvg_py", reason="the PNG fallback is drawn by pptx2svg[png]")

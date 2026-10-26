@@ -9,7 +9,6 @@ with, and the oracle test holds its verdicts to PowerPoint's PDF.
 from __future__ import annotations
 
 import os
-import warnings
 from pathlib import Path
 
 import pytest

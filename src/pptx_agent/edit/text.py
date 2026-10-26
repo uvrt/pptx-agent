@@ -30,7 +30,7 @@ import sys
 import warnings
 from dataclasses import dataclass
 from contextlib import contextmanager
-from typing import Any, Callable, ContextManager, Iterator, Protocol
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Iterator, Protocol
 
 from ..oxml.xml import (
     FILL_TAGS,
@@ -64,6 +64,9 @@ from ooxml_edit.charts.dmltext import (  # noqa: F401  (re-exported)
 from .color import Color
 from .errors import ArgumentError, ArgumentTypeError
 from .fill import read_fill, solid_fill
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .textspec import TextSpec
 
 if False:  # pragma: no cover - for type checkers only
     from .effective import EffectiveParagraph

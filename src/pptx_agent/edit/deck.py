@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING
 
 from ooxml_common.kinds import KINDS, kind_for
 

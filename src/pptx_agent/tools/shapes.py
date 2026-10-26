@@ -17,8 +17,7 @@ from ..edit.fill import ARROWHEADS
 
 #: The dash styles offered (the library takes all of ECMA's eleven).
 DASHES = ["solid", "dash", "dot", "dashDot", "lgDash", "sysDash", "sysDot"]
-from .common import (ANCHOR, AUTOFIT, KIND, box_emu, box_pt, emu, frame_of, insets_param,
-                     library_errors, place, pt, resolve, shape as shape_at, host as slide_at,
+from .common import (KIND, box_emu, box_pt, emu, frame_of, library_errors, place, pt, resolve, shape as shape_at, host as slide_at,
                      one_text, spec_of, text_params, write_text)
 from . import textfacts
 from .text import COMMON_PRESETS, preset_of

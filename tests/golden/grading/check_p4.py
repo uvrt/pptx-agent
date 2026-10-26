@@ -97,7 +97,6 @@ def body(c, out: Path):
     c.check("no step shapes overlap", not overlaps, overlaps)
     main_flow = ["Order received", "Credit check", "Pick and pack", "Ship order", "Send invoice", "Payment received"]
     if all(s in by for s in main_flow):
-        xs = [(by[s].top // 914400 * 0, by[s].left) for s in main_flow]
         rows = {}
         for s in main_flow:
             rows.setdefault(round(by[s].top / 457200), []).append(by[s].left)

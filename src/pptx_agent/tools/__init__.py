@@ -77,7 +77,7 @@ import zipfile
 from collections.abc import Mapping
 
 from ooxml_edit.opc import rels_path_for
-from ooxml_edit.tools import CORE, DocumentFormat, ToolGroup, shared
+from ooxml_edit.tools import DocumentFormat, ToolGroup, shared
 
 from ..edit.chart import ChartDataError, ChartDataWarning
 from ..edit.deck import TemplateOpenedWarning
