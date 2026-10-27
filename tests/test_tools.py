@@ -207,10 +207,15 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: the tool is deferred.  The guard rises to 13,345.  The strict set is unchanged: one more
 #: optional parameter on ppt_manage_slides makes 24 over the strict tools, the limit (a
 #: separate ``bring_layout`` would have pushed edit_smartart out).
+#: Round 17, P2: ppt_compare_slides' ``reference`` ({doc, slide}: its values the expected
+#: ones, every difference fixed toward it) +82 to every definition (13,343 -> 13,425), none
+#: to the core (3,822): the tool is deferred (in a reviewer's core: 2,511 -> 2,593).  The
+#: guard rises to 13,427.  The strict set is unchanged: ppt_compare_slides is a reading
+#: tool, never strict.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13345
+ALL_GUARD = 13427
 
 
 def estimate_tokens(definitions) -> int:

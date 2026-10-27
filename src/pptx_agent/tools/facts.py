@@ -51,30 +51,57 @@ def ppt_design_facts(call, doc, slide, region=None, within=None, include=None):
 COMPARE_PAGE = 40
 
 
+def _compare_documents(arguments) -> list[str]:
+    """The deck compared, and the reference's deck when it is another (locked, read)."""
+    docs = [arguments["doc"]] if isinstance(arguments.get("doc"), str) else []
+    reference = arguments.get("reference")
+    other = reference.get("doc") if isinstance(reference, dict) else None
+    if isinstance(other, str) and other not in docs:
+        docs.append(other)
+    return docs
+
+
 @tool("ppt_compare_slides",
       "Compare a run of like slides shape by shape: where name, box, text size, colour, "
       "font, text layout (alignment, spacing, bullets, anchor, insets, autofit), fill, "
-      "outline, table rows, widths or borders differ from the majority; near-misses, "
-      "layout and tables with a fix. Measures only.",
+      "outline, table rows, widths or borders differ from the majority or a reference; "
+      "near-misses, layout and tables with a fix. Measures only.",
       {"doc": string("Document id."),
        "slides": array(string(or_integer=1), "Slide numbers from 1, or ids (s:256, $ref); "
-                       "at least two."),
+                       "at least two (one with reference)."),
+       "reference": obj({"doc": string("Default doc.", optional=True),
+                         "slide": string("s:300.")},
+                        "Expected values: fixes go toward it.",
+                        optional=True),
        "cursor": string("next_cursor of the previous page.", optional=True)},
-      kind=KIND, group=SLIDES, refs=("slides[]",), review_core=True)
+      kind=KIND, group=SLIDES, refs=("slides[]",), review_core=True,
+      documents=_compare_documents)
 @library_errors
-def ppt_compare_slides(call, doc, slides, cursor=None):
+def ppt_compare_slides(call, doc, slides, reference=None, cursor=None):
     """The library's :meth:`Document.compare_slides <pptx_agent.Document.compare_slides>`
     with its 2 pt tolerance (the library takes another), paged by shape: ``only`` (shapes
-    on half the slides or fewer) comes with the first page."""
+    on half the slides or fewer; with a reference, those it has none of) comes with the
+    first page."""
     from ..edit.compare import compare_slides
 
     deck = call.document
     chosen = numbers(deck, slides)
-    if len(chosen) < 2:                          # numbers() lists a slide once
+    expected, prefix = None, ""
+    if reference is not None:
+        where = reference.get("doc") or doc
+        entry = call.entries.get(where)
+        if entry is None or entry.kind != call.entry.kind:
+            raise ToolError("invalid_arguments", f"{where} is not an open deck",
+                            field="reference.doc")
+        expected = slide_at(entry.document, reference["slide"], field="reference.slide")
+        prefix = "" if where == doc else f"{where}/"
+    if len(chosen) < (1 if expected is not None else 2):   # numbers() lists a slide once
         raise ToolError("invalid_arguments", "compare at least two slides: list the run of "
                         "like slides, e.g. [\"s:257\", \"s:258\", \"s:259\"]", field="slides")
     targets = [deck.slides[n - 1] for n in chosen]
-    data = compare_slides(targets).to_json()
+    comparison = compare_slides(targets, reference=expected)
+    comparison.reference_prefix = prefix
+    data = comparison.to_json()
     few = len(data["only"])
     shapes, total, next_cursor = page_list(data["shapes"], cursor=cursor, limit=COMPARE_PAGE)
     if len(json.dumps(shapes, ensure_ascii=False)) > call.limits.max_result_chars - 2000:
@@ -84,10 +111,13 @@ def ppt_compare_slides(call, doc, slides, cursor=None):
     if cursor:
         data.pop("only")
     near = sum(1 for entry in shapes for item in entry.get("differ", ()) if "near" in item)
-    return Result(summary=f"Compared {len(targets)} slides: {data['matched']} shape(s) "
+    against = f" against {data['reference']}" if expected is not None else ""
+    count = f"{len(targets)} slide{'s' if len(targets) != 1 else ''}"
+    return Result(summary=f"Compared {count}{against}: {data['matched']} shape(s) "
                   f"matched, {total} differ or are missing somewhere ({near} near-miss "
                   f"propert{'y' if near == 1 else 'ies'} on this page), "
-                  f"{few} on few slides",
+                  + (f"{few} not on the reference" if expected is not None
+                     else f"{few} on few slides"),
                   data=data, total=total, next_cursor=next_cursor)
 
 

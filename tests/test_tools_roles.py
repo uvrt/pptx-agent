@@ -36,13 +36,14 @@ from test_tools import (CLOCK, COUNTED_PER_ESTIMATED, CORE_COUNTED_BUDGET, _deck
 #: (check's ``spacing``, +35) 2,333; round 14, S1 (text layout in ppt_compare_slides'
 #: description, +19) 2,352; round 15, T2 and T3 (check's ``contrast`` +37, ppt_read_slides'
 #: description +12) 2,402; round 16, F11 (save_document's ``clean``, +42) 2,444; round 16,
-#: F8 (check's ``layout``, ``min_size`` and ``styles``, documents' only, +67) 2,511.
-REVIEW_CORE_GUARD = 2514
+#: F8 (check's ``layout``, ``min_size`` and ``styles``, documents' only, +67) 2,511; round 17,
+#: P2 (ppt_compare_slides' ``reference``, +82) 2,593.
+REVIEW_CORE_GUARD = 2595
 #: Every definition a reviewer is sent, estimated.  Measured 4,460 (4,458 before); round 8,
 #: M3 and M4, 4,469; round 9, N1, 4,532; round 11, P3, 4,546; round 12, Q1, 4,581; round
 #: 14, S1, 4,601; round 15, T2 and T3, 4,650; round 16, F11, 4,692; F8, 4,759; round 17,
-#: P1 (ppt_manage_slides' import), 4,823.
-REVIEW_ALL_GUARD = 4825
+#: P1 (ppt_manage_slides' import), 4,823; P2 (ppt_compare_slides' ``reference``), 4,905.
+REVIEW_ALL_GUARD = 4907
 
 REVIEW_CORE = {"open_document", "save_document", "find_text", "render", "check", "describe",
                "ppt_read_slides", "batch", "ppt_compare_slides", "ppt_comments"}
