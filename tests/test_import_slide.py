@@ -265,3 +265,75 @@ def test_import_keeps_every_strict_tool_strict(toolbox):
               if d.get("strict")]
     assert strict == ["replace_text", "set_properties", "ppt_add_slide", "ppt_draft_slides",
                       "ppt_manage_slides", "edit_smartart"]
+
+
+# -- notes on the copy (production feedback round 18, Q2) ---------------------------------
+
+
+def test_notes_replace_the_imported_copy_s_as_on_a_duplicate_one_undo_step(decks):
+    samples, report = decks
+    before, parts = report.to_bytes(), set(report.package.part_names)
+    made = report.import_slide(samples.slides[0], notes="Say the totals first.")
+    assert made.slide.notes == "Say the totals first."
+    assert samples.slides[0].notes == "Read the sample aloud."     # the source only read
+    report.undo()                                 # the copy and its notes: one step
+    assert set(report.package.part_names) == parts and report.to_bytes() == before
+    report.redo()
+    assert report.slides[-1].notes == "Say the totals first."
+    reopened = Document.open(report.to_bytes())
+    assert reopened.validate() == [] and reopened.slides[-1].notes == "Say the totals first."
+
+
+def test_empty_notes_empty_the_copy_s_and_notes_go_on_a_slide_without_any(decks):
+    samples, report = decks
+    emptied = report.import_slide(samples.slides[0], notes="").slide
+    copied = samples.duplicate_slide(samples.slides[0], notes="")
+    assert (emptied.has_notes, emptied.notes) == (copied.has_notes, copied.notes) \
+        == (True, "")
+    plain = report.slides[0]                      # no notes page of its own
+    assert not plain.has_notes
+    samples_without = Document.new(template=_template())
+    samples_without.add_slide("Title Slide").title = "No notes"
+    added = report.import_slide(samples_without.slides[0], notes="Only on the copy").slide
+    assert added.notes == "Only on the copy" and not samples_without.slides[0].has_notes
+    untouched = report.import_slide(samples_without.slides[0], notes="").slide
+    assert not untouched.has_notes                # as duplicate: "" adds no notes page
+    assert report.validate() == []
+
+
+def test_the_tool_s_import_takes_notes_as_duplicate_does_and_undoes_them(toolbox, decks):
+    samples, report = decks
+    session = toolbox.session()
+    d1 = session.open(report.to_bytes(), "report.pptx")
+    d2 = session.open(samples.to_bytes(), "samples.pptx")
+    result = toolbox.dispatch(session, "ppt_manage_slides",
+                              {"doc": d1, "action": "import", "source_doc": d2,
+                               "slide": "s:256", "at": 1, "notes": "Say the totals first."})
+    assert result.ok, result.error
+    deck = session.documents[d1].document
+    assert deck.slides[0].notes == "Say the totals first."
+    assert session.documents[d2].document.slides[0].notes == "Read the sample aloud."
+    duplicated = toolbox.dispatch(session, "ppt_manage_slides",
+                                  {"doc": d1, "action": "duplicate", "slide": result.created[0],
+                                   "notes": ""})
+    assert duplicated.ok and deck.slides[1].notes == ""
+    assert toolbox.dispatch(session, "undo", {"doc": d1, "steps": 2}).ok
+    assert len(deck.slides) == 1 and not deck.slides[0].has_notes
+    assert toolbox.dispatch(session, "undo", {"doc": d1, "redo": True}).ok
+    assert deck.slides[0].notes == "Say the totals first."
+    saved = Document.open(deck.to_bytes())
+    assert [slide.notes for slide in saved.slides] == ["Say the totals first.", ""]
+
+
+def test_a_reviewer_is_sent_no_parameter_of_the_actions_it_lacks(toolbox):
+    """Tool.action_fields: a reviewer's ppt_manage_slides has find_by_title only, so none of
+    the copying, moving or layout parameters; an editor's has those, not find_by_title's."""
+    def properties(roles):
+        (sent,) = [d for d in toolbox.definitions("anthropic", defer=False, roles=roles)
+                   if d["name"] == "ppt_manage_slides"]
+        return set(sent["input_schema"]["properties"])
+
+    assert properties(["review"]) == {"doc", "action", "title"}
+    assert properties(["edit"]) == {"doc", "action", "slide", "to", "notes", "ref", "layout",
+                                    "source_doc"}
+    assert properties(["edit", "review"]) == properties(["edit"]) | {"title"}

@@ -212,10 +212,15 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: to the core (3,822): the tool is deferred (in a reviewer's core: 2,511 -> 2,593).  The
 #: guard rises to 13,427.  The strict set is unchanged: ppt_compare_slides is a reading
 #: tool, never strict.
+#: Round 18, Q1 and Q2: ppt_add_table's ``name`` (+15) and ``import`` in the description of
+#: ppt_manage_slides' ``notes`` (+2): every definition 13,425 -> 13,442, none to the core
+#: (3,822): both tools are deferred.  The guard rises to 13,445.  The strict set is
+#: unchanged: 24 optional parameters (ppt_add_table is sent non-strict; ``notes`` was
+#: already on ppt_manage_slides).
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13427
+ALL_GUARD = 13445
 
 
 def estimate_tokens(definitions) -> int:
@@ -804,6 +809,38 @@ def test_tables(toolbox, session):
     empty = call(toolbox, session, "ppt_edit_table", doc="d1", target="$t",
                  action="format_cells")
     assert empty.error.code == "invalid_arguments"
+
+
+def test_a_table_takes_a_name_as_an_added_shape_does(toolbox, session):
+    """Round 18, Q1: ppt_add_table's ``name`` is ppt_add_shape's: the shape's name; empty,
+    PowerPoint's default; one already on the slide is taken again, as PowerPoint allows; a
+    continued table's pages each take it; undo takes the table away."""
+    box = {"x": 40, "y": 160, "w": 400, "h": 90}
+    shape = ok(call(toolbox, session, "ppt_add_shape", doc="d1", slide="s:256",
+                    items=[{"preset": "rect", "box": box, "name": "Totals"},
+                           {"preset": "rect", "box": box, "name": ""}]))
+    named = ok(call(toolbox, session, "ppt_add_table", doc="d1", slide="s:256", box=box,
+                    rows=2, columns=2, name="Totals"))
+    unnamed = ok(call(toolbox, session, "ppt_add_table", doc="d1", slide="s:256", box=box,
+                      rows=2, columns=2, name=""))
+    deck = session.entry("d1").document
+    names = [deck.shape(address).name for address in shape.created + named.created
+             + unnamed.created]
+    assert names[0] == names[2] == "Totals"
+    assert names[1].startswith("Rectangle ") and names[3].startswith("Table ")
+    measured = ok(call(toolbox, session, "ppt_add_table", doc="d1", slide="s:256", box=box,
+                       rows=2, columns=2, name="Totals", measure=True))
+    assert not measured.created
+    pages = ok(call(toolbox, session, "ppt_add_table", doc="d1", slide="s:256",
+                    box={"x": 40, "y": 160, "w": 400, "h": 60}, rows=12, columns=2,
+                    data=[[f"Row {n}", str(n)] for n in range(12)], name="Long",
+                    **{"continue": True}))
+    assert len(pages.data["pages"]) > 1
+    assert {deck.shape(page["table"]).name for page in pages.data["pages"]} == {"Long"}
+    ok(call(toolbox, session, "undo", doc="d1", steps=2))
+    assert [s.name for s in deck.slide(256).shapes].count("Totals") == 2
+    saved = Document.open(deck.to_bytes())
+    assert saved.validate() == [] and "Totals" in [s.name for s in saved.slide(256).shapes]
 
 
 def _bold(table, row, column):

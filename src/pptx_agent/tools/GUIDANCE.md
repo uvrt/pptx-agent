@@ -156,9 +156,9 @@ mark, a placeholder's prompt -- lives on the slide master or a layout, not on th
   "s:300"}`: the sample's values are the expected ones, so two copies drifting the same way
   are reported, not the copy left alone.
 - **A slide from another open deck is `ppt_manage_slides import`** (`source_doc`, `slide`,
-  `to`): it comes with its pictures, charts, SmartArt and notes, on this deck's layout of the
-  same name (`bring_layout: true` copies a missing one in); shape names stay, and `renamed`
-  maps `d2/300.4` to the copy's `412.4`.
+  `to`): it comes with its pictures, charts, SmartArt and notes (`notes` replaces them, as on
+  a duplicate), on this deck's layout of the same name (`layout: "source"` copies a missing
+  one in); shape names stay, and `renamed` maps `d2/300.4` to the copy's `412.4`.
 - **A finished slide onto another layout is `ppt_manage_slides set_layout`**, PowerPoint's
   Layout menu: placeholders move by kind and idx and take the new layout's boxes -- a box
   set on the slide is dropped (`boxes_dropped`), its text formatting kept. Content the
