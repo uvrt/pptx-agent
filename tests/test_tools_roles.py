@@ -40,8 +40,9 @@ from test_tools import (CLOCK, COUNTED_PER_ESTIMATED, CORE_COUNTED_BUDGET, _deck
 REVIEW_CORE_GUARD = 2514
 #: Every definition a reviewer is sent, estimated.  Measured 4,460 (4,458 before); round 8,
 #: M3 and M4, 4,469; round 9, N1, 4,532; round 11, P3, 4,546; round 12, Q1, 4,581; round
-#: 14, S1, 4,601; round 15, T2 and T3, 4,650; round 16, F11, 4,692; F8, 4,759.
-REVIEW_ALL_GUARD = 4764
+#: 14, S1, 4,601; round 15, T2 and T3, 4,650; round 16, F11, 4,692; F8, 4,759; round 17,
+#: P1 (ppt_manage_slides' import), 4,823.
+REVIEW_ALL_GUARD = 4825
 
 REVIEW_CORE = {"open_document", "save_document", "find_text", "render", "check", "describe",
                "ppt_read_slides", "batch", "ppt_compare_slides", "ppt_comments"}
