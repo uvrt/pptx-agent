@@ -193,7 +193,8 @@ def test_check_lists_a_slides_nearest_and_counts_the_rest(toolbox):
 
 def test_a_decks_check_refuses_a_documents_layout_measures(toolbox):
     """Round 16, F8: ``min_size`` and ``styles`` measure a document's layout (ooxml-edit refuses
-    them for a deck, whose handler takes neither); ``layout`` in include is noted, not run."""
+    them for a deck, whose handler takes neither).  ``layout`` in include runs for a deck
+    since round 18 (Q4, empty paragraphs between text): none here."""
     deck, _, _ = _summary()
     session = toolbox.session(clock=CLOCK)
     session.open(deck.to_bytes(), "summary.pptx")
@@ -201,4 +202,4 @@ def test_a_decks_check_refuses_a_documents_layout_measures(toolbox):
         refused = toolbox.dispatch(session, "check", {"doc": "d1", name: value})
         assert not refused.ok and refused.error.code == "invalid_arguments" and refused.error.field == name
     noted = _check(toolbox, deck, include=["fit", "layout"]).data
-    assert noted["notes"] == ["layout: documents only"] and "layout" not in noted
+    assert "notes" not in noted and noted["layout"] == {"empty_paragraphs": []}
