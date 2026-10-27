@@ -5,6 +5,19 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.8 -- unreleased
+
+- **SVG pictures through `ooxml_edit.pictures`** (round 17; needs ooxml-edit 0.68.0):
+  `edit/svgpicture.py` re-exports the shared module's names (`looks_like_svg`,
+  `native_size`, `svg_blip` / `attach` / `drop`, `recolor`, `theme_class`, `THEME_SLOTS`,
+  `stroke_units`, the constants, and now `SvgError`) instead of keeping its own copy,
+  which docx-agent's icons use too. The deck's own parts stay here: `parse` (the deck's
+  untrusted-input parser, refusing with `FullStateError` / `UnsafeInput` as before),
+  `size_emu`, `rasterise`, `store`. What is written is unchanged (the measured recolour
+  tests and goldens pass as they were). A style sheet a recolour cannot carry over is now
+  refused with `SvgError`, ooxml-edit's `ArgumentError` (a `ValueError`;
+  `invalid_arguments` in the tools, as before), rather than this library's subclass.
+
 ## 0.1.7 -- unreleased
 
 - **Copies compared against their sample** (production round 17, P2): `ppt_compare_slides`
