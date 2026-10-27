@@ -166,6 +166,7 @@ def table_json(frame, table) -> dict[str, Any]:
        "widths": array(number(minimum=0, maximum=10000), "Column widths, points.",
                        optional=True),
        "ref": string("Ref name for the table.", optional=True),
+       "name": string("Shape name.", optional=True),
        "measure": boolean("Add nothing: row heights, pages of h (0: content area), "
                           "header repeated.", optional=True),
        "continue": boolean("Rows past the page go on new slides after it, same box.",
@@ -179,7 +180,7 @@ def table_json(frame, table) -> dict[str, Any]:
 @library_errors
 def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, style=None,
                   ref=None, key=None, header=None, from_columns=None, size=None, widths=None,
-                  measure=False, date_format=None, fill_box=False, **given):
+                  measure=False, date_format=None, fill_box=False, name=None, **given):
     source = given.get("from")
     more = bool(given.get("continue"))
     if fill_box and (more or measure):
@@ -189,9 +190,9 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
     placed = None
     if source is None:
         _no_source(from_columns, header, date_format)
-        for name, value in (("rows", rows), ("columns", columns)):
+        for field, value in (("rows", rows), ("columns", columns)):
             if value is None:
-                raise ToolError("invalid_arguments", f"give {name}, or from", field=name)
+                raise ToolError("invalid_arguments", f"give {field}, or from", field=field)
     else:
         if data is not None:
             raise ToolError("invalid_arguments", "from replaces data: give one", field="data")
@@ -227,9 +228,9 @@ def ppt_add_table(call, doc, slide, box, rows=None, columns=None, data=None, sty
                         placed)
     if more:
         return _continued(call, host, box, rows, columns, data, style_id, size, column_widths,
-                          placed, ref)
+                          placed, ref, name)
     frame = build_table(host, rows, columns, x, y, w, h, data, style=style_id, size=size,
-                        widths=column_widths)
+                        widths=column_widths, name=name)
     taken, warnings = _fit_rows(frame, h, bool(fill_box))
     if ref:
         call.define_ref(ref, frame.id)
@@ -289,11 +290,12 @@ def _too_few_rows(source: str, placed: "_Placed", rows: int) -> None:
 
 
 def _continued(call, host, box, rows, columns, data, style, size, widths, placed,
-               ref) -> Result:
+               ref, name=None) -> Result:
     """``ppt_add_table`` with ``continue``: the table measured into pages
     (:meth:`Slide.measure_table <pptx_agent.Slide.measure_table>`), the first page placed on
     ``host`` and each next one on a new slide after it (:func:`_next_slide`), every page
-    under the header row, its rows at their measured heights."""
+    under the header row, its rows at their measured heights; ``name`` names each page's
+    table."""
     if getattr(host, "kind", None) in ("layout", "master"):
         raise ToolError("invalid_arguments", f"continue adds slides: give a slide, not a "
                         f"{host.kind}", field="continue")
@@ -316,7 +318,7 @@ def _continued(call, host, box, rows, columns, data, style, size, widths, placed
         page_heights = list(heights[:first]) + list(heights[page.start:page.stop])
         frame = build_table(slide, len(page_heights), columns, x, y, w, sum(page_heights),
                             texts[:first] + texts[page.start:page.stop], style=style,
-                            size=size, widths=widths)
+                            size=size, widths=widths, name=name)
         table = frame.table
         for row, height in enumerate(page_heights):
             table.set_row_height(row, height)

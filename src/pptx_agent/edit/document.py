@@ -4049,12 +4049,19 @@ class Document(CommentOps):
             _slides.renew_creation_id(package, part, slide_id)
             drop_comments(package, part)           # the review is of the original
             self._reset_caches()
-            if notes is not None:
-                self.slide(slide_id).set_notes(notes)
+            self._copy_notes(self.slide(slide_id), notes)
         return self.slide(slide_id)
 
+    @staticmethod
+    def _copy_notes(copy: "Slide", notes: str | None) -> None:
+        """A copied slide's speaker notes, for :meth:`duplicate_slide` and
+        :meth:`import_slide`: ``notes``, when given, replaces what the copy took from the
+        original (as :attr:`Slide.notes` is set; ``""`` empties them)."""
+        if notes is not None:
+            copy.set_notes(notes)
+
     def import_slide(self, slide: "Slide", *, index: int | None = None,
-                     bring_layout: bool = False):
+                     bring_layout: bool = False, notes: str | None = None):
         """Copy ``slide``, a slide of another open deck, into this one at 0-based ``index``
         (default last); returns an :class:`~pptx_agent.edit.importing.ImportResult`: the
         new slide, its layout, ``mapping`` from every source shape's id to its copy's, and
@@ -4064,8 +4071,9 @@ class Document(CommentOps):
         without one refuses, listing its layouts, unless ``bring_layout`` copies the
         source's layout in (and its master, when this deck has none of that name).  Media
         is imported once by content; charts, workbooks, diagrams and the notes page are
-        copied; shape names and ids stay, theme colours stay theme references.  One undo
-        step on this deck; see :mod:`pptx_agent.edit.importing`.
+        copied; shape names and ids stay, theme colours stay theme references.  ``notes``,
+        when given, replaces the copy's speaker notes, as for :meth:`duplicate_slide`.  One
+        undo step on this deck; see :mod:`pptx_agent.edit.importing`.
 
         For example::
 
@@ -4074,7 +4082,7 @@ class Document(CommentOps):
         """
         from .importing import import_slide
 
-        return import_slide(self, slide, index, bring_layout=bring_layout)
+        return import_slide(self, slide, index, bring_layout=bring_layout, notes=notes)
 
     def move_slide(self, slide: "Slide | int | str", index: int | None = None, *,
                    to: int | None = None) -> Slide:

@@ -19,7 +19,7 @@ see [Units](#units-emu-everywhere-pt-for-points) below.
 | | |
 | --- | --- |
 | Text | replace keeping mixed formatting, paragraphs, runs, bullets that hang, numbering, spacing, hyperlinks; sizes and fonts as drawn; autofit, insets, vertical anchor, wrapping |
-| Speaker notes | read, write (keeping formatting), find, address as `<sldId>/notes`; a duplicate with new notes |
+| Speaker notes | read, write (keeping formatting), find, address as `<sldId>/notes`; a duplicate or an imported slide with new notes |
 | Tables | **fully editable**: cell text and formatting, fills, borders, rows and columns, sizes, merges; cells by row and column label |
 | Charts | **fully editable**: values, categories, series, titles, axis titles, legend; series by name and points by category label; the cached data and the embedded workbook (what Edit Data opens) always change together |
 | SmartArt | node text, adding and removing nodes |
@@ -516,6 +516,8 @@ deck.undo()                                        # the copy and its notes: one
 `slide.notes_frame` is a `TextFrame`, with paragraphs and runs like a shape's. A slide that
 had no notes gets a notes page, and the deck the notes master PowerPoint adds with it. In
 the outline the notes follow `Notes:`, under `<!-- 256/notes -->`.
+`deck.import_slide(other.slide("s:300"), notes="...")` replaces an imported slide's notes
+as `duplicate_slide` does.
 
 ### Does the text fit? (`text_fit`, `overflows`)
 

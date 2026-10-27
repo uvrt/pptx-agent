@@ -145,6 +145,15 @@ def _manage_documents(arguments) -> list[str]:
     return docs
 
 
+#: ppt_manage_slides' parameters only some actions take: a role set offered none of them
+#: (a reviewer's find_by_title) is not sent them (``Tool.action_fields``).
+_ACTION_FIELDS = {"slide": ("duplicate", "move", "delete", "delete_empty_placeholders",
+                            "set_layout", "import"),
+                  "notes": ("duplicate", "import"), "ref": ("duplicate", "import"),
+                  "to": ("move", "duplicate", "import"), "title": ("find_by_title",),
+                  "layout": ("set_layout", "import"), "source_doc": ("import",)}
+
+
 @tool("ppt_manage_slides",
       "Duplicate, move or delete a slide, import one from another deck, find one by its "
       "title, delete its empty "
@@ -157,14 +166,15 @@ def _manage_documents(arguments) -> list[str]:
        "slide": string("The slide, s:256 or $ref (import: in source_doc).", optional=True),
        "to": integer("move, duplicate, import: new position from 1. Default after it; "
                      "import: last.", minimum=1, maximum=10000, optional=True),
-       "notes": string("duplicate: the copy's notes.", optional=True),
+       "notes": string("duplicate, import: the copy's notes.", optional=True),
        "title": string("find_by_title: the title.", optional=True),
        "ref": string("duplicate, import: ref name for the copy.", optional=True),
        "layout": string("set_layout: L2 or its name. import: source copies the source's "
                         "layout in if missing.", optional=True),
        "source_doc": string("import: the deck to copy from, d2.", optional=True)},
       kind=KIND, group=SLIDES, mutates=True, refs=("slide",), documents=_manage_documents,
-      aliases={"at": "to"}, action_roles={"find_by_title": REVIEW})
+      aliases={"at": "to"}, action_roles={"find_by_title": REVIEW},
+      action_fields=_ACTION_FIELDS)
 @library_errors
 def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=None,
                       ref=None, layout=None, source_doc=None):
@@ -179,7 +189,7 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
     if slide is None:
         raise ToolError("invalid_arguments", f"{action} needs slide", field="slide")
     if action == "import":
-        return _import(call, deck, slide, to, ref, source_doc, layout)
+        return _import(call, deck, slide, to, ref, source_doc, layout, notes)
     target = slide_at(deck, slide)
     if action == "duplicate":
         index = _position(deck, to, "to")
@@ -227,10 +237,11 @@ def ppt_manage_slides(call, doc, action, slide=None, to=None, notes=None, title=
     raise ToolError("invalid_arguments", f"unknown action {action!r}", field="action")
 
 
-def _import(call, deck, slide, to, ref, source_doc, layout) -> Result:
+def _import(call, deck, slide, to, ref, source_doc, layout, notes=None) -> Result:
     """ppt_manage_slides import: a slide of another open deck copied in, its layout this
     deck's of the same name (:meth:`Document.import_slide`); ``layout: "source"`` brings the
-    source's when this deck has none of the name (``bring_layout``)."""
+    source's when this deck has none of the name (``bring_layout``); ``notes`` replaces the
+    copy's speaker notes, as for duplicate."""
     from ..edit.importing import find_layout
 
     if layout not in (None, "source"):
@@ -259,31 +270,32 @@ def _import(call, deck, slide, to, ref, source_doc, layout) -> Result:
                         f"{wanted.master.name!r}): pass layout: \"source\" to copy it in, or "
                         "pick one of these with set_layout in the source deck first",
                         field="slide", valid_options=[lay.name for lay in deck.layouts][:50])
-    made = deck.import_slide(source, index=index, bring_layout=bool(bring_layout))
+    made = deck.import_slide(source, index=index, bring_layout=bool(bring_layout),
+                            notes=notes)
     address = f"s:{made.slide.slide_id}"
     if ref:
         call.define_ref(ref, address)
     call.touch(made.slide.slide_id)
     data: dict[str, Any] = {"slide": address, "layout": made.layout.name,
                             "order": _order(deck)}
-    notes = []
+    said = []
     if made.brought:
         data["brought"] = [f"{made.layout.id} ({made.layout.name})"] + (
             [f"master {made.master!r}"] if "master" in made.brought else [])
         if "master" in made.brought:
-            notes.append("this deck had no master of that name, so the source's came with "
-                         "the layout: a layout draws from its master")
+            said.append("this deck had no master of that name, so the source's came with "
+                        "the layout: a layout draws from its master")
     if made.theme_differs:
         data["theme_differs"] = True
         if made.theme_changes:
             data["theme_changes"] = made.theme_changes
-        notes.append("the slide now takes this deck's theme colours and fonts: theme "
-                     "references are kept, nothing is converted")
+        said.append("the slide now takes this deck's theme colours and fonts: theme "
+                    "references are kept, nothing is converted")
     if made.dropped_links:
         data["dropped_links"] = made.dropped_links
-        notes.append("links to other slides of the source deck were taken off")
-    if notes:
-        data["note"] = "; ".join(notes)
+        said.append("links to other slides of the source deck were taken off")
+    if said:
+        data["note"] = "; ".join(said)
     renamed = {f"{source_doc}/{old}": new for old, new in made.mapping.items()}
     return Result(summary=f"Imported {source_doc} s:{source.slide_id} as {address} "
                   f"({made.layout.name})", created=[address], renamed=renamed, data=data)

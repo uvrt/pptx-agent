@@ -513,10 +513,11 @@ def measure_table(slide: "Slide", data=None, *, rows: int | None = None,
 
 def build_table(host, rows: int, columns: int, left: int, top: int, width: int, height: int,
                 data=None, *, style: str | None = None, size: float | None = None,
-                widths=None) -> "Shape":
+                widths=None, name: str | None = None) -> "Shape":
     """A new table on ``host`` (:meth:`Slide.add_table <pptx_agent.Slide.add_table>`) with
     ``data``'s text, row by row (cut to the table), every cell's text at ``size`` points
-    (:meth:`Table.set_text_size`) and each column ``widths[i]`` EMU wide: one way to build,
+    (:meth:`Table.set_text_size`), each column ``widths[i]`` EMU wide and the frame named
+    ``name`` (default PowerPoint's, as for :meth:`Slide.add_shape`): one way to build,
     for ``ppt_add_table`` and for :func:`measure_table`, so what is measured is what is
     placed.
 
@@ -524,7 +525,7 @@ def build_table(host, rows: int, columns: int, left: int, top: int, width: int, 
 
         frame = build_table(slide, 3, 2, 914400, 914400, 4572000, 0, [["Item", "Due"]])
     """
-    frame = host.add_table(rows, columns, left, top, width, height, style=style)
+    frame = host.add_table(rows, columns, left, top, width, height, style=style, name=name)
     table = frame.table
     for row, values in enumerate((data or [])[:rows]):
         for column, text in enumerate(values[:columns]):

@@ -5,6 +5,25 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.9 -- unreleased
+
+- **A table's name, and notes on an imported slide** (production round 18, Q1 and Q2; needs
+  ooxml-edit 0.69.0): `ppt_add_table` takes `name`, as an item of `ppt_add_shape` does
+  (the shape's `cNvPr` name; empty gives PowerPoint's default, `Table 3`; a name already on
+  the slide is taken again, as PowerPoint allows; with `continue` every page's table takes
+  it), through the same `Slide.add_table(name=...)` the library already had
+  (`edit.fit.build_table` passes it on). `ppt_manage_slides` `import` takes `notes` with a
+  duplicate's meaning, library `Document.import_slide(notes=...)`: given, it replaces the
+  notes the copy brought; `""` empties them, and adds no notes page to a slide without one;
+  the copy and its notes are one undo step. Before, `notes` on an import was accepted and
+  dropped. Both copies set their notes in one place (`Document._copy_notes`).
+  `ppt_manage_slides` declares the parameters only some actions take (`Tool.action_fields`):
+  a reviewer, with `find_by_title` only, is sent `doc`, `action` and `title`. Every
+  definition 13,425 -> 13,442 estimated tokens (guard 13,445), the core unchanged (3,822); a
+  reviewer's core unchanged (2,593), every definition 4,905 -> 4,741 (guard 4,745). The
+  strict set is unchanged: 24 optional parameters (ppt_add_table is sent non-strict, and
+  `notes` was already on ppt_manage_slides).
+
 ## 0.1.8 -- unreleased
 
 - **SVG pictures through `ooxml_edit.pictures`** (round 17; needs ooxml-edit 0.68.0):

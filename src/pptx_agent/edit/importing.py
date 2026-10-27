@@ -86,9 +86,10 @@ class ImportResult:
 
 
 def import_slide(document: "Document", source: "Slide", index: int | None = None, *,
-                 bring_layout: bool = False) -> ImportResult:
+                 bring_layout: bool = False, notes: str | None = None) -> ImportResult:
     """Copy ``source`` (a slide of another open deck) into ``document`` at 0-based
-    ``index`` (default last).  See the module docstring."""
+    ``index`` (default last); ``notes``, when given, replaces the copy's speaker notes (as
+    :meth:`Document.duplicate_slide` does).  See the module docstring."""
     if source.document is document:
         raise ArgumentError("import_slide copies from another deck; within one deck, "
                             "duplicate the slide")
@@ -141,6 +142,7 @@ def import_slide(document: "Document", source: "Slide", index: int | None = None
         from .slidenumbers import drop
 
         drop([shape for shape in slide.shapes if shape.parent_group is None])
+        document._copy_notes(slide, notes)
         mapping = {old.id: new.id for old, new in zip(source.shapes, slide.shapes)}
         result = ImportResult(slide, document.layout(layout.part_path), layout.master.name,
                               mapping, brought)
