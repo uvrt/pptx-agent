@@ -16,6 +16,7 @@ from .common import (KIND, facts, library_errors, numbers, slide_id_of, targets,
                      template_key_of, template_options, validate_delta)
 from ..edit.document import font_dirs_of, locale_of
 from ..edit.effective import text_minimums
+from ..edit.emptyparagraphs import empty_paragraphs
 from ooxml_edit.tools import render as pipeline
 from ooxml_edit.tools.render import png_size
 
@@ -483,7 +484,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing
     wanted = list(include or DECK_FACTS)
     notes = []
     for item in wanted:
-        if item in ("reflow", "fields", "layout"):
+        if item in ("reflow", "fields"):
             notes.append(f"{item}: documents only")
         elif item == "app":
             notes.append("app: no critique pass is registered for decks")
@@ -516,6 +517,9 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing
                 data.update(spacing_json(target, ids, below))
             if minimum is not None:
                 data.update(contrast_json(target, ids, minimum))
+            if "layout" in wanted:            # round 18, Q4: blank lines used for spacing
+                data["layout"] = {"empty_paragraphs": [
+                    entry for sid in ids for entry in empty_paragraphs(target.slide(f"s:{sid}"))]}
             problems = target.validate() if "validate" in wanted else None
         if problems is not None:
             data["validate"] = {"problems": [str(p) for p in problems],
@@ -534,6 +538,8 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing
     if minimum is not None:
         tight += (f", {len(data['contrast']) + data.get('contrast_left_out', 0)} text(s) "
                   f"below {minimum:g}:1 contrast")
+    if "layout" in data:
+        tight += f", {len(data['layout']['empty_paragraphs'])} text(s) with empty paragraphs"
     return Result(summary=f"{count} fit/collision fact(s), {new} new validation problem(s)"
                   f"{tight}", data=data)
 

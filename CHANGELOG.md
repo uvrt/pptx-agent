@@ -5,6 +5,23 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.10 -- unreleased
+
+- **Empty paragraphs between text** (production round 18, Q4): `check` with
+  `include: ["layout"]` (before, noted `layout: documents only`) lists in
+  `layout.empty_paragraphs`, per text box or table cell, the empty paragraphs between two
+  paragraphs of text -- blank lines used for spacing:
+  `{"kind": "empty_paragraphs", "at": "256.7/cell1,2", "paragraphs": [1], "fix"}`, indexes
+  0-based as `256.5/p1` counts them, every run in one body in its one entry. Empty: no text
+  but whitespace, and nothing but runs (a line break, a field or an equation is content).
+  Leading and trailing empties, and a cell merged into another, are not listed. `fix` is
+  `{"tool": "ppt_set_text", "items": [{"target", "text"}]}`: the text without them, which
+  `set_text`'s paragraph diff writes leaving every other paragraph and its formatting as it
+  was. `edit/emptyparagraphs.py`. The rule is kept per library (docx-agent has its own,
+  over `w:p`): the two share only the grouping of a run, and the shared `check` Spec needed
+  no change. Definitions unchanged: every definition 13,442, the core 3,822; strict set
+  unchanged, 24 optional parameters.
+
 ## 0.1.9 -- unreleased
 
 - **A table's name, and notes on an imported slide** (production round 18, Q1 and Q2; needs
