@@ -217,10 +217,14 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: (3,822): both tools are deferred.  The guard rises to 13,445.  The strict set is
 #: unchanged: 24 optional parameters (ppt_add_table is sent non-strict; ``notes`` was
 #: already on ppt_manage_slides).
+#: Round 23, V3 (ooxml-edit 0.70.0, Tool.kind_fields): the shared check is sent without a
+#: document's pages, min_size and styles (406 -> 312): the core 3,822 -> 3,728 (about 5,518
+#: counted by the proxy), every definition 13,442 -> 13,348.  The guard falls to 13,350.
+#: check is not strict: the strict set is unchanged (24 optional parameters).
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13445
+ALL_GUARD = 13350
 
 
 def estimate_tokens(definitions) -> int:
@@ -1291,6 +1295,21 @@ def test_check_and_save_behind_the_gate(toolbox, session):
     assert Document.open(output.data).slides[0].title == "Plan"
     ok(call(toolbox, session, "save_document", doc="d1", name="out.md", format="outline"))
     assert session.take_outputs()[0].data.startswith(b"<!--")
+
+
+def test_check_is_sent_without_a_documents_parameters_and_still_refuses_them(toolbox, session):
+    """Round 23, V3 (ooxml-edit 0.70.0, Tool.kind_fields): a deck toolbox's check has no
+    pages, min_size or styles; an older prompt that passes one gets the refusal it always got."""
+    sent = next(d for d in toolbox.definitions("anthropic", defer=False) if d["name"] == "check")
+    assert set(sent["input_schema"]["properties"]) == {"doc", "slides", "include", "boxes",
+                                                       "spacing", "contrast"}
+    pages = call(toolbox, session, "check", doc="d1", pages=[1])
+    assert pages.error.field == "pages" and pages.error.message == (
+        "pages is for documents; a deck takes slides")
+    for name, value in (("min_size", 9), ("styles", ["Body"])):
+        refused = call(toolbox, session, "check", doc="d1", **{name: value})
+        assert refused.error.field == name and refused.error.message == (
+            f"{name} measures a document's layout (docx, include layout); leave it out here")
 
 
 @pytest.mark.parametrize("fmt", ["xlsx", "xlsm", "xltx", "docx"])
