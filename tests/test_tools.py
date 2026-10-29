@@ -221,12 +221,13 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: find_text, replace_text and render are sent without a document's parameters (pages,
 #: min_size, styles, range; include's reflow and fields), check's and stories' descriptions
 #: for a deck alone: the core 3,822 -> 3,594 (about 5,320 counted by the proxy), every
-#: definition 13,442 -> 13,214.  The guard falls to 13,215.  replace_text is strict and loses
-#: range: 23 optional parameters over the strict tools.
+#: definition 13,442 -> 13,214; save_document without clean and undo's scope described for a
+#: slide, the core 3,545 (about 5,247), every definition 13,166.  The guard falls to 13,170.
+#: replace_text is strict and loses range: 23 optional parameters over the strict tools.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13215
+ALL_GUARD = 13170
 
 
 def estimate_tokens(definitions) -> int:
@@ -1334,6 +1335,12 @@ def test_find_replace_and_render_are_sent_without_a_documents_parameters(toolbox
         "range is for documents; a deck takes slides")
     paged = call(toolbox, session, "render", doc="d1", pages=[1])
     assert paged.error.field == "pages"
+    assert "clean" not in sent["save_document"]
+    assert sent["undo"]["scope"]["description"] == (
+        "A slide's (256) changes only. Default: the latest, anywhere.")
+    cleaned = call(toolbox, session, "save_document", doc="d1", name="a.pptx", format="pptx",
+                   clean=True)
+    assert cleaned.error.field == "clean" and "clean is for documents" in cleaned.error.message
 
 
 @pytest.mark.parametrize("fmt", ["xlsx", "xlsm", "xltx", "docx"])

@@ -732,7 +732,7 @@ failing op with its error (`atomic: true`: all or nothing). Outside a call the a
 reads a deck's refs with `session.refs("d1")` (`{"plan": "256.3", ...}`, a copy) and
 resolves one with `session.resolve_ref("d1", "$plan")` (ooxml-edit 0.70.0's, shared by every
 format). A deck toolbox is sent the shared tools with a deck's parameters only: no
-`pages`, `min_size`, `styles` or `range`, and `check`'s `include` without `reflow` and
+`pages`, `min_size`, `styles`, `range` or `clean`, and `check`'s `include` without `reflow` and
 `fields`; a call that still passes one is answered as before.
 Every changing call returns `checks` for the slides it touched -- overflows, collisions,
 shapes off the slide, lines close to wrapping, fits within the allowance (stated), and
