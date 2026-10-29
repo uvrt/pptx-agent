@@ -217,14 +217,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: (3,822): both tools are deferred.  The guard rises to 13,445.  The strict set is
 #: unchanged: 24 optional parameters (ppt_add_table is sent non-strict; ``notes`` was
 #: already on ppt_manage_slides).
-#: Round 23, V3 (ooxml-edit 0.70.0, Tool.kind_fields): the shared check is sent without a
-#: document's pages, min_size and styles (406 -> 312): the core 3,822 -> 3,728 (about 5,518
-#: counted by the proxy), every definition 13,442 -> 13,348.  The guard falls to 13,350.
-#: check is not strict: the strict set is unchanged (24 optional parameters).
+#: Round 23, V3 (ooxml-edit 0.70.0, Tool.kind_fields and kind_values): the shared check,
+#: find_text, replace_text and render are sent without a document's parameters (pages,
+#: min_size, styles, range; include's reflow and fields), check's and stories' descriptions
+#: for a deck alone: the core 3,822 -> 3,594 (about 5,320 counted by the proxy), every
+#: definition 13,442 -> 13,214.  The guard falls to 13,215.  replace_text is strict and loses
+#: range: 23 optional parameters over the strict tools.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13350
+ALL_GUARD = 13215
 
 
 def estimate_tokens(definitions) -> int:
@@ -1310,6 +1312,28 @@ def test_check_is_sent_without_a_documents_parameters_and_still_refuses_them(too
         refused = call(toolbox, session, "check", doc="d1", **{name: value})
         assert refused.error.field == name and refused.error.message == (
             f"{name} measures a document's layout (docx, include layout); leave it out here")
+    include = sent["input_schema"]["properties"]["include"]
+    assert include["items"]["enum"] == ["fit", "collisions", "facts", "design", "validate",
+                                        "layout", "app"]
+    assert include["description"] == "Default: fit, collisions, validate."
+    noted = ok(call(toolbox, session, "check", doc="d1", include=["reflow"]))   # as before
+    assert noted.data["notes"] == ["reflow: documents only"]
+
+
+def test_find_replace_and_render_are_sent_without_a_documents_parameters(toolbox, session):
+    """Round 23, V3: no pages, no range; a call that passes one is refused as before."""
+    sent = {d["name"]: d["input_schema"]["properties"]
+            for d in toolbox.definitions("anthropic", defer=False)}
+    assert set(sent["find_text"]) == {"doc", "text", "regex", "slides", "stories", "cursor"}
+    assert set(sent["replace_text"]) == {"doc", "find", "replace", "expect", "regex", "slides",
+                                         "stories"}
+    assert set(sent["render"]) == {"doc", "slides", "width", "sheet"}
+    assert sent["find_text"]["stories"]["enum"] == ["body", "all", "layouts", "masters"]
+    ranged = call(toolbox, session, "find_text", doc="d1", text="Plan", range="p:1")
+    assert ranged.error.field == "range" and ranged.error.message == (
+        "range is for documents; a deck takes slides")
+    paged = call(toolbox, session, "render", doc="d1", pages=[1])
+    assert paged.error.field == "pages"
 
 
 @pytest.mark.parametrize("fmt", ["xlsx", "xlsm", "xltx", "docx"])

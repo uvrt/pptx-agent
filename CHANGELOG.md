@@ -7,15 +7,18 @@ snapshot commit; the development history before it is summarised here.
 
 ## 0.1.11 -- unreleased
 
-- **A deck toolbox's `check` has a deck's parameters only** (production round 23, V3;
-  ooxml-edit 0.70.0, `Tool.kind_fields`): `doc`, `slides`, `include`, `boxes`, `spacing`,
-  `contrast`. A document's `pages`, `min_size` and `styles` are no longer sent; a call that
-  still passes one is refused as before (`pages is for documents; a deck takes slides`;
-  `min_size` and `styles` by ooxml-edit, "leave it out here"). A toolbox with docx-agent's
-  tools too still sends all of them. `check` 406 -> 312 tokens offline; the core 3,822 ->
-  3,728, every definition 13,442 -> 13,348 (guard 13,350); a reviewer's core 2,593 ->
-  2,499 (guard 2,500), all 4,741 -> 4,647 (guard 4,650). `check` is not strict: the strict
-  set is unchanged (24 optional parameters).
+- **A deck toolbox is sent the shared tools with a deck's parameters only** (production
+  round 23, V3; ooxml-edit 0.70.0, `Tool.kind_fields` and `kind_values`): `check` without a
+  document's `pages`, `min_size` and `styles`, its `include` offering `fit`, `collisions`,
+  `facts`, `design`, `validate`, `layout` and `app` (not a document's `reflow` and
+  `fields`), its default described for a deck; `find_text` and `replace_text` without
+  `range`, `render` without `pages`. A call that still passes one is answered as before
+  (`pages`/`range is for documents; a deck takes slides`; `min_size` and `styles` by
+  ooxml-edit, "leave it out here"; `include: ["reflow"]` noted `reflow: documents only`).
+  A toolbox with docx-agent's tools too still sends all of them. Offline: the core 3,822 ->
+  3,594, every definition 13,442 -> 13,214 (guard 13,215); a reviewer's core 2,593 -> 2,402
+  (guard 2,405), all 4,741 -> 4,551 (guard 4,555). `replace_text` is strict and loses
+  `range`: 24 -> 23 optional parameters over the strict tools.
 - **Refs outside a call** (production round 23, V5): ooxml-edit 0.70.0's
   `session.refs(doc)` and `session.resolve_ref(doc, "$name")` serve decks as they do every
   format; `docs/USAGE.md` says so. Nothing changes here. Requires ooxml-edit 0.70.0.
