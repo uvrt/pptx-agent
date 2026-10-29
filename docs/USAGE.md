@@ -728,7 +728,12 @@ with Toolbox(TOOLS, formats=[FORMAT], groups=GROUPS) as toolbox:
 with, no code and no files. Lengths are points at this boundary. Tools that make many
 things take `items[]`, an item may name what it makes (`"ref": "plan"`) and any later
 target may be `"$plan"`; `batch` runs calls to different tools as one undo step, skipping a
-failing op with its error (`atomic: true`: all or nothing).
+failing op with its error (`atomic: true`: all or nothing). Outside a call the application
+reads a deck's refs with `session.refs("d1")` (`{"plan": "256.3", ...}`, a copy) and
+resolves one with `session.resolve_ref("d1", "$plan")` (ooxml-edit 0.70.0's, shared by every
+format). A deck toolbox is sent the shared tools with a deck's parameters only: no
+`pages`, `min_size`, `styles`, `range` or `clean`, and `check`'s `include` without `reflow` and
+`fields`; a call that still passes one is answered as before.
 Every changing call returns `checks` for the slides it touched -- overflows, collisions,
 shapes off the slide, lines close to wrapping, fits within the allowance (stated), and
 new validation problems -- and, when there are any, `layout`: at most five facts about the
