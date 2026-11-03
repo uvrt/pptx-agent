@@ -8,7 +8,7 @@ snapshot commit; the development history before it is summarised here.
 ## 0.1.13 -- unreleased
 
 - **`check` measures in a worker process, side by side** (production round 28, P2; ooxml-edit
-  0.73.0, `Call.on_snapshot`). Six checks of one deck in a turn used to take turns: the
+  0.74.0, `Call.on_snapshot`). Six checks of one deck in a turn used to take turns: the
   dispatcher queued them, and with the lock let go they still shared this process's GIL.
   Now the bytes of the version are taken under the lock (once per version, shared by
   concurrent checks), the lock is let go, and the measuring -- fit, collisions, facts,
