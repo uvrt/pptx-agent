@@ -5,6 +5,14 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## Unreleased
+
+- Tests only (production round 29, C1; ooxml-edit 0.75.0): the shared edit_chart's `blanks`
+  and `null` for a blank point in its values add 49 offline tokens to every definition, and
+  nothing to the core, which does not load edit_chart. The token guards in `tests/` rise
+  with it. edit_chart is never sent strict, so the strict set is unchanged (23 optional
+  parameters).
+
 ## 0.1.13 -- unreleased
 
 - **`check` measures in a worker process, side by side** (production round 28, P2; ooxml-edit
