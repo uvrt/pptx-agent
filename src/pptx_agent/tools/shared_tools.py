@@ -508,8 +508,9 @@ def measure(deck, ids, wanted, boxes: bool, below, minimum) -> tuple[dict[str, A
 def check_snapshot(data: bytes, ids, wanted, boxes: bool, below, minimum, font_dirs, locale,
                    min_text_size) -> tuple[dict[str, Any], Any, list[str]]:
     """In a worker (:meth:`Call.on_snapshot <ooxml_edit.tools.dispatch.Call.on_snapshot>`):
-    :func:`measure` on a copy of the deck opened from ``data``, with the deck's
-    ``font_dirs``, ``locale`` and ``min_text_size``; and the warnings measuring raised, as
+    :func:`measure` on a copy of the deck opened from ``data``, with the deck's font
+    folders as resolved where the toolbox runs (:func:`font_dirs_of`: a worker's own
+    ``OOXML_FONT_DIRS`` was fixed when it started), ``locale`` and ``min_text_size``; and the warnings measuring raised, as
     the dispatcher words them (those opening raised were said when the deck was opened).
     In process (``workers=0``) it runs in the calling thread."""
     from ..edit.document import Document
@@ -557,7 +558,7 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing
             # 28, P2).  Inside a batch it runs on the deck, under the lock.
             data, problems, said = call.on_snapshot(
                 check_snapshot, ids, wanted, bool(boxes), below, minimum,
-                deck.font_dirs, deck.locale, deck.min_text_size,
+                font_dirs_of(deck), deck.locale, deck.min_text_size,
                 timeout=check_timeout(call.limits, len(ids)))
             call.result.warnings.extend(said)
         else:
