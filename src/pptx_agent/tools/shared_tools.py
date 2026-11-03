@@ -475,7 +475,8 @@ DECK_FACTS = ("fit", "collisions", "validate")
 
 #: The slides one ``Limits.layout_timeout`` covers in a check run in a worker
 #: (:func:`check_timeout`).  A 9-slide check of tables took 6.9 s; 30 s per 3 slides
-#: leaves room for a slower machine and for waiting for a free worker.
+#: leaves room for a slower machine.  It counts from when a worker takes the check: the
+#: wait for one is bounded apart (``Limits.worker_queue_timeout``, 300 s).
 CHECK_SLIDES = 3
 
 

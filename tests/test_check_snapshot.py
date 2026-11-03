@@ -103,10 +103,8 @@ def test_an_edit_after_a_check_in_one_turn_leaves_the_check_of_the_deck_before(t
             {"target": title, "text": "Short"}]})])
     assert check.ok and edit.ok, (check.to_json(), edit.to_json())
     assert check.version == version and edit.version == version + 1
-    if check.warnings:          # the edit ran while the check measured its snapshot
-        assert check.warnings == [f"{doc} changed while this call read it: the result is of "
-                                  f"version {version}, the document is at version "
-                                  f"{version + 1} now; call again for the latest"]
+    # The turn's own later edit moved the deck: its order says so, no warning.
+    assert check.warnings == []
 
 
 def test_a_checks_deadline_grows_with_its_slides():

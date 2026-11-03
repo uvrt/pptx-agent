@@ -15,11 +15,13 @@ snapshot commit; the development history before it is summarised here.
   design, spacing, contrast, layout, validate -- runs in a worker on a copy opened from them
   (`shared_tools.check_snapshot`, a `worker_task`). A turn's checks of one deck
   run side by side, and an edit after them runs while they measure. The result reports the
-  version it measured and warns when the deck moved on meanwhile. What it reports is what
+  version it measured and warns when another turn or caller moved the deck on meanwhile
+  (not the turn's own later edit). What it reports is what
   the check on the deck reports for the same version (`tests/test_check_snapshot.py`
   compares every kind of fact with the check inside a batch, which still runs on the deck
   under the lock). Its deadline is `Limits.layout_timeout` (30 s) per 3 slides begun
-  (`check_timeout`). With `workers=0` it runs in the calling thread, as before. The checks
+  (`check_timeout`), from when a worker takes it; the wait for a worker is bounded apart
+  (`Limits.worker_queue_timeout`, 300 s). With `workers=0` it runs in the calling thread, as before. The checks
   after a changing call are unchanged. Timings on a made-up 90-slide deck of tables:
   `ROADMAP.md`.
 
