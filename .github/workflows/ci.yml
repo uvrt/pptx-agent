@@ -64,8 +64,13 @@ jobs:
       # The PowerPoint oracle tests are opt-in (`-m oracle`) and need macOS with
       # PowerPoint, which no runner has; the provider tests need an API key, which CI does
       # not hold; tests that read local trial or spike output skip where it is absent.
+      #
+      # On every core: pytest-xdist is installed here, not in the dev extra, so a bare
+      # local `pytest` stays serial; the 30 slowest tests are listed.
       - name: Test
-        run: python -m pytest -q --durations=60
+        run: |
+          python -m pip install "pytest-xdist>=3"
+          python -m pytest -q -n auto --durations=30
 
   build:
     runs-on: ubuntu-latest
