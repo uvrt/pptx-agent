@@ -5,7 +5,7 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
-## 0.1.13 -- unreleased
+## 0.1.12 -- unreleased
 
 - **`ppt_compare_slides` skips the reference listed in `slides` too** (production round 28,
   P3): with `reference` a slide of the compared deck, that slide in `slides` (by id, number
