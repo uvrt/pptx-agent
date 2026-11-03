@@ -10,7 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ooxml_edit.tools import Result, ToolError, collect_warnings, page_list, shared, tiles
+from ooxml_edit.tools import (Result, ToolError, collect_warnings, page_list, shared, tiles,
+                              worker_task)
 
 from .common import (KIND, facts, library_errors, numbers, slide_id_of, targets,
                      template_key_of, template_options, validate_delta)
@@ -472,6 +473,61 @@ MISSING_GLYPHS_NOTE = ("the image leaves this text out: the renderer has no font
 DECK_FACTS = ("fit", "collisions", "validate")
 
 
+#: The slides one ``Limits.layout_timeout`` covers in a check run in a worker
+#: (:func:`check_timeout`).  A 9-slide check of tables took 6.9 s; 30 s per 3 slides
+#: leaves room for a slower machine.  It counts from when a worker takes the check: the
+#: wait for one is bounded apart (``Limits.worker_queue_timeout``, 300 s).
+CHECK_SLIDES = 3
+
+
+def check_timeout(limits, count: int) -> float:
+    """The deadline of a check of ``count`` slides in a worker: ``layout_timeout`` (30 s)
+    per :data:`CHECK_SLIDES` slides begun."""
+    return limits.layout_timeout * max(1, -(-int(count) // CHECK_SLIDES))
+
+
+def measure(deck, ids, wanted, boxes: bool, below, minimum) -> tuple[dict[str, Any], Any]:
+    """``check``'s facts of slides ``ids`` of ``deck`` (the deck under the lock, or a copy
+    of one version in a worker: :func:`check_snapshot`), and its validation problems as
+    text (``None`` unless ``validate`` is wanted)."""
+    data: dict[str, Any] = {"slides": [f"s:{sid}" for sid in ids]}
+    data.update(facts(deck, ids, boxes=boxes, include=wanted))
+    if "facts" in wanted or "design" in wanted:
+        data.update(slide_facts_json(deck, ids, problems="facts" in wanted))
+    if below is not None:
+        data.update(spacing_json(deck, ids, below))
+    if minimum is not None:
+        data.update(contrast_json(deck, ids, minimum))
+    if "layout" in wanted:                # round 18, Q4: blank lines used for spacing
+        data["layout"] = {"empty_paragraphs": [
+            entry for sid in ids for entry in empty_paragraphs(deck.slide(f"s:{sid}"))]}
+    problems = [str(p) for p in deck.validate()] if "validate" in wanted else None
+    return data, problems
+
+
+@worker_task
+def check_snapshot(data: bytes, ids, wanted, boxes: bool, below, minimum, font_dirs, locale,
+                   min_text_size) -> tuple[dict[str, Any], Any, list[str]]:
+    """In a worker (:meth:`Call.on_snapshot <ooxml_edit.tools.dispatch.Call.on_snapshot>`):
+    :func:`measure` on a copy of the deck opened from ``data``, with the deck's font
+    folders as resolved where the toolbox runs (:func:`font_dirs_of`: a worker's own
+    ``OOXML_FONT_DIRS`` was fixed when it started), ``locale`` and ``min_text_size``; and the warnings measuring raised, as
+    the dispatcher words them (those opening raised were said when the deck was opened).
+    In process (``workers=0``) it runs in the calling thread."""
+    from ..edit.document import Document
+
+    # This thread's own collectors (not ``warnings.catch_warnings``, which is process-wide):
+    # in process (``workers=0``) other calls' threads raise warnings meanwhile.
+    with collect_warnings():
+        deck = Document.open(data)
+    deck.font_dirs = font_dirs
+    deck.locale = locale
+    deck.min_text_size = min_text_size
+    with collect_warnings() as said:
+        found, problems = measure(deck, ids, wanted, boxes, below, minimum)
+    return found, problems, list(said)
+
+
 @shared.handler("check", kind=KIND)
 @library_errors
 def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing=None,
@@ -496,31 +552,18 @@ def check(call, doc, slides=None, pages=None, include=None, boxes=False, spacing
            locale_of(deck), tuple(text_minimums(deck.min_text_size).items()), below, minimum)
     data = entry.check_cache.get((version, key))
     if data is None:
-        target = deck
         if call.may_unlock:
-            # Measuring is the slow part: it runs on a copy of this version, opened from the
-            # bytes taken under the lock, with the lock let go -- so an edit elsewhere in the
-            # deck does not wait for it.  Inside a batch it runs on the deck, under the lock.
-            data_bytes, font_dirs, locale = entry.snapshot(), deck.font_dirs, deck.locale
-        with call.unlocked() as released:
-            if released:
-                with collect_warnings():          # said when the deck was opened, not now
-                    target = type(deck).open(data_bytes)
-                target.font_dirs = font_dirs
-                target.locale = locale
-                target.min_text_size = deck.min_text_size
-            data = {"slides": [f"s:{sid}" for sid in ids]}
-            data.update(facts(target, ids, boxes=boxes, include=wanted))
-            if "facts" in wanted or "design" in wanted:
-                data.update(slide_facts_json(target, ids, problems="facts" in wanted))
-            if below is not None:
-                data.update(spacing_json(target, ids, below))
-            if minimum is not None:
-                data.update(contrast_json(target, ids, minimum))
-            if "layout" in wanted:            # round 18, Q4: blank lines used for spacing
-                data["layout"] = {"empty_paragraphs": [
-                    entry for sid in ids for entry in empty_paragraphs(target.slide(f"s:{sid}"))]}
-            problems = target.validate() if "validate" in wanted else None
+            # Measuring is the slow part: it runs in a worker process on this version's
+            # bytes, taken under the lock, with the lock let go -- so checks of one deck run
+            # side by side, and an edit elsewhere in the deck does not wait for them (round
+            # 28, P2).  Inside a batch it runs on the deck, under the lock.
+            data, problems, said = call.on_snapshot(
+                check_snapshot, ids, wanted, bool(boxes), below, minimum,
+                font_dirs_of(deck), deck.locale, deck.min_text_size,
+                timeout=check_timeout(call.limits, len(ids)))
+            call.result.warnings.extend(said)
+        else:
+            data, problems = measure(deck, ids, wanted, bool(boxes), below, minimum)
         if problems is not None:
             data["validate"] = {"problems": [str(p) for p in problems],
                                 **validate_delta(entry, problems)}
