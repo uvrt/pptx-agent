@@ -65,7 +65,7 @@ jobs:
       # PowerPoint, which no runner has; the provider tests need an API key, which CI does
       # not hold; tests that read local trial or spike output skip where it is absent.
       - name: Test
-        run: python -m pytest -q
+        run: python -m pytest -q --durations=60
 
   build:
     runs-on: ubuntu-latest
