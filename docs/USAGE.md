@@ -89,6 +89,10 @@ out twice: delete shape `256.3` or slide `257` and what is added next gets a new
 after an undo, so a note that tracks an id never silently points at another shape or slide.
 A shape id with `#` (`257.3#5`) is one the deck itself numbered twice; use it as it is.
 
+**Threads.** A `Document` is one thread's at a time: its ids are handed out by check-then-add
+and its package and undo history do not lock. The tools give each call its document alone
+(a session's entry lock); used directly from several threads, hold a lock of your own.
+
 > **The outline is Markdown: do not paste its text into `set_text`.** `to_outline` escapes
 > Markdown punctuation (`a\*b`, `\- item`) and marks bold as `**...**`; `set_text` writes
 > what it is given, so the backslashes and asterisks would land on the slide. It warns
