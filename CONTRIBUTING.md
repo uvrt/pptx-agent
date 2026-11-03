@@ -53,7 +53,7 @@ repositories, as CI does. `pyproject.toml` names versions, never URLs, since PyP
 a distribution whose dependencies name one. Each floor is the first version with what
 this package uses; what each earlier version added is in that package's CHANGELOG.
 
-- `ooxml-edit>=0.69.0`: the format-neutral editing core (the OPC package, ordered
+- `ooxml-edit>=0.74.0`: the format-neutral editing core (the OPC package, ordered
   insertion, undo, id stamping, the tool layer, and in `ooxml_edit.charts` the chart,
   embedded-workbook and SmartArt editing), extracted from this repository with its
   history. 0.62.0 gives public names to what was imported private (`opc.part_for_rels`,
@@ -62,7 +62,8 @@ this package uses; what each earlier version added is in that package's CHANGELO
   review, N4); 0.67.0 the handlers' work itself, the same in a Word document
   (`charts.actions.apply_data_action`, `add_plan`, `chart_json`..., `Chart.number_formats`, and
   the table `charts.cases` the tests replay; review, S10); 0.69.0 `Tool.action_fields`
-  (a role set is not sent the parameters of actions it lacks; round 18).
+  (a role set is not sent the parameters of actions it lacks; round 18); 0.74.0
+  `Call.on_snapshot`, which `check` measures in a worker with (round 28, P2).
 - `ooxml-common>=0.31.0`: the reading core pptx2svg is built on, a dependency rendering
   or not: the package kinds (validate, saving a template as a deck) and the text
   measurement come from it. 0.27.0 carries `drawingml.text_chain`, the inherited text
