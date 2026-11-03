@@ -224,10 +224,14 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: definition 13,442 -> 13,214; save_document without clean and undo's scope described for a
 #: slide, the core 3,545 (about 5,247), every definition 13,166.  The guard falls to 13,170.
 #: replace_text is strict and loses range: 23 optional parameters over the strict tools.
+#: Round 29, C1 (ooxml-edit 0.75.0): edit_chart's ``blanks`` (how blank points draw) and
+#: ``null`` for a blank in its values' descriptions +49 to every definition (13,166 ->
+#: 13,215), none to the core (3,545): edit_chart is deferred.  The guard rises to 13,220.
+#: edit_chart is never sent strict (47 optional parameters): the strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13170
+ALL_GUARD = 13220
 
 
 def estimate_tokens(definitions) -> int:

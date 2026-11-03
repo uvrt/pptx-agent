@@ -46,8 +46,9 @@ REVIEW_CORE_GUARD = 2365
 #: P1 (ppt_manage_slides' import), 4,823; P2 (ppt_compare_slides' ``reference``), 4,905;
 #: round 18, ppt_manage_slides' ``action_fields`` (a reviewer, with find_by_title only, is
 #: not sent slide, to, notes, ref, layout or source_doc; -164), 4,741; round 23, V3 (the
-#: shared tools without a document's parameters), 4,509.
-REVIEW_ALL_GUARD = 4510
+#: shared tools without a document's parameters), 4,509; round 29, C1 (edit_chart's
+#: ``blanks`` and ``null`` in its values, ooxml-edit 0.75.0), 4,558.
+REVIEW_ALL_GUARD = 4560
 
 REVIEW_CORE = {"open_document", "save_document", "find_text", "render", "check", "describe",
                "ppt_read_slides", "batch", "ppt_compare_slides", "ppt_comments"}
