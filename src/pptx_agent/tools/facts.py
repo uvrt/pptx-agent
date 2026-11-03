@@ -81,12 +81,15 @@ def ppt_compare_slides(call, doc, slides, reference=None, cursor=None):
     """The library's :meth:`Document.compare_slides <pptx_agent.Document.compare_slides>`
     with its 2 pt tolerance (the library takes another), paged by shape: ``only`` (shapes
     on half the slides or fewer; with a reference, those it has none of) comes with the
-    first page."""
+    first page.  The reference listed in ``slides`` too is skipped, and said so in
+    ``skipped`` and a warning (round 28, P3); the reference alone is refused."""
     from ..edit.compare import compare_slides
 
     deck = call.document
     chosen = numbers(deck, slides)
     expected, prefix = None, ""
+    warnings: list[str] = []
+    skipped: str | None = None
     if reference is not None:
         where = reference.get("doc") or doc
         entry = call.entries.get(where)
@@ -95,6 +98,18 @@ def ppt_compare_slides(call, doc, slides, reference=None, cursor=None):
                             field="reference.doc")
         expected = slide_at(entry.document, reference["slide"], field="reference.slide")
         prefix = "" if where == doc else f"{where}/"
+        if entry.document is deck:
+            kept = [n for n in chosen if deck.slides[n - 1].slide_id != expected.slide_id]
+            if len(kept) < len(chosen):
+                skipped = f"s:{expected.slide_id}"
+                if not kept:
+                    raise ToolError("invalid_arguments", f"{skipped} is the reference and "
+                                    "the only slide listed: list the slides to compare with "
+                                    "it, e.g. [\"s:257\", \"s:258\"], or leave reference out "
+                                    "to compare a run by its majority", field="slides")
+                warnings.append(f"{skipped} is the reference: skipped in slides, the others "
+                                "compared with it")
+                chosen = kept
     if len(chosen) < (1 if expected is not None else 2):   # numbers() lists a slide once
         raise ToolError("invalid_arguments", "compare at least two slides: list the run of "
                         "like slides, e.g. [\"s:257\", \"s:258\", \"s:259\"]", field="slides")
@@ -102,6 +117,8 @@ def ppt_compare_slides(call, doc, slides, reference=None, cursor=None):
     comparison = compare_slides(targets, reference=expected)
     comparison.reference_prefix = prefix
     data = comparison.to_json()
+    if skipped is not None:
+        data["skipped"] = [skipped]
     few = len(data["only"])
     shapes, total, next_cursor = page_list(data["shapes"], cursor=cursor, limit=COMPARE_PAGE)
     if len(json.dumps(shapes, ensure_ascii=False)) > call.limits.max_result_chars - 2000:
@@ -118,7 +135,7 @@ def ppt_compare_slides(call, doc, slides, reference=None, cursor=None):
                   f"propert{'y' if near == 1 else 'ies'} on this page), "
                   + (f"{few} not on the reference" if expected is not None
                      else f"{few} on few slides"),
-                  data=data, total=total, next_cursor=next_cursor)
+                  data=data, total=total, next_cursor=next_cursor, warnings=warnings)
 
 
 TOOLS = [ppt_design_facts, ppt_compare_slides]

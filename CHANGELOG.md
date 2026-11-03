@@ -23,6 +23,17 @@ snapshot commit; the development history before it is summarised here.
   after a changing call are unchanged. Timings on a made-up 90-slide deck of tables:
   `ROADMAP.md`.
 
+## 0.1.12 -- unreleased
+
+- **`ppt_compare_slides` skips the reference listed in `slides` too** (production round 28,
+  P3): with `reference` a slide of the compared deck, that slide in `slides` (by id, number
+  or ref) is left out and the others are compared with it; the result says so in
+  `skipped` (`["s:300"]`) and a warning. Before, the call was refused. The reference alone
+  in `slides` is still refused (`invalid_arguments`, `field: "slides"`), now saying that it
+  is the reference and the only slide listed. A reference in another deck skips nothing.
+  The library's `Document.compare_slides` still refuses the reference among the slides (a
+  Python caller names the slides exactly). No tool definition changes.
+
 ## 0.1.11 -- unreleased
 
 - **A deck toolbox is sent the shared tools with a deck's parameters only** (production
