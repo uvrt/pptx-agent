@@ -144,9 +144,33 @@ def test_the_tool_compares_against_another_deck_s_slide_and_its_fixes_close_the_
     inside = toolbox.dispatch(session, "ppt_compare_slides",
                               {"doc": d1, "slides": ids[1:], "reference": {"slide": ids[0]}})
     assert inside.ok and inside.data["reference"] == ids[0]
+    # round 28, P3: the reference listed in slides too is skipped, and said so
     among = toolbox.dispatch(session, "ppt_compare_slides",
                              {"doc": d1, "slides": ids, "reference": {"slide": ids[0]}})
-    assert not among.ok and "reference" in among.error.message
+    assert among.ok, among.error
+    assert among.data == inside.data | {"skipped": [ids[0]]}
+    assert among.summary == inside.summary and "Compared 2 slides" in among.summary
+    assert among.warnings == [f"{ids[0]} is the reference: skipped in slides, the others "
+                              "compared with it"]
+    assert "skipped" not in inside.data and inside.warnings == []
+    alone = toolbox.dispatch(session, "ppt_compare_slides",
+                             {"doc": d1, "slides": ids[:1], "reference": {"slide": ids[0]}})
+    assert (alone.ok, alone.error.code, alone.error.field) == (False, "invalid_arguments",
+                                                               "slides")
+    assert alone.error.message.startswith(f"{ids[0]} is the reference and the only slide")
+    # by number, as a $ref or twice: still the reference
+    number = next(n for n, slide in enumerate(report.slides, 1)
+                  if slide.slide_id == copies[0].slide_id)
+    twice = toolbox.dispatch(session, "ppt_compare_slides",
+                             {"doc": d1, "slides": [number, ids[0], ids[1]],
+                              "reference": {"slide": ids[0]}})
+    assert twice.ok and twice.data["skipped"] == [ids[0]] and "Compared 1 slide " in \
+        twice.summary
+    # another deck's slide with the same id is no slide of this deck: nothing skipped
+    other = toolbox.dispatch(session, "ppt_compare_slides",
+                             {"doc": d1, "slides": ids,
+                              "reference": {"doc": d2, "slide": sample}})
+    assert other.ok and "skipped" not in other.data
     missing = toolbox.dispatch(session, "ppt_compare_slides",
                                {"doc": d1, "slides": ids,
                                 "reference": {"doc": d2, "slide": "s:999"}})
