@@ -5,6 +5,24 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.13 -- unreleased
+
+- **`check` measures in a worker process, side by side** (production round 28, P2; ooxml-edit
+  0.73.0, `Call.on_snapshot`). Six checks of one deck in a turn used to take turns: the
+  dispatcher queued them, and with the lock let go they still shared this process's GIL.
+  Now the bytes of the version are taken under the lock (once per version, shared by
+  concurrent checks), the lock is let go, and the measuring -- fit, collisions, facts,
+  design, spacing, contrast, layout, validate -- runs in a worker on a copy opened from them
+  (`shared_tools.check_snapshot`, a `worker_task`). A turn's checks of one deck
+  run side by side, and an edit after them runs while they measure. The result reports the
+  version it measured and warns when the deck moved on meanwhile. What it reports is what
+  the check on the deck reports for the same version (`tests/test_check_snapshot.py`
+  compares every kind of fact with the check inside a batch, which still runs on the deck
+  under the lock). Its deadline is `Limits.layout_timeout` (30 s) per 3 slides begun
+  (`check_timeout`). With `workers=0` it runs in the calling thread, as before. The checks
+  after a changing call are unchanged. Timings on a made-up 90-slide deck of tables:
+  `ROADMAP.md`.
+
 ## 0.1.11 -- unreleased
 
 - **A deck toolbox is sent the shared tools with a deck's parameters only** (production
