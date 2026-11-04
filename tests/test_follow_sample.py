@@ -181,7 +181,7 @@ def test_a_shape_only_on_one_copy_is_its_own_and_stays_unless_remove_all():
     note.name = "Own note"
     result = deck.follow_sample(sample).to_json()
     kept = result["copies"][1]["not_followed"]
-    assert kept == [{"shape": note.id, "name": "Own note",
+    assert kept == [{"shape": note.id, "name": "Own note", "kind": "own",
                      "why": "the sample has none: the copy's own, kept (remove: \"all\" "
                             "deletes it)"}]
     assert "Own note" in [s.name for s in deck.slide(copies[1]).shapes]
@@ -197,6 +197,7 @@ def test_a_shape_taken_off_one_copy_is_not_put_back():
     assert "Marker" not in [s.name for s in deck.slide(copies[0]).shapes]
     assert entry["not_followed"][0]["name"] == "Marker"
     assert "taken off here" in entry["not_followed"][0]["why"]
+    assert entry["not_followed"][0]["kind"] == "changed_by_copy"
 
 
 def test_text_with_other_paragraphs_follows_by_level_and_keeps_a_bold_word():
@@ -245,6 +246,9 @@ def test_a_table_with_other_columns_is_reported_and_keeps_its_widths():
     assert _named(deck.slide(copies[0]), "Figures").table.column_widths == widths
     why = next(e["why"] for e in result["copies"][0]["not_followed"] if e["name"] == "Figures")
     assert why.startswith("the table has 3 column(s), the sample's 2")
+    kind = next(e["kind"] for e in result["copies"][0]["not_followed"]
+                if e["name"] == "Figures")
+    assert kind == "structure"
 
 
 def test_a_sample_in_another_deck_is_followed_by_the_imported_copies():
@@ -283,6 +287,108 @@ def test_unknown_remove_and_no_copies_are_refused_with_the_way_out():
         deck.follow_sample(sample, remove="some")
     with pytest.raises(ArgumentError, match="name slides other than the sample"):
         deck.follow_sample(sample, [sample])
+
+
+# -- what could not follow, by kind (round 32, R13) ------------------------------------------
+
+
+def _kinds(report: dict) -> dict[str, str]:
+    """A copy's ``not_followed`` entries: each shape's name to its kind."""
+    return {entry["name"]: entry["kind"] for entry in report.get("not_followed", ())}
+
+
+def test_every_not_followed_entry_has_a_kind_from_the_documented_set():
+    from pptx_agent.edit.follow import KINDS
+
+    deck, sample, copies, _ = _run(3)
+    _revise(deck, sample)
+    first, second = deck.slide(copies[0]), deck.slide(copies[1])
+    footer = first.add_textbox(40 * E, 500 * E, 200 * E, 20 * E, "Own footer")
+    footer.name = "Own footer"                       # only this copy has it: own
+    _named(second, "Band").delete()                  # taken off this copy: changed_by_copy
+    _named(second, "Figures").table.insert_column()  # other columns: structure
+    _body(second).set_text("Alpha\nBeta\nGamma")      # not lined up with the sample's
+    _body(second).text_frame.paragraphs[2].level = 2   # a level the sample lacks: structure
+    result = deck.follow_sample(sample, [deck.slide(sid) for sid in copies]).to_json()
+    entries = [entry for copy in result["copies"] for entry in copy.get("not_followed", ())]
+    assert entries and all(entry["kind"] in KINDS and entry["why"] for entry in entries)
+    assert _kinds(result["copies"][0]) == {"Own footer": "own"}
+    assert _kinds(result["copies"][1]) == {"Band": "changed_by_copy", "Figures": "structure",
+                                           "Content Placeholder 2": "structure"}
+    assert "not_followed" not in result["copies"][2]
+
+
+def test_merged_cells_and_group_members_unlike_the_samples_are_structure():
+    deck = Document.new()
+    sample = deck.add_slide("Title Only")
+    table = sample.add_table(2, 2, 40 * E, 120 * E, 300 * E, 60 * E, name="Grid")
+    one = sample.add_shape("rect", 40 * E, 300 * E, 40 * E, 40 * E)
+    two = sample.add_shape("ellipse", 100 * E, 300 * E, 40 * E, 40 * E)
+    sample.group([one, two], name="Pair")
+    copies = [deck.duplicate_slide(sample) for _ in range(2)]
+    _named(deck.slide(copies[0].slide_id), "Grid").table.merge(0, 0, 0, 1)
+    _named(deck.slide(copies[0].slide_id), "Pair").children[-1].delete()
+    table.table.set_column_width(0, 200 * E)
+    result = deck.follow_sample(sample, [deck.slide(c.slide_id) for c in copies]).to_json()
+    entries = result["copies"][0]["not_followed"]
+    assert {(e["name"], e["kind"]) for e in entries} == {("Grid", "structure"),
+                                                         ("Pair", "structure")}
+    assert "merge cells unlike" in next(e["why"] for e in entries if e["name"] == "Grid")
+
+
+def test_a_picture_in_the_samples_empty_picture_placeholder_is_the_copys_own():
+    from images import png
+
+    deck = Document.new()
+    sample = deck.add_slide("Picture with Caption")
+    sample.title = "Sample caption"
+    copy = deck.duplicate_slide(sample)
+    holder = next(s for s in copy.shapes if s.placeholder is not None and
+                  s.placeholder.type == "pic")
+    holder.insert_picture(png(4, 4, lambda x, y: (0, 120, 0)))
+    first = deck.follow_sample(sample, [deck.slide(copy.slide_id)]).to_json()["copies"][0]
+    assert "only the box followed" in first["shapes"][0]["note"]   # the box went: it changed
+    result = deck.follow_sample(sample, [deck.slide(copy.slide_id)]).to_json()
+    entry = result["copies"][0]
+    assert entry["changed"] is False
+    assert [(e["name"], e["kind"]) for e in entry["not_followed"]] == [
+        ("Picture Placeholder 2", "own")]
+    assert "only the box followed" in entry["not_followed"][0]["why"]
+
+
+def _frame_placeholder(frame) -> None:
+    """``frame`` made the content placeholder (idx 1), as a table or chart put in one is."""
+    from lxml import etree
+
+    p = "{http://schemas.openxmlformats.org/presentationml/2006/main}"
+    etree.SubElement(frame._element.find(f"{p}nvGraphicFramePr/{p}nvPr"), f"{p}ph", idx="1")
+
+
+def test_a_chart_in_the_placeholder_where_the_samples_holds_a_table_is_the_copys_own():
+    deck = Document.new()
+    sample = deck.add_slide("Title and Content")
+    sample.title = "Sample heading"
+    _body(sample).delete()
+    _frame_placeholder(sample.add_table(2, 2, 40 * E, 120 * E, 300 * E, 60 * E, name="Data"))
+    copy = deck.duplicate_slide(sample)
+    _named(copy, "Data").delete()
+    _frame_placeholder(copy.add_chart("column", ["A", "B"], [{"name": "S", "values": [1, 2]}],
+                                      40 * E, 120 * E, 300 * E, 200 * E, name="Data"))
+    deck = Document.open(deck.to_bytes())
+    result = deck.follow_sample(deck.slide(sample.slide_id),
+                                [deck.slide(copy.slide_id)]).to_json()
+    entry = result["copies"][0]
+    assert _kinds(entry) == {"Data": "own"}
+    assert entry["not_followed"][0]["why"] == ("the copy has a chart where the sample has a "
+                                               "table: only the box followed")
+
+
+def test_a_table_with_more_rows_that_already_follows_has_nothing_not_followed():
+    deck, sample, copies, _ = _run(1)
+    _named(deck.slide(copies[0]), "Figures").table.insert_row()
+    deck.follow_sample(sample)
+    again = deck.follow_sample(sample).to_json()["copies"][0]
+    assert again == {"slide": f"s:{copies[0]}", "changed": False}
 
 
 # -- the tool -----------------------------------------------------------------------------
@@ -391,3 +497,54 @@ def test_default_names_tell_a_copy_only_in_the_samples_place():
     assert found.slides == [f"s:{copy.slide_id}"]
     assert found.near[0]["slide"] == f"s:{built.slide_id}"
     assert "none in its places" in found.near[0]["why"]
+
+
+def _with_own_footers(toolbox, count):
+    """A run whose copies, not the sample, have the deck's footer: a placeholder, kept on
+    each as the copy's own."""
+    deck, sample, copies, other = _run(count)
+    _revise(deck, sample)
+    deck.set_footer("Made-up footer", slide_number=False,
+                    slides=[deck.slide(sid) for sid in copies])
+    _named(deck.slide(copies[0]), "Figures").table.insert_column()
+    session = toolbox.session()
+    return session, session.open(deck.to_bytes(), "run.pptx"), sample, copies, deck
+
+
+def test_the_tool_reports_actionable_entries_only_and_counts_the_own_ones(toolbox):
+    session, doc, sample, copies, _ = _with_own_footers(toolbox, 3)
+    every = _call(toolbox, session, doc=doc, sample=f"s:{sample}", preview=True)
+    assert every.ok, every.to_json()
+    assert all(sorted(_kinds(c).values()) in (["own"], ["own", "structure"])
+               for c in every.data["copies"])
+    assert "1 with something to handle" in every.summary
+    result = _call(toolbox, session, doc=doc, sample=f"s:{sample}", preview=True,
+                   report="actionable")
+    assert result.ok, result.to_json()
+    first, *rest = result.data["copies"]
+    assert first["own"] == 1 and _kinds(first) == {"Figures": "structure"}
+    assert all(c["own"] == 1 and "not_followed" not in c for c in rest)
+    assert "1 with something to handle" in result.summary
+    blank = _call(toolbox, session, doc=doc, sample=f"s:{sample}", preview=True, report="")
+    assert blank.ok
+    assert [c.get("not_followed") for c in blank.data["copies"]] == \
+        [c.get("not_followed") for c in every.data["copies"]]
+
+
+def test_past_the_budget_own_entries_are_counted_before_copies_are_left_out(toolbox,
+                                                                            monkeypatch):
+    from pptx_agent.tools import follow
+
+    session, doc, sample, copies, deck = _with_own_footers(toolbox, 6)
+    brief = deck.follow_sample(sample, preview=True).to_json(brief=True)
+    with_own = len(json.dumps(brief, ensure_ascii=False))
+    assert follow._without_own(brief) == 6
+    without = len(json.dumps(brief, ensure_ascii=False))
+    assert without + 300 < with_own              # the packing keeps 200 in hand
+    monkeypatch.setattr(follow, "BUDGET", without + 300)
+    result = _call(toolbox, session, doc=doc, sample=f"s:{sample}", preview=True)
+    assert result.ok
+    assert "left_out" not in result.data
+    assert all(c["own"] == 1 for c in result.data["copies"])
+    assert _kinds(result.data["copies"][0]) == {"Figures": "structure"}
+    assert any("kind own" in w for w in result.warnings)

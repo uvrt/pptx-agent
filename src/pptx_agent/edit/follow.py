@@ -56,11 +56,14 @@ the sample when at least two of the copies followed have it, and more than half:
 (``remove="auto"``); else it is the copy's own and stays (reported).  ``remove="all"``
 deletes every shape the sample has none of; ``"none"`` keeps them all.
 
-**What could not follow** is reported per copy with why -- a structure that differs, a
-level the sample lacks, a shape the copy filled with something else (a picture where the
-sample's placeholder holds text: the box follows) -- and, when pptx2svg is installed, the
-text that no longer fits and the collisions that following made (each checked before and
-after, only the new ones reported).
+**What could not follow** is reported per copy with why and a ``kind`` (:data:`KINDS`):
+``own`` -- the copy's own content kept, a shape the sample has none of or a placeholder the
+copy filled with something else (a picture where the sample's holds text: the box follows);
+``changed_by_copy`` -- a shape taken off this copy, or another kind of shape in the sample's
+place; ``structure`` -- other table columns, merged cells, group members, or a paragraph
+level the sample lacks.  When pptx2svg is installed, the text that no longer fits and the
+collisions that following made are reported too (each checked before and after, only the
+new ones), under ``overflows`` with ``ppt_check``'s kinds.
 
 The whole follow is one undo step; ``preview=True`` reports the same and changes nothing
 (the ids it gives shapes it would add are not handed out again, so a follow after it gives
@@ -97,6 +100,27 @@ _SP_PR_PART = {"xfrm": "box", "prstGeom": "geometry", "custGeom": "geometry", "l
                "effectLst": "effects", "effectDag": "effects", "scene3d": "effects",
                "sp3d": "effects", **{name: "fill" for name in _FILLS}}
 REMOVE = ("auto", "all", "none")
+
+#: What a ``not_followed`` entry is (its ``kind``), so a caller can act on some and pass
+#: over others without reading ``why``:
+#:
+#: - ``own``: the copy's own content, kept as meant -- a shape the sample has none of (a
+#:   footer, a note only this copy has) left in place, or a placeholder the copy filled
+#:   with another kind of content (a picture where the sample's holds text, a chart where
+#:   it holds a table: only its box follows).  Nothing to do unless the shape should go
+#:   (``remove``).
+#: - ``changed_by_copy``: the copy was changed away from the sample on purpose and the
+#:   sample's design is not forced on it -- the sample's shape taken off this copy (other
+#:   copies have it), or another kind of shape in its place (a picture where the sample
+#:   has a shape, a chart where it has a table).
+#: - ``structure``: the copy's structure differs, so the design cannot be laid on it one
+#:   to one -- a table with other columns, rows merging cells unlike the sample's, a group
+#:   with other members, paragraphs at a level the sample has none at.
+#:
+#: Text that no longer fits, collisions and shapes past the slide's edge after following
+#: are under ``overflows``, by ``ppt_check``'s kinds: ``text``, ``overlap``, ``off_slide``.
+OWN, CHANGED_BY_COPY, STRUCTURE = "own", "changed_by_copy", "structure"
+KINDS = (OWN, CHANGED_BY_COPY, STRUCTURE)
 
 
 def _points(emu: float) -> float:
@@ -272,7 +296,7 @@ class CopyFollow:
     changed: list[dict] = field(default_factory=list)       #: {"shape", "name", "what": [...]}
     added: list[dict] = field(default_factory=list)         #: {"shape", "name", "from"}
     removed: list[dict] = field(default_factory=list)       #: {"shape", "name"}
-    not_followed: list[dict] = field(default_factory=list)  #: {"shape", "name", "why"}
+    not_followed: list[dict] = field(default_factory=list)  #: {"shape", "name", "kind", "why"}
     overflows: list[dict] = field(default_factory=list)     #: new problems after following
 
     @property
@@ -326,15 +350,17 @@ class _Pair:
     def __init__(self, work: "_Copy", sample: "Shape", target: "Shape") -> None:
         self.work, self.sample, self.target = work, sample, target
         self.what: list[str] = []
-        self.notes: list[str] = []
+        #: (kind, note): a note with a kind is reported under ``not_followed`` when nothing
+        #: of the pair changed; one without (None) only says how the pair followed.
+        self.notes: list[tuple[str | None, str]] = []
 
     def changed(self, what: str) -> None:
         if what not in self.what:
             self.what.append(what)
 
-    def not_followed(self, why: str) -> None:
+    def not_followed(self, kind: str, why: str) -> None:
         self.work.report.not_followed.append(
-            {"shape": self.target.id, "name": self.target.name, "why": why})
+            {"shape": self.target.id, "name": self.target.name, "kind": kind, "why": why})
 
 
 class _Copy:
@@ -603,12 +629,12 @@ def _follow_body(pair: _Pair, theirs, mine, *, where: str = "") -> None:
             _end_properties(work, c_par, s_par.find(qn("a:endParaRPr")) if
                             s_par.find(qn("a:endParaRPr")) is not None else design)
         if _rest_changed(before, _canon(mine, work.slide)):
-            pair.notes.append(f"{where}text laid out unlike the sample's "
+            pair.notes.append((None, f"{where}text laid out unlike the sample's "
                               f"({len(copy_paragraphs)} paragraph(s), the sample "
-                              f"{len(sample_paragraphs)}): formatting followed by level")
+                              f"{len(sample_paragraphs)}): formatting followed by level"))
         for level in sorted(missing):
-            pair.not_followed(f"{where}paragraphs at level {level + 1}: the sample has "
-                              "none at that level; their formatting is the copy's")
+            pair.not_followed(STRUCTURE, f"{where}paragraphs at level {level + 1}: the "
+                              "sample has none at that level; their formatting is the copy's")
     if _rest_changed(before, _canon(mine, work.slide)):
         pair.changed(f"{where}text format")
 
@@ -678,9 +704,9 @@ def _follow_table(pair: _Pair) -> None:
     first = properties is not None and properties.get("firstRow") in ("1", "true")
     last = properties is not None and properties.get("lastRow") in ("1", "true")
     if len(s_cols) != len(c_cols):
-        pair.not_followed(f"the table has {len(c_cols)} column(s), the sample's "
-                          f"{len(s_cols)}: its column widths, row heights and cells are "
-                          "the copy's")
+        pair.not_followed(STRUCTURE, f"the table has {len(c_cols)} column(s), the "
+                          f"sample's {len(s_cols)}: its column widths, row heights and "
+                          "cells are the copy's")
         return
     widths = False
     for s_col, c_col in zip(s_cols, c_cols):
@@ -690,8 +716,9 @@ def _follow_table(pair: _Pair) -> None:
     if widths:
         pair.changed("column widths")
     if len(s_rows) != len(c_rows):
-        pair.notes.append(f"the table has {len(c_rows)} rows, the sample's {len(s_rows)}: "
-                          "rows past the sample's take its body rows' design in turn")
+        pair.notes.append((None, f"the table has {len(c_rows)} rows, the sample's "
+                           f"{len(s_rows)}: rows past the sample's take its body rows' "
+                           "design in turn"))
     mapping = _row_map(len(s_rows), len(c_rows), first, last)
     heights = cells = False
     unmerged = []
@@ -718,8 +745,8 @@ def _follow_table(pair: _Pair) -> None:
         pair.changed("cells")
     if unmerged:
         rows = ", ".join(str(n) for n in unmerged[:10])
-        pair.not_followed(f"row(s) {rows} (from 0) merge cells unlike the sample's: their "
-                          "cells are the copy's")
+        pair.not_followed(STRUCTURE, f"row(s) {rows} (from 0) merge cells unlike the "
+                          "sample's: their cells are the copy's")
 
 
 def _frame_box(pair: _Pair) -> None:
@@ -817,16 +844,19 @@ def _follow_pair(pair: _Pair) -> None:
     if s_tag != c_tag:
         if sample.placeholder is not None and target.placeholder is not None:
             _box_only(pair, "p:spPr")
-            pair.notes.append(f"the copy filled the placeholder with a "
-                              f"{_KIND_WORD.get(c_tag, c_tag)} where the sample's holds a "
-                              f"{_KIND_WORD.get(s_tag, s_tag)}: only the box followed")
+            pair.notes.append((OWN, f"the copy filled the placeholder with a "
+                                f"{_KIND_WORD.get(c_tag, c_tag)} where the sample's holds a "
+                                f"{_KIND_WORD.get(s_tag, s_tag)}: only the box followed"))
         else:
-            pair.not_followed(f"the copy has a {_KIND_WORD.get(c_tag, c_tag)} where the "
-                              f"sample has a {_KIND_WORD.get(s_tag, s_tag)}")
+            pair.not_followed(CHANGED_BY_COPY, f"the copy has a "
+                              f"{_KIND_WORD.get(c_tag, c_tag)} where the sample has a "
+                              f"{_KIND_WORD.get(s_tag, s_tag)}")
         return
     if s_tag == "graphicFrame" and kind_of(sample) != kind_of(target):
         _frame_box(pair)
-        pair.not_followed(f"the copy has a {kind_of(target)} where the sample has a "
+        filled = sample.placeholder is not None and target.placeholder is not None
+        pair.not_followed(OWN if filled else CHANGED_BY_COPY,
+                          f"the copy has a {kind_of(target)} where the sample has a "
                           f"{kind_of(sample)}: only the box followed")
         return
     _name(pair)
@@ -846,8 +876,8 @@ def _follow_pair(pair: _Pair) -> None:
         _shape_properties(pair, "p:grpSpPr")
         s_members, c_members = _members(sample._element), _members(target._element)
         if [local_name(m) for m in s_members] != [local_name(m) for m in c_members]:
-            pair.not_followed(f"the group holds {len(c_members)} shape(s) unlike the "
-                              f"sample's {len(s_members)}: only the group's box followed")
+            pair.not_followed(STRUCTURE, f"the group holds {len(c_members)} shape(s) unlike "
+                              f"the sample's {len(s_members)}: only the group's box followed")
             return
         for s_member, c_member in zip(s_members, c_members):
             inner = _Pair(pair.work, sample._slide._wrap(s_member),
@@ -988,17 +1018,19 @@ def _follow_one(sample: "Slide", slide: "Slide", identities: dict, remove_rule: 
             if pair.what:
                 entry: dict[str, Any] = {"shape": address, "name": name, "what": pair.what}
                 if pair.notes:
-                    entry["note"] = "; ".join(pair.notes)
+                    entry["note"] = "; ".join(note for _, note in pair.notes)
                 report.changed.append(entry)
-            elif pair.notes:
-                report.not_followed.append({"shape": address, "name": name,
-                                            "why": "; ".join(pair.notes)})
+            else:
+                for kind, note in pair.notes:
+                    if kind is not None:
+                        report.not_followed.append({"shape": address, "name": name,
+                                                    "kind": kind, "why": note})
             order.append((sample_z.get(id(theirs._element), 0), mine._element))
         elif theirs is not None:
             keys = _telling(theirs, True)
             if keys and any(key in ids for ids in others for key in keys):
                 report.not_followed.append({
-                    "shape": theirs.id, "name": theirs.name,
+                    "shape": theirs.id, "name": theirs.name, "kind": CHANGED_BY_COPY,
                     "why": "the sample's shape is on other copies but not this one: taken "
                            "off here, so not put back"})
             else:
@@ -1012,7 +1044,8 @@ def _follow_one(sample: "Slide", slide: "Slide", identities: dict, remove_rule: 
             else:
                 why = ("the sample has none: the copy's own, kept"
                        + (" (remove: \"all\" deletes it)" if remove_rule == "auto" else ""))
-                report.not_followed.append({"shape": mine.id, "name": mine.name, "why": why})
+                report.not_followed.append({"shape": mine.id, "name": mine.name,
+                                            "kind": OWN, "why": why})
     _restack(slide, order)
     for shape in removes:
         report.removed.append({"shape": shape.id, "name": shape.name})

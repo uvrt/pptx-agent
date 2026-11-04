@@ -6,9 +6,12 @@ number or a shape's address on it (``300.4``: its slide, with a warning); ``samp
 a sample in another open deck; ``copies`` as slide numbers, ids or refs, none (or ``[]``,
 ``"all"``) for every slide made from the sample.  A copy that is the sample is skipped with
 a warning.  Empty strings and ``false`` where a strict decoder fills in fields are the
-defaults.  A copy already following is ``changed: false``, never an error.  The reply keeps
-to a size budget: past it the changed shapes become counts per copy, and copies that still
-do not fit are listed under ``left_out`` with the call that shows them.
+defaults.  A copy already following is ``changed: false``, never an error.  Every
+``not_followed`` entry has a ``kind`` (:data:`~pptx_agent.edit.follow.KINDS`): ``own``,
+``changed_by_copy``, ``structure``; ``report: "actionable"`` leaves the ``own`` ones out,
+counted per copy (``own``).  The reply keeps to a size budget: past it the changed shapes
+become counts per copy, then the ``own`` entries, and copies that still do not fit are
+listed under ``left_out`` with the call that shows them.
 """
 
 from __future__ import annotations
@@ -19,12 +22,14 @@ from typing import Any
 from ooxml_edit.tools import Result, ToolError, array, boolean, string, tool
 
 from ..edit.errors import ArgumentError
-from ..edit.follow import REMOVE, find_copies, follow_sample
+from ..edit.follow import OWN, REMOVE, find_copies, follow_sample
 from .common import KIND, library_errors, numbers, slide as slide_at
 from .slides import SLIDES
 
 #: The reply's budget, characters of its data, when the session's limit is larger.
 BUDGET = 12_000
+#: What ``report`` takes: every ``not_followed`` entry, or those without kind ``own``.
+REPORT = ("all", "actionable")
 
 
 def _documents(arguments) -> list[str]:
@@ -96,21 +101,53 @@ def _candidates(deck, sample) -> list[str]:
     return out[:50]
 
 
-def _fit(data: dict, budget: int, following, brief_json) -> tuple[dict, list[str]]:
-    """``data`` within ``budget`` characters: first the changed shapes as counts, then
-    copies left out (listed), never cut silently."""
+def _actionable(entry: dict) -> bool:
+    """Whether a copy's entry has something to handle: a ``not_followed`` entry other than
+    the copy's own content, or an overflow."""
+    return bool(entry.get("overflows")) or any(
+        item.get("kind") != OWN for item in entry.get("not_followed", ()))
+
+
+def _without_own(data: dict) -> int:
+    """``data``'s ``not_followed`` entries of kind ``own`` taken out, counted per copy as
+    ``own``; how many were taken out."""
+    total = 0
+    for entry in data["copies"]:
+        items = entry.get("not_followed")
+        if not items:
+            continue
+        kept = [item for item in items if item.get("kind") != OWN]
+        count = len(items) - len(kept)
+        if not count:
+            continue
+        total += count
+        if kept:
+            entry["not_followed"] = kept
+        else:
+            del entry["not_followed"]
+        entry["own"] = count
+    return total
+
+
+def _fit(data: dict, budget: int, brief_json, own: bool = True) -> tuple[dict, list[str]]:
+    """``data`` within ``budget`` characters: first the changed shapes as counts, then the
+    ``own`` entries as counts, then copies left out (listed), never cut silently."""
     notes: list[str] = []
     if len(json.dumps(data, ensure_ascii=False)) <= budget:
         return data, notes
     data = brief_json
     notes.append("changed shapes are counted per copy to keep the reply small; name a copy "
                  "in copies with preview: true to see its shapes")
+    if own and len(json.dumps(data, ensure_ascii=False)) > budget and _without_own(data):
+        notes.append("not_followed entries of kind own (the copy's own content, kept) are "
+                     "counted per copy under own; name a copy in copies with preview: true "
+                     "to list them")
     entries = data["copies"]
     kept: list[dict] = []
     size = len(json.dumps({**data, "copies": []}, ensure_ascii=False)) + 200
     left: list[str] = []
     # copies needing attention first
-    ordered = sorted(entries, key=lambda e: not (e.get("not_followed") or e.get("overflows")))
+    ordered = sorted(entries, key=lambda e: not _actionable(e))
     for entry in ordered:
         cost = len(json.dumps(entry, ensure_ascii=False)) + 2
         if size + cost <= budget:
@@ -141,12 +178,14 @@ def _fit(data: dict, budget: int, following, brief_json) -> tuple[dict, list[str
        "preview": boolean("Report only, change nothing.", optional=True),
        "remove": string("Copy shapes the sample lacks: auto (those most copies have) "
                         "deleted, all, or none.", enum=list(REMOVE), aliases={"": "auto"},
-                        optional=True)},
+                        optional=True),
+       "report": string("actionable: not_followed without kind own.",
+                        enum=list(REPORT), aliases={"": "all"}, optional=True)},
       kind=KIND, group=SLIDES, mutates=True, refs=("sample", "copies[]"),
       documents=_documents)
 @library_errors
 def ppt_follow_sample(call, doc, sample, copies=None, sample_doc=None, preview=None,
-                      remove=None):
+                      remove=None, report=None):
     deck = call.document
     warnings: list[str] = []
     where = sample_doc or doc
@@ -169,11 +208,15 @@ def ppt_follow_sample(call, doc, sample, copies=None, sample_doc=None, preview=N
             if item.is_changed:
                 call.touch(int(item.slide[2:]))
     budget = min(BUDGET, call.limits.max_result_chars - 2000)
-    data, notes = _fit(following.to_json(), budget, following,
-                       following.to_json(brief=True))
+    full, brief = following.to_json(), following.to_json(brief=True)
+    actionable = report == "actionable"
+    if actionable:
+        _without_own(full)
+        _without_own(brief)
+    data, notes = _fit(full, budget, brief, own=not actionable)
     warnings += notes
     followed = data["followed"]
-    attention = sum(1 for c in following.copies if c.not_followed or c.overflows)
+    attention = sum(1 for c in brief["copies"] if _actionable(c))
     verb = "would follow" if preview else "followed"
     summary = (f"{len(following.copies)} cop{'y' if len(following.copies) == 1 else 'ies'} of "
                f"{following.sample}: {followed} {verb}, {data['unchanged']} already "
