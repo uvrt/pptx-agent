@@ -105,6 +105,12 @@ def review(toolbox, session, doc, numbers, house_rules, model_call):
 - **What to do with findings:** send them back to the editing model as one user turn ("The
   review found: ... Fix these, or say why a finding does not apply.") and let it work through
   the tools again.
+- **An agent with tools reads in one call.** `read_batch` (ooxml-edit 0.78.0) changes
+  nothing (`mutates` is false) and is the `review` role's: give it to a read-only agent with
+  the other reading tools, and to builders. Many reads -- `describe`, slides, design facts, a
+  `check` -- go in one call, each answered as alone within its own `max_result_chars`, the
+  reply within 96,000 characters; what did not fit is listed with the call that asks for it.
+  Production builders made 40-90 reads a run, a model turn each, before it.
 - `check`'s `include: ["app"]` is reserved for a critique hook the application registers;
   no hook is registered for decks today (`check` says so in its `notes`). Run the pass
   yourself as above.

@@ -29,7 +29,7 @@ ooxml-edit's Responses round-trip test). Chat Completions has not been run live.
 
 | Group | Tools |
 | --- | --- |
-| `core` (always loaded) | `open_document`, `new_document`, `save_document`, `undo`, `find_text`, `replace_text`, `render`, `check`, `describe`, `ppt_read_slides`, `ppt_set_text`, `ppt_set_shape`, `batch` |
+| `core` (always loaded) | `open_document`, `new_document`, `save_document`, `undo`, `find_text`, `replace_text`, `render`, `check`, `describe`, `ppt_read_slides`, `ppt_set_text`, `ppt_set_shape`, `batch`, `read_batch` |
 | `shared_misc` | `close_document`, `read_blob`, `set_properties`, `edit_chart`, `edit_smartart` |
 | `ppt_text` | `ppt_format_text`: runs, paragraphs, frames, table cells, a whole table or a row or column |
 | `ppt_graphics` | `ppt_add_shape`, `ppt_add_connector`, `ppt_arrange`, `ppt_design_facts` |
@@ -131,9 +131,10 @@ second_pass = toolbox.session(roles=["review", "resolve"])   # per session, same
 ```
 
 A reviewer's core is open, save, `describe`, `ppt_read_slides`, `find_text`, `render`,
-`check`, `batch`, `ppt_compare_slides` and `ppt_comments` (2,212 estimated tokens against
-the full core's 3,563); edit_chart offers only `read`, `ppt_manage_slides` only
-`find_by_title`. A call outside the session's roles -- in a `batch` too, op by op -- is
+`check`, `batch`, `read_batch`, `ppt_compare_slides` and `ppt_comments` (2,536 estimated
+tokens against the full core's 3,729); edit_chart offers only `read`, `ppt_manage_slides`
+only `find_by_title`. `read_batch` (ooxml-edit 0.78.0) reads many things in one call --
+slides, design facts, a check -- each answered as alone, within its own size budget. A call outside the session's roles -- in a `batch` too, op by op -- is
 refused naming the role it needs; a reviewer reports each finding with the call that would
 fix it, for a builder (`roles=["review", "edit"]`, or the default) to apply in one batch.
 

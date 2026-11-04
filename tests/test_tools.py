@@ -236,10 +236,15 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: the entries of kind own) +33 to every definition (13,507 -> 13,540), none to the core
 #: (3,545).  The guard rises to 13,545.  The strict set is unchanged: the tool is sent
 #: non-strict.
+#: Round 32, R15 (ooxml-edit 0.78.0): read_batch (many reads in one call, each with its own
+#: budget) in the core, where a builder reading slide after slide reaches for it, and the
+#: prompt's line on reading: +184 to the core (3,545 -> 3,729, about 5,519 counted by the
+#: proxy) and to every definition (13,540 -> 13,723).  The guard rises to 13,725.  read_batch
+#: is sent non-strict (free-form ops): the strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13545
+ALL_GUARD = 13725
 
 
 def estimate_tokens(definitions) -> int:
@@ -280,8 +285,8 @@ def ok(result):
 
 
 EXPECTED_CORE = {"open_document", "new_document", "save_document", "undo", "find_text",
-                 "replace_text", "render", "check", "batch", "describe", "ppt_read_slides",
-                 "ppt_set_text", "ppt_set_shape"}
+                 "replace_text", "render", "check", "batch", "read_batch", "describe",
+                 "ppt_read_slides", "ppt_set_text", "ppt_set_shape"}
 
 
 def test_the_tool_set_and_its_groups(toolbox):

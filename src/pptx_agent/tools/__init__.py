@@ -97,7 +97,8 @@ from .textfacts import slide_number
 PROMPT = """\
 PowerPoint decks
 - describe first: slides with ids and content areas, theme colours and fonts, layouts \
-and their placeholders. Then ppt_read_slides for the slides the task touches.
+and their placeholders. Then ppt_read_slides for the slides the task touches; several \
+reads go in one read_batch.
 - Addresses: s:256 a slide (its id; it never changes; slide numbers 1, 2... are \
 positions). 256.5 a shape (256.5#2 when the deck numbered two shapes alike), 256.5/p1 a \
 paragraph, 256.5/p1/r0 a run, 256.7/cell1,2 a table cell (row, column from 0), 256/notes \
@@ -341,6 +342,7 @@ TOOLS = [
     *read.TOOLS,
     text.ppt_set_text, shapes.ppt_set_shape,
     next(tool for tool in shared.SESSION_TOOLS if tool.name == "batch"),
+    shared.READ_BATCH,      # many reads in one call (ooxml-edit 0.78.0; round 32, R15)
     text.ppt_format_text,
     shapes.ppt_add_shape, shapes.ppt_add_connector, shapes.ppt_arrange,
     shapes.ppt_add_picture, *tables.TOOLS,
