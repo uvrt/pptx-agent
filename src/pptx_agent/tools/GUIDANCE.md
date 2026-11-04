@@ -162,7 +162,11 @@ mark, a placeholder's prompt -- lives on the slide master or a layout, not on th
   in one call and keeps each copy's text, values and pictures; run it with `preview: true`
   first. Handle only what each copy lists under `not_followed` and `overflows` (a table with
   other columns, a shape the copy filled with something else, text that no longer fits);
-  `changed: false` means a copy already follows.
+  `changed: false` means a copy already follows. Each `not_followed` entry has a `kind`:
+  `own` (the copy's own content kept, such as its footer: usually nothing to do),
+  `changed_by_copy` (a shape taken off this copy), `structure` (other table columns, merged
+  cells, group members, a paragraph level the sample lacks); `report: "actionable"` leaves
+  the `own` ones out and counts them per copy.
 - **A slide from another open deck is `ppt_manage_slides import`** (`source_doc`, `slide`,
   `to`): it comes with its pictures, charts, SmartArt and notes (`notes` replaces them, as on
   a duplicate), on this deck's layout of the same name (`layout: "source"` copies a missing

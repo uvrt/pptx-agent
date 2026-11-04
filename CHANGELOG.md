@@ -7,6 +7,25 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+## 0.1.15 -- unreleased
+
+- **`ppt_follow_sample`: every `not_followed` entry has a `kind`** (production round 32, R13),
+  so a caller can pass over the copy's own content without reading `why`: `own` (a shape the
+  sample has none of kept, such as the copy's footer placeholder, or a placeholder the copy
+  filled with another kind of content: a picture where the sample's holds text, a chart where
+  it holds a table), `changed_by_copy` (the sample's shape taken off this copy, or another
+  kind of shape in its place), `structure` (a table with other columns, rows merging cells
+  unlike the sample's, a group with other members, paragraphs at a level the sample lacks).
+  The set is `pptx_agent.edit.follow.KINDS`. `overflows` keep `ppt_check`'s kinds (`text`,
+  `overlap`, `off_slide`). New `report: "actionable"` leaves the `own` entries out and counts
+  them per copy (`own: 2`); the summary's "with something to handle" no longer counts copies
+  whose only entries are `own`; past the reply's budget the `own` entries are counted before
+  any copy is left out. A copy whose table has more or fewer rows than the sample's and
+  already follows no longer lists the rows note under `not_followed` (it followed: the note
+  stays on a changed shape's `note`). Every definition +33 offline tokens (13,507 -> 13,540;
+  guard 13,545), the core unchanged (3,545); the tool is sent non-strict, so the strict set
+  is unchanged.
+
 ## 0.1.14 -- unreleased
 
 - **`ppt_follow_sample`: copies follow a revised sample in one call** (production round 31,
