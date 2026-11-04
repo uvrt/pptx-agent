@@ -563,27 +563,26 @@ def user_metrics(families, document=None) -> dict:
 class _Measured:
     """pptx2svg's resolved slide and a measuring context, for one slide's shapes."""
 
-    def __init__(self, slide: "Slide") -> None:
-        import pptx2svg
-
-        from .document import locale_of
-
-        document = slide.document
-        # The deck's locale, as its render: a date field's text is measured as drawn.
-        options = pptx2svg.ConvertOptions(slide_numbers=[slide.index + 1],
-                                          warn_on_font_substitution=False,
-                                          locale=locale_of(document))
-        model = pptx2svg.convert_pptx_to_model(document.to_bytes(), options)
-        from pptx2svg.fonts.check import resolved_families
-
-        # As pptx2svg measures: the deck's embedded faces, then the application's own
-        # (Document.font_dirs, OOXML_FONT_DIRS).
-        extra = dict(model.embedded_fonts.metrics)
-        for key, table in user_metrics(resolved_families(model), document).items():
-            extra.setdefault(key, table)
-        self.context = _engine().context(extra)
+    def __init__(self, slide: "Slide", _drawn=None, _context=None) -> None:
+        if _drawn is None:
+            model, context = _model(slide.document, [slide])
+            _drawn = model.slides[0]
+            _context = context
+        self.context = _context
         self._by_id: dict[str, list[tuple[object, tuple[float, float]]]] = {}
-        self._walk(model.slides[0].elements, (1.0, 1.0))
+        self._walk(_drawn.elements, (1.0, 1.0))
+
+    @classmethod
+    def many(cls, slides: "list[Slide]") -> "dict[int, _Measured]":
+        """One measuring of several slides of one deck, by ``sldId``: the deck is read
+        once, not once a slide (a run of copies, :mod:`.follow`)."""
+        if not slides:
+            return {}
+        model, context = _model(slides[0].document, slides)
+        ordered = sorted(slides, key=lambda slide: slide.index)
+        return {slide.slide_id: cls(slide, drawn, context)
+                for slide, drawn in zip(ordered, model.slides)}
+
 
     def _walk(self, elements, scale: tuple[float, float]) -> None:
         for element in elements:
@@ -624,6 +623,27 @@ def _occurrence(shape: "Shape") -> int:
             if properties is not None and properties.get("id") == raw:
                 count += 1
     return count
+
+
+def _model(document: "Document", slides: "list[Slide]"):
+    """pptx2svg's resolved model of ``slides`` (in deck order) and the measuring context."""
+    import pptx2svg
+
+    from .document import locale_of
+
+    # The deck's locale, as its render: a date field's text is measured as drawn.
+    options = pptx2svg.ConvertOptions(slide_numbers=sorted(slide.index + 1 for slide in slides),
+                                      warn_on_font_substitution=False,
+                                      locale=locale_of(document))
+    model = pptx2svg.convert_pptx_to_model(document.to_bytes(), options)
+    from pptx2svg.fonts.check import resolved_families
+
+    # As pptx2svg measures: the deck's embedded faces, then the application's own
+    # (Document.font_dirs, OOXML_FONT_DIRS).
+    extra = dict(model.embedded_fonts.metrics)
+    for key, table in user_metrics(resolved_families(model), document).items():
+        extra.setdefault(key, table)
+    return model, _engine().context(extra)
 
 
 def _local(element) -> str:
@@ -1225,14 +1245,17 @@ def _collisions(slide: "Slide", items: list[_Item], boxes: bool = False) -> list
 
 
 def slide_problems(slide: "Slide", *, collisions_only: bool = False,
-                   boxes: bool = False) -> list[Overflow]:
+                   boxes: bool = False, measured: "_Measured | None" = None) -> list[Overflow]:
     """Every problem on one slide: text overflows, collisions and shapes off the slide;
-    with ``boxes``, also text shapes whose boxes overlap (``detail="box"``)."""
-    return slide_report(slide, collisions_only=collisions_only, boxes=boxes)[0]
+    with ``boxes``, also text shapes whose boxes overlap (``detail="box"``).
+    ``measured``: the slide already measured (:meth:`_Measured.many`)."""
+    return slide_report(slide, collisions_only=collisions_only, boxes=boxes,
+                        measured=measured)[0]
 
 
 def slide_report(slide: "Slide", *, collisions_only: bool = False,
-                 boxes: bool = False) -> tuple[list[Overflow], dict[str, TextFit]]:
+                 boxes: bool = False, measured: "_Measured | None" = None
+                 ) -> tuple[list[Overflow], dict[str, TextFit]]:
     """:func:`slide_problems`, and the :class:`TextFit` of every shape holding text, by
     shape id -- from one measurement of the slide (its near-wrap lines, its fits within
     the allowance), for a caller that reports both.
@@ -1243,7 +1266,7 @@ def slide_report(slide: "Slide", *, collisions_only: bool = False,
         tight = [shape for shape, fit in fits.items() if fit.near_wrap]
     """
     width, height = slide.document.slide_size
-    measured_ref: list = [None]
+    measured_ref: list = [measured]
     fits: dict = {}
     items = _items(slide, measured_ref, fits)
     out: list[Overflow] = []

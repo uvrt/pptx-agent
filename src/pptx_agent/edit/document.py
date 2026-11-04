@@ -4404,6 +4404,48 @@ class Document(CommentOps):
         chosen = [item if isinstance(item, Slide) else self.slide(item) for item in slides]
         return compare_slides(chosen, within=within, reference=reference)
 
+    def find_copies(self, sample: "Slide | int | str"):
+        """The slides of this deck made from ``sample`` (a slide of this deck or another)
+        and how each was told (:class:`~pptx_agent.edit.follow.Found`): on the sample's
+        layout, with at least half of the sample's shapes other than placeholders there by
+        kind, id and name (or a GUID id) -- what a duplicated, pasted or imported slide
+        keeps; slides that came near are listed with why.  See
+        :mod:`pptx_agent.edit.follow`.
+
+        For example::
+
+            deck.find_copies("s:300").slides               # ['s:301', 's:302', 's:305']
+        """
+        from .follow import find_copies
+
+        chosen = sample if isinstance(sample, Slide) else self.slide(sample)
+        return find_copies(chosen, self)
+
+    def follow_sample(self, sample: "Slide | int | str", copies=None, *,
+                      preview: bool = False, remove: str = "auto"):
+        """Make copies of ``sample`` follow its design after it was revised: box,
+        geometry, fill, outline, shapes added or removed, table style, column widths and row
+        heights, cells, text frame and paragraph and run formatting from the sample; each
+        copy's text, values and pictures stay its own
+        (:class:`~pptx_agent.edit.follow.Following`, per copy what changed, what could not
+        follow and why, and what text no longer fits).  ``sample``: a slide of this deck or
+        another; ``copies``: slides of this deck (default :meth:`find_copies`).  ``remove``:
+        ``"auto"`` deletes a copy's shape the sample has none of when most copies have it
+        (the sample lost it), ``"all"`` every such shape, ``"none"`` none.  One undo step;
+        ``preview=True`` reports and changes nothing.  See :mod:`pptx_agent.edit.follow`.
+
+        For example::
+
+            report = deck.follow_sample("s:300", preview=True).to_json()
+            deck.follow_sample("s:300", ["s:301", "s:302"])
+        """
+        from .follow import follow_sample
+
+        chosen = sample if isinstance(sample, Slide) else self.slide(sample)
+        slides = None if copies is None else [
+            item if isinstance(item, Slide) else self.slide(item) for item in copies]
+        return follow_sample(chosen, slides, deck=self, preview=preview, remove=remove)
+
     def outline_blocks(self, slides=None, *, scope: str = "slides") -> "list[TextBlock]":
         r"""Every piece of text in the deck, raw, with its address -- the outline's blocks
         as data, for editing rather than reading.

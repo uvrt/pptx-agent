@@ -228,10 +228,14 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: ``null`` for a blank in its values' descriptions +49 to every definition (13,166 ->
 #: 13,215), none to the core (3,545): edit_chart is deferred.  The guard rises to 13,220.
 #: edit_chart is never sent strict (47 optional parameters): the strict set is unchanged.
+#: Round 31, R8: ppt_follow_sample (copies of a sample made to follow its revised design;
+#: sample, copies, sample_doc, preview, remove) +292 to every definition (13,215 -> 13,507),
+#: none to the core (3,545): the tool is deferred, in ppt_slides.  The guard rises to
+#: 13,510.  The strict set is unchanged: the tool is sent non-strict.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13220
+ALL_GUARD = 13510
 
 
 def estimate_tokens(definitions) -> int:
