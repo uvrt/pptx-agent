@@ -7,6 +7,21 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+## 0.1.16 -- unreleased
+
+- **`read_batch` in the core: many reads in one call, a reader's too** (production round 32,
+  R15; ooxml-edit 0.78.0). `describe`, `ppt_read_slides`, `ppt_design_facts`, `check`,
+  `find_text`, `ppt_compare_slides`, a chart's `read`... in one call, each answered as the
+  call alone, within its own `max_result_chars`; the reply within 96,000 characters, what
+  does not fit listed with the call that asks for it. It changes nothing and is the
+  `review` role's, so a reader (`roles=["review"]`) has it in its core; a change among its
+  ops is refused with the way out (`batch`). The prompt's first line on reading says several
+  reads go in one `read_batch`; ooxml-edit's shared fragment names it too. Offline tokens:
+  the core 3,545 -> 3,729 (about 5,519 counted by the proxy), every definition 13,540 ->
+  13,723 (guard 13,725), a reviewer's core 2,352 -> 2,536 (guard 2,545) and every
+  definition 4,558 -> 4,741 (guard 4,745). Sent non-strict: the strict set is unchanged.
+  `ooxml-edit>=0.78.0` (was 0.74.0).
+
 ## 0.1.15 -- unreleased
 
 - **`ppt_follow_sample`: every `not_followed` entry has a `kind`** (production round 32, R13),

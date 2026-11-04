@@ -38,8 +38,9 @@ from test_tools import (CLOCK, COUNTED_PER_ESTIMATED, CORE_COUNTED_BUDGET, _deck
 #: description +12) 2,402; round 16, F11 (save_document's ``clean``, +42) 2,444; round 16,
 #: F8 (check's ``layout``, ``min_size`` and ``styles``, documents' only, +67) 2,511; round 17,
 #: P2 (ppt_compare_slides' ``reference``, +82) 2,593; round 23, V3 (check, find_text,
-#: replace_text, render and save_document without a document's parameters and values) 2,360.
-REVIEW_CORE_GUARD = 2365
+#: replace_text, render and save_document without a document's parameters and values) 2,360;
+#: round 32, R15 (read_batch, ooxml-edit 0.78.0, +184) 2,544.
+REVIEW_CORE_GUARD = 2545
 #: Every definition a reviewer is sent, estimated.  Measured 4,460 (4,458 before); round 8,
 #: M3 and M4, 4,469; round 9, N1, 4,532; round 11, P3, 4,546; round 12, Q1, 4,581; round
 #: 14, S1, 4,601; round 15, T2 and T3, 4,650; round 16, F11, 4,692; F8, 4,759; round 17,
@@ -47,11 +48,13 @@ REVIEW_CORE_GUARD = 2365
 #: round 18, ppt_manage_slides' ``action_fields`` (a reviewer, with find_by_title only, is
 #: not sent slide, to, notes, ref, layout or source_doc; -164), 4,741; round 23, V3 (the
 #: shared tools without a document's parameters), 4,509; round 29, C1 (edit_chart's
-#: ``blanks`` and ``null`` in its values, ooxml-edit 0.75.0), 4,558.
-REVIEW_ALL_GUARD = 4560
+#: ``blanks`` and ``null`` in its values, ooxml-edit 0.75.0), 4,558; round 32, R15
+#: (read_batch), 4,741.
+REVIEW_ALL_GUARD = 4745
 
 REVIEW_CORE = {"open_document", "save_document", "find_text", "render", "check", "describe",
-               "ppt_read_slides", "batch", "ppt_compare_slides", "ppt_comments"}
+               "ppt_read_slides", "batch", "read_batch", "ppt_compare_slides",
+               "ppt_comments"}
 REVIEW_TOOLS = REVIEW_CORE | {"close_document", "read_blob", "ppt_design_facts", "edit_chart",
                               "ppt_manage_slides"}
 
@@ -139,8 +142,8 @@ def test_an_editor_alone_is_sent_the_changing_tools(toolbox):
     sent = _sent(toolbox, ["edit"], defer=False)
     assert {"ppt_set_text", "ppt_add_shape", "undo", "new_document", "save_document",
             "batch"} <= set(sent)
-    assert not {"describe", "ppt_read_slides", "render", "check", "ppt_compare_slides"} & \
-        set(sent)
+    assert not {"describe", "ppt_read_slides", "render", "check", "ppt_compare_slides",
+                "read_batch"} & set(sent)
     assert "read" not in _enum(sent["edit_chart"])
 
 
@@ -332,3 +335,42 @@ def test_a_reviewer_s_prompt_follows_the_tools_sent(toolbox):
     assert "Role: review." in reading and "comment" not in reading.split("Role: review.")[1]
     assert toolbox.system_prompt(roles=["review"], groups="core") == \
         toolbox.system_prompt(roles=["review"])
+
+
+def test_a_reviewer_reads_many_slides_in_one_read_batch(toolbox):
+    """ooxml-edit 0.78.0 (round 32, R15): read_batch is a reader's, in its core, and named in
+    its prompt: describe, slides, design facts and a check in one call, each answered as
+    alone; a change among them is refused by role, the others answered, nothing changed."""
+    session = _session(toolbox, ["review"])
+    assert "read_batch makes many reads" in toolbox.system_prompt(roles=["review"])
+    alone = toolbox.dispatch(session, "ppt_read_slides", {"doc": "d1", "slides": [2],
+                                                          "detail": "outline"})
+    result = toolbox.dispatch(session, "read_batch", {"ops": [
+        {"tool": "describe", "arguments": {"doc": "d1"}},
+        {"tool": "ppt_read_slides", "arguments": {"doc": "d1", "slides": [1],
+                                                  "detail": "outline"}},
+        {"tool": "ppt_read_slides", "arguments": {"doc": "d1", "slides": [2],
+                                                  "detail": "outline"}},
+        {"tool": "check", "arguments": {"doc": "d1"}},
+        {"tool": "ppt_set_text", "arguments": {
+            "doc": "d1", "items": [{"target": "256.2", "text": "Shorter"}]}}]})
+    assert result.ok
+    answers = result.data["ops"]
+    assert ["error" in answer for answer in answers] == [False] * 4 + [True]
+    assert answers[2]["data"] == alone.data
+    assert answers[4]["error"]["details"]["role"] == "edit"
+    assert session.entry("d1").version == 0 and not session.entry("d1").history.can_undo()
+
+
+def test_a_builder_s_change_in_a_read_batch_is_sent_to_batch(toolbox):
+    session = _session(toolbox, None)
+    result = toolbox.dispatch(session, "read_batch", {"ops": [
+        {"tool": "ppt_set_text", "arguments": {
+            "doc": "d1", "items": [{"target": "256.2", "text": "Shorter"}]}},
+        {"tool": "edit_chart", "arguments": {"doc": "d1", "target": "256.2",
+                                             "action": "read"}}]})
+    refused, chart = result.data["ops"]
+    assert refused["error"]["code"] == "refused"
+    assert refused["error"]["valid_options"] == ["batch", "ppt_set_text"]
+    assert "read_batch only reads" not in chart.get("error", {}).get("message", "")
+    assert session.entry("d1").version == 0
