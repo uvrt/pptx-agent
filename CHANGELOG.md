@@ -7,6 +7,37 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+## 0.1.14 -- unreleased
+
+- **`ppt_follow_sample`: copies follow a revised sample in one call** (production round 31,
+  R8; library `Document.follow_sample`, `Document.find_copies`, `edit/follow.py`). The
+  sample's design goes onto each copy -- box, geometry, fill, outline, effects, shape style
+  and name, text frame and list styles, paragraph and run formatting, table style, column
+  widths, row heights and cells, a group's members, stacking order; shapes the sample gained
+  are added, shapes it lost removed -- and each copy keeps its text, values, hyperlinks,
+  language and pictures. Shapes are matched as `ppt_compare_slides` matches them; text by
+  paragraph and run position where the structure is the sample's, else by paragraph level
+  with a run's own emphasis kept. Per copy: what changed (`changed: false` when it already
+  follows), what was added and removed, `not_followed` with why (other table columns, merged
+  cells unlike the sample's, a shape the copy filled with something else, a level the sample
+  lacks, a shape only that copy has), and `overflows` the following made (text that no longer
+  fits, new collisions; pptx2svg, every copy measured in one reading of the deck before and
+  after). `preview` changes nothing; the whole follow is one undo step. Without `copies`, the
+  copies are found by what a duplicated, pasted or imported slide keeps -- the sample's
+  layout and at least half of its shapes other than placeholders by kind, `cNvPr` id and name
+  (and place, or preset and size, when the name is a default `Rectangle 3`), or a GUID id; PowerPoint for Mac,
+  measured 2026-11-04, keeps ids, names and the id stamp on a pasted slide and gives every
+  shape a new `a16:creationId`. Slides near the bar are listed with why. The reply keeps to a
+  budget (12,000 characters of data): changed shapes become counts per copy, copies past it
+  are listed under `left_out`. The tool takes the slide forms other tools take (a number,
+  `s:300`, a ref, a shape address meaning its slide), `[]` and `""` as defaults, and skips the
+  sample listed among its copies, each with a warning; a refusal lists the copies it could
+  follow. Deferred, in `ppt_slides`: every definition +292 offline tokens (13,215 -> 13,507;
+  guard 13,510), the core unchanged (3,545); sent non-strict, so the strict set is unchanged.
+- `fit._Measured.many`: several slides of one deck measured from one reading of it
+  (`slide_problems(measured=...)`); following 90 copies with the fit check went from 110 s to
+  7 s on a made-up deck.
+
 - Tests only (production round 29, C1; ooxml-edit 0.75.0): the shared edit_chart's `blanks`
   and `null` for a blank point in its values add 49 offline tokens to every definition, and
   nothing to the core, which does not load edit_chart. The token guards in `tests/` rise

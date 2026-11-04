@@ -32,6 +32,7 @@ What is here (the tool layer's roadmap numbers them):
   ``measure: true``, row heights and pages before placing), ``ppt_edit_table`` (fill and
   borders too);
 * slides: ``ppt_add_slide``, ``ppt_draft_slides``, ``ppt_manage_slides``, ``ppt_set_theme``;
+  ``ppt_follow_sample`` makes copies of a sample slide follow its revised design (:mod:`.follow`);
 * charts and SmartArt, through the shared ``edit_chart`` (``action: "read"`` reads one) and
   ``edit_smartart`` (:mod:`.charts`);
 * review: ``ppt_comments``, PowerPoint's comment threads on slides and shapes (:mod:`.review`);
@@ -88,7 +89,7 @@ from ..edit.text import MarkdownEscapeWarning
 from ..edit.units import UnitWarning
 from ..fullstate import FullStateError
 from ..outline import OutlineWarning
-from . import charts, facts, read, review, shapes, shared_tools, slides, tables, text
+from . import charts, facts, follow, read, review, shapes, shared_tools, slides, tables, text
 from . import render as _render
 from .common import KIND, checks, pt
 from .textfacts import slide_number
@@ -120,7 +121,8 @@ unless the difference is intended.
 - Before saving: check (fit, collisions, validate) and resolve the overflows and \
 collisions the task does not intend; save_document lists any left. For slides with \
 graphics, ppt_design_facts reports what the application's guidance may ask about. After \
-building a run of like slides, ppt_compare_slides lists where they differ.
+building a run of like slides, ppt_compare_slides lists where they differ; after \
+revising their sample, ppt_follow_sample makes the copies follow it.
 """
 
 #: Claude's strict mode fits only some tools (20 tools, 24 optional parameters and, measured,
@@ -330,7 +332,7 @@ GROUPS = [*shared.GROUPS,
           ToolGroup(review.REVIEW, "Review comments on slides and shapes: threads, replies, "
                     "resolving."),
           ToolGroup(slides.SLIDES, "Adding, drafting, moving and deleting slides; the theme; "
-                    "comparing a run of like slides.")]
+                    "comparing a run of like slides, and making copies follow a sample.")]
 
 #: Every PowerPoint tool, the shared ones included, in the order they are offered.
 TOOLS = [
@@ -343,6 +345,7 @@ TOOLS = [
     shapes.ppt_add_shape, shapes.ppt_add_connector, shapes.ppt_arrange,
     shapes.ppt_add_picture, *tables.TOOLS,
     *slides.TOOLS,
+    *follow.TOOLS,
     *charts.TOOLS,
     *facts.TOOLS,
     *review.TOOLS,
