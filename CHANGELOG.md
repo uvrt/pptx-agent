@@ -7,6 +7,24 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+## 0.1.17 -- unreleased
+
+- **Numbers in text no value holds** (production round 36, R28; ooxml-edit 0.83.0): `check`
+  with `include: ["numbers"]` reads each shape's and typed table cell's own text on the
+  slides asked (`FORMAT.number_texts`, `pptx_agent.tools.textfacts.number_texts`) and lists
+  the decimals and percentages no value of the session's datasets or open workbooks'
+  tables matches within the rounding the text shows (`unverified`, with the nearest values
+  and their sources), and the typed numbers a value matches (`typed`, with the
+  `replace_text` call that writes each by reference). Left out: text written by reference
+  (the shape's kept facts), tables placed with `from` (their record), charts, SmartArt,
+  footers, dates and slide numbers, speaker notes. `pages` and `range` are refused, the
+  way out said. Opt in, capped; whole numbers and the ignore list are the application's
+  (`Toolbox(numbers=NumberRules(...))`).
+- Offline tokens: check's include gains `numbers`: the core 3,729 -> 3,732 (about 5,523
+  counted by the proxy), every definition 13,723 -> 13,726 (guard 13,725 -> 13,730); a
+  reviewer's core 2,544 -> 2,547 (guard 2,545 -> 2,550), all 4,741 -> 4,744. No parameter
+  added: the strict set and its optional count are unchanged.
+
 ## 0.1.16 -- unreleased
 
 - **`read_batch` in the core: many reads in one call, a reader's too** (production round 32,
