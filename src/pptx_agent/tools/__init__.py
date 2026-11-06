@@ -92,6 +92,7 @@ from ..outline import OutlineWarning
 from . import charts, facts, follow, read, review, shapes, shared_tools, slides, tables, text
 from . import render as _render
 from .common import KIND, checks, pt
+from .scales import scale_values
 from .textfacts import number_texts, slide_number
 
 PROMPT = """\
@@ -262,7 +263,7 @@ FORMAT = DocumentFormat(
     configure=_configure, touched=_touched,
     store_provenance=tables.store_provenance, read_provenance=tables.read_provenance,
     own_facts={_slidenumbers.PREFIX: slide_number}, number_texts=number_texts,
-    warm_up=_render.warm_up)
+    scale_values=scale_values, warm_up=_render.warm_up)
 
 def deck_format(*, min_text_size: "float | dict[str, float] | None" = None,
                 assets=None) -> DocumentFormat:
@@ -351,6 +352,8 @@ TOOLS = [
     *charts.TOOLS,
     *facts.TOOLS,
     *review.TOOLS,
+    # Round 36, R31: last, so the strict plan's tools before it keep their places.
+    shared_tools.style_by_value,
 ]
 
 __all__ = ["FORMAT", "GROUPS", "KIND", "PROMPT", "STRICT_FIRST", "TOOLS", "deck_format",

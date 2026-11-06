@@ -7,6 +7,23 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+## 0.1.18 -- unreleased
+
+- **Values styled by a scale, applied once** (production round 36, R31; ooxml-edit 0.85.0):
+  `style_by_value(doc, scale)` fills each value's shape or table cell with its step's colour
+  and colours its text -- a shape (`256.5`), a cell (`256.7/cell1,2`), a table's column
+  (`256.7/col1`: the header row left out where Header Row is on), the values written by
+  reference (`{{d:scores/*/score}}`: their cell or shape). A deck has no character styles:
+  the fill and the text colour are written directly, and the reply says so. `check(scale=...)`
+  lists the values filled with another step's colour (a value changed since), none, or the
+  step's fill with other text colours, and the fix; `slides` scope it
+  (`pptx_agent.tools.scales`). The WCAG 2 ratio of `check`'s `contrast` is now
+  ooxml-edit's (`ooxml_edit.contrast`), the same reading a step's `auto` text uses.
+- Tokens (offline estimate): check's `scale` +158 in the core (3,732 -> 3,890, about 5,757
+  counted by the proxy); `style_by_value` (deferred, `shared_misc`) +464: every definition
+  13,726 -> 14,348 (guard 14,350); a reviewer's core 2,547 -> 2,705, all 4,744 -> 4,902. The
+  strict set unchanged.
+
 ## 0.1.17 -- unreleased
 
 - **Numbers in text no value holds** (production round 36, R28; ooxml-edit 0.83.0): `check`

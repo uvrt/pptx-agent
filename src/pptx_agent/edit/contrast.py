@@ -39,6 +39,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from ooxml_edit import contrast as _wcag
+
 if TYPE_CHECKING:  # pragma: no cover
     from .document import Slide
 
@@ -90,22 +92,10 @@ class ContrastReport:
     minimum: float
 
 
-def luminance(hex_color: str) -> float:
-    """WCAG 2's relative luminance of ``#RRGGBB``."""
-    value = hex_color.lstrip("#")
-    channels = []
-    for index in (0, 2, 4):
-        c = int(value[index:index + 2], 16) / 255
-        channels.append(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4)
-    red, green, blue = channels
-    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
-
-
-def ratio(first: str, second: str) -> float:
-    """WCAG 2's contrast ratio of two ``#RRGGBB`` colours, 1 to 21."""
-    a, b = luminance(first), luminance(second)
-    lighter, darker = max(a, b), min(a, b)
-    return (lighter + 0.05) / (darker + 0.05)
+#: WCAG 2's relative luminance and contrast ratio: ooxml-edit's (round 36), the one reading a
+#: scale's steps choose their text colour with too.
+luminance = _wcag.luminance
+ratio = _wcag.ratio
 
 
 def _blend(top: str, alpha: float, under: str) -> str:

@@ -40,8 +40,9 @@ from test_tools import (CLOCK, COUNTED_PER_ESTIMATED, CORE_COUNTED_BUDGET, _deck
 #: P2 (ppt_compare_slides' ``reference``, +82) 2,593; round 23, V3 (check, find_text,
 #: replace_text, render and save_document without a document's parameters and values) 2,360;
 #: round 32, R15 (read_batch, ooxml-edit 0.78.0, +184) 2,544; round 36, R28 (check's include
-#: numbers, ooxml-edit 0.83.0, +3) 2,547.
-REVIEW_CORE_GUARD = 2550
+#: numbers, ooxml-edit 0.83.0, +3) 2,547; R31 (check's scale, values styled by a scale's
+#: steps or not, ooxml-edit 0.85.0, +158) 2,705.
+REVIEW_CORE_GUARD = 2705
 #: Every definition a reviewer is sent, estimated.  Measured 4,460 (4,458 before); round 8,
 #: M3 and M4, 4,469; round 9, N1, 4,532; round 11, P3, 4,546; round 12, Q1, 4,581; round
 #: 14, S1, 4,601; round 15, T2 and T3, 4,650; round 16, F11, 4,692; F8, 4,759; round 17,
@@ -50,8 +51,9 @@ REVIEW_CORE_GUARD = 2550
 #: not sent slide, to, notes, ref, layout or source_doc; -164), 4,741; round 23, V3 (the
 #: shared tools without a document's parameters), 4,509; round 29, C1 (edit_chart's
 #: ``blanks`` and ``null`` in its values, ooxml-edit 0.75.0), 4,558; round 32, R15
-#: (read_batch), 4,741; round 36, R28 (check's include numbers, +3), 4,744.
-REVIEW_ALL_GUARD = 4745
+#: (read_batch), 4,741; round 36, R28 (check's include numbers, +3), 4,744; R31 (check's
+#: scale, +158; style_by_value is an editor's), 4,902.
+REVIEW_ALL_GUARD = 4905
 
 REVIEW_CORE = {"open_document", "save_document", "find_text", "render", "check", "describe",
                "ppt_read_slides", "batch", "read_batch", "ppt_compare_slides",
