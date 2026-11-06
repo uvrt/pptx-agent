@@ -241,10 +241,14 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: prompt's line on reading: +184 to the core (3,545 -> 3,729, about 5,519 counted by the
 #: proxy) and to every definition (13,540 -> 13,723).  The guard rises to 13,725.  read_batch
 #: is sent non-strict (free-form ops): the strict set is unchanged.
+#: Round 36, R28 (ooxml-edit 0.83.0): check's include takes numbers (numbers in text no value
+#: holds, opt in): +3 to the core (3,729 -> 3,732, about 5,523 counted by the proxy) and to
+#: every definition (13,723 -> 13,726).  The guard rises to 13,730.  No parameter added: the
+#: strict set and its optional count are unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13725
+ALL_GUARD = 13730
 
 
 def estimate_tokens(definitions) -> int:
@@ -1332,7 +1336,7 @@ def test_check_is_sent_without_a_documents_parameters_and_still_refuses_them(too
             f"{name} measures a document's layout (docx, include layout); leave it out here")
     include = sent["input_schema"]["properties"]["include"]
     assert include["items"]["enum"] == ["fit", "collisions", "facts", "design", "validate",
-                                        "layout", "app"]
+                                        "layout", "app", "numbers"]
     assert include["description"] == "Default: fit, collisions, validate."
     noted = ok(call(toolbox, session, "check", doc="d1", include=["reflow"]))   # as before
     assert noted.data["notes"] == ["reflow: documents only"]

@@ -21,7 +21,7 @@ from typing import Any, Iterable, Mapping
 
 from ooxml_edit import provenance as _records
 
-from ooxml_edit.tools import ToolError
+from ooxml_edit.tools import NumberText, ToolError
 
 from ..edit import provenance as _provenance
 from ..edit import slidenumbers as _slidenumbers
@@ -143,3 +143,69 @@ def slide_number(deck, name: str) -> tuple[str, dict[str, Any]]:
 
 
 __all__ = ["Spot", "cell_facts", "placed", "slide_number", "spot"]
+
+
+# -- numbers no value holds (round 36) ------------------------------------------------------------
+
+#: Placeholders whose text is the slide's furniture, never a figure: footer, date, number.
+FURNITURE = ("ftr", "dt", "sldNum")
+
+
+def number_texts(call, scope: Mapping[str, Any]) -> list[NumberText]:
+    """``DocumentFormat.number_texts`` for a deck (``check``'s ``include: ["numbers"]``,
+    :mod:`ooxml_edit.tools.numbers`): each shape's text and each table cell's on the
+    slides in ``scope`` (``slides``; every slide without), the spans written by reference
+    marked (the shape's or table's kept facts that are still true), in slide order.  Left
+    out: a table or chart placed with ``from`` (its frame keeps the record), charts and
+    SmartArt (their text is no paragraph of the slide), footers, dates and slide numbers,
+    speaker notes."""
+    from .common import numbers as slide_numbers
+
+    if scope.get("pages") is not None:
+        raise ToolError("invalid_arguments", "a deck has slides, not pages: give slides",
+                        field="pages")
+    if scope.get("range") is not None:
+        raise ToolError("invalid_arguments", "check range names a document's blocks (docx); "
+                        "leave it out here: slides say which slides", field="range")
+    deck = call.document
+    out: list[NumberText] = []
+    for number in slide_numbers(deck, scope.get("slides")):
+        slide = deck.slides[number - 1]
+        where = f"s:{slide.slide_id}"
+        for shape in slide.shapes:
+            placeholder = shape.placeholder
+            if placeholder is not None and placeholder.type in FURNITURE:
+                continue
+            table = shape.table if shape.kind == "graphic_frame" else None
+            if table is not None:
+                if _provenance.read(shape) is not None:
+                    continue                          # placed with from: it has its record
+                kept = _provenance.facts_found(shape)
+                for row in range(table.rows):
+                    for column in range(table.columns):
+                        text = _provenance.text_of(shape, (row, column)) or ""
+                        if text.strip():
+                            spans = _spans(text, [fact for fact in kept
+                                                  if fact.get("cell") == [row, column]])
+                            out.append(NumberText(f"{shape.id}/cell{row},{column}", text, spans,
+                                                  {"slides": [where]}, {"slide": where}))
+                continue
+            if shape.text_frame is None:
+                continue
+            text = _provenance.text_of(shape) or ""
+            if not text.strip():
+                continue
+            spans = _spans(text, [fact for fact in _provenance.facts_found(shape)
+                                  if "cell" not in fact])
+            out.append(NumberText(shape.id, text, spans, {"slides": [where]}, {"slide": where}))
+    return out
+
+
+def _spans(text: str, facts: Iterable[Mapping[str, Any]]) -> tuple[tuple[int, int], ...]:
+    """Where in ``text`` the facts' values are: ``(start, end)`` each."""
+    out = []
+    for fact in facts:
+        start = _records.offset(text, fact.get("p"), fact.get("at"))
+        if start is not None and isinstance(fact.get("text"), str):
+            out.append((start, start + len(fact["text"])))
+    return tuple(out)
