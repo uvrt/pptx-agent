@@ -245,10 +245,16 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: holds, opt in): +3 to the core (3,729 -> 3,732, about 5,523 counted by the proxy) and to
 #: every definition (13,723 -> 13,726).  The guard rises to 13,730.  No parameter added: the
 #: strict set and its optional count are unchanged.
+#: Round 36, R31 (ooxml-edit 0.85.0): check's scale (values styled with the wrong step of a
+#: scale the caller gives, or none; its steps' fields undescribed) +158 to the core (3,732 ->
+#: 3,890, about 5,757 counted by the proxy) and to every definition; style_by_value (a scale's
+#: steps as fill and text colour), deferred in shared_misc, +464 (13,726 -> 14,348).  The
+#: guard rises to 14,350.  style_by_value is listed last and does not fit Claude's strict
+#: limits beside the others: the strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 13730
+ALL_GUARD = 14350
 
 
 def estimate_tokens(definitions) -> int:
@@ -1326,7 +1332,7 @@ def test_check_is_sent_without_a_documents_parameters_and_still_refuses_them(too
     pages, min_size or styles; an older prompt that passes one gets the refusal it always got."""
     sent = next(d for d in toolbox.definitions("anthropic", defer=False) if d["name"] == "check")
     assert set(sent["input_schema"]["properties"]) == {"doc", "slides", "include", "boxes",
-                                                       "spacing", "contrast"}
+                                                       "spacing", "contrast", "scale"}
     pages = call(toolbox, session, "check", doc="d1", pages=[1])
     assert pages.error.field == "pages" and pages.error.message == (
         "pages is for documents; a deck takes slides")

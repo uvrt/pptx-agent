@@ -702,4 +702,13 @@ def set_properties(call, doc, title=None, author=None, language=None, subject=No
                   data={"title": deck.title, "author": deck.author, "language": deck.language})
 
 
+@shared.handler("style_by_value", kind=KIND)
+@library_errors
+def style_by_value(call, doc, scale, preview=None):
+    """Values styled by a scale given once (round 36, R31; :mod:`.scales`)."""
+    from .scales import style_by_value as run
+
+    return run(call, doc, scale, preview)
+
+
 TOOLS = [new_document, save_document, find_text, replace_text, render, check, set_properties]
