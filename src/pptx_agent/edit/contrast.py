@@ -145,9 +145,11 @@ class _Layers:
     def __init__(self, slide: "Slide") -> None:
         import pptx2svg
 
-        options = pptx2svg.ConvertOptions(slide_numbers=[slide.index + 1],
-                                          warn_on_font_substitution=False)
-        model = pptx2svg.convert_pptx_to_model(slide.document.to_bytes(), options)
+        from .resolved import convert_options, source_of
+
+        options = convert_options(slide_numbers=[slide.index + 1],
+                                  warn_on_font_substitution=False)
+        model = pptx2svg.convert_pptx_to_model(source_of(slide.document), options)
         resolved = model.slides[0]
         self.by_id: dict[str, Any] = {}
         self._walk(resolved.elements)
