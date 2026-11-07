@@ -30,12 +30,15 @@ but no edit adds one.
 
 from __future__ import annotations
 
+import hashlib
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass
 
 from lxml import etree
 from ooxml_edit.xml import child_ranks, prefixed_name
 
-from .oxml.package import CONTENT_TYPES_PART, PresentationPackage
+from .oxml.package import CONTENT_TYPES_PART, PresentationPackage, rels_path_for
 from .oxml.xml import Element, qn
 
 _R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -60,38 +63,69 @@ class Problem:
 
 
 def check(package: PresentationPackage) -> list[Problem]:
-    """Every problem found in the package, sorted."""
+    """Every problem found in the package, sorted.
+
+    What a part alone decides -- whether it parses, its relationship ids, ``mc:Ignorable``
+    prefixes, child order and table grids -- is a function of its bytes and its
+    relationships part's bytes, so it is worked out once per those bytes
+    (:data:`_PART_PROBLEMS`, shared by every deck of the process): after an edit, only the
+    parts it changed are read again.  What the parts decide together (content types,
+    relationship targets, orphans, the slide list) is checked every time."""
     problems: list[Problem] = []
-    roots: dict[str, Element] = {}
     for name in package.part_names:
         if not name.endswith((".xml", ".rels")):
             continue
-        try:
-            etree.fromstring(package.read(name), etree.XMLParser(resolve_entities=False))
-        except etree.XMLSyntaxError as error:
-            problems.append(Problem("not-well-formed", name, str(error)))
-            continue
-        if name.endswith(".xml") and name != CONTENT_TYPES_PART:
-            roots[name] = package.tree(name)
+        problems += _part_problems(package, name)
     problems += _package_problems(package)
-    for name, root in roots.items():
-        problems += _relationship_id_problems(package, name, root)
-        problems += _ignorable_problems(name, root)
-        if name.startswith(_ORDERED_PARTS):
-            problems += _order_problems(name, root)
-        if name.startswith("ppt/slides/"):
-            problems += _table_problems(name, root)
     problems += _slide_list_problems(package)
     return sorted(set(problems))
 
 
+#: Each part's own problems by ``(name, its bytes' digest, its relationships' digest)``:
+#: at most :data:`_PART_LIMIT`, least recently used first out, for every deck of the
+#: process (a template's parts are the same bytes in each deck made from it).
+_PART_PROBLEMS: "OrderedDict[tuple, tuple[Problem, ...]]" = OrderedDict()
+_PART_LIMIT = 8192
+_part_lock = threading.Lock()
+
+
+def _digest(data: bytes | None) -> bytes:
+    return b"-" if data is None else hashlib.blake2b(data, digest_size=16).digest()
+
+
+def _part_problems(package: PresentationPackage, name: str) -> tuple[Problem, ...]:
+    data = package.read(name)
+    own = name.endswith(".xml") and name != CONTENT_TYPES_PART
+    key = (name, _digest(data), _digest(package.read(rels_path_for(name))) if own else b"")
+    with _part_lock:
+        found = _PART_PROBLEMS.get(key)
+        if found is not None:
+            _PART_PROBLEMS.move_to_end(key)
+            return found
+    try:
+        etree.fromstring(data, etree.XMLParser(resolve_entities=False))
+    except etree.XMLSyntaxError as error:
+        found = (Problem("not-well-formed", name, str(error)),)
+    else:
+        found = ()
+        if own:
+            root = package.tree(name)
+            found += tuple(_relationship_id_problems(package, name, root))
+            found += tuple(_ignorable_problems(name, root))
+            if name.startswith(_ORDERED_PARTS):
+                found += tuple(_order_problems(name, root))
+            if name.startswith("ppt/slides/"):
+                found += tuple(_table_problems(name, root))
+    with _part_lock:
+        _PART_PROBLEMS[key] = found
+        while len(_PART_PROBLEMS) > _PART_LIMIT:
+            _PART_PROBLEMS.popitem(last=False)
+    return found
+
+
 def _package_problems(package: PresentationPackage) -> list[Problem]:
-    out: list[Problem] = []
     parts = set(package.part_names)
-    for name in parts:
-        if name != CONTENT_TYPES_PART and not name.endswith("/") \
-                and package.content_type(name) is None:
-            out.append(Problem("no-content-type", name))
+    out: list[Problem] = list(_untyped(package, parts))
     types = package.tree(CONTENT_TYPES_PART)
     if types is not None:
         for override in types:
@@ -111,6 +145,26 @@ def _package_problems(package: PresentationPackage) -> list[Problem]:
     for orphan in sorted(package.unreachable_parts()):
         out.append(Problem("orphaned-part", orphan))
     return out
+
+
+def _untyped(package: PresentationPackage, parts: set[str]) -> tuple[Problem, ...]:
+    """``no-content-type`` for each part ``[Content_Types].xml`` gives no type: a function
+    of that part's bytes and the part names, worked out once per those."""
+    key = ("(untyped)", _digest(package.read(CONTENT_TYPES_PART)),
+           _digest("\n".join(sorted(parts)).encode()))
+    with _part_lock:
+        found = _PART_PROBLEMS.get(key)
+        if found is not None:
+            _PART_PROBLEMS.move_to_end(key)
+            return found
+    found = tuple(Problem("no-content-type", name) for name in parts
+                  if name != CONTENT_TYPES_PART and not name.endswith("/")
+                  and package.content_type(name) is None)
+    with _part_lock:
+        _PART_PROBLEMS[key] = found
+        while len(_PART_PROBLEMS) > _PART_LIMIT:
+            _PART_PROBLEMS.popitem(last=False)
+    return found
 
 
 def _relationship_id_problems(package: PresentationPackage, name: str,

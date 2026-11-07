@@ -7,6 +7,33 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+## 0.1.20 -- unreleased
+
+- **A deck's CPU per call: only what an edit changed is measured again** (round 39; pptx2svg
+  0.3.8). After every changing call the facts of the slides it touched were measured from a
+  conversion of the whole deck -- written as a zip, read back, every slide parsed -- once
+  per slide measured, and a save measured every slide the same way: a made-up 25-slide
+  build converted its deck 165 times and parsed 3,059 slides. Now:
+  - pptx2svg reads the open package's parts in memory (`pptx_agent.edit.resolved`:
+    `source_of`, `pptx2svg.open_parts`), only the ones it needs, each serialised when asked
+    for; fit facts, `check`, `save_document`, the live view (`Slide.render_svg`),
+    `Document.render_svg`/`render_png` and contrast all go this way;
+  - resolved slides are kept in one `pptx2svg.ModelCache` per process (`model_cache()`),
+    by the bytes they were resolved from, and layouts, masters and themes parsed once per
+    their bytes across decks: after an edit, only the slides it changed are resolved;
+  - `validate()` (after every changing call, in `check` and at a save) works out each part's
+    own problems once per its bytes and its relationships' (kept for every deck of the
+    process, at most 8,192 parts), and the problems of the parts together every time, as
+    before (`pptx_agent.validate.check`);
+  - while facts read a deck (`pptx_agent.edit.document.reading`), the layout and master
+    placeholder a placeholder takes its box from is looked up once per slide, not once per
+    question; a table's rows are measured on a copy of the path to its empty paragraphs
+    instead of a deep copy of the table.
+  The same facts, views, renders and validation byte for byte: every tool result, live view
+  and the saved deck of the made-up builds (1 and 6 builders, 2 decks each), and per slide
+  the facts, live views, agent view and validation of the local corpus (579 decks, 3,040
+  slides); `tests/test_resolved.py`. Measured below (CPU per deck).
+
 ## 0.1.19 -- unreleased
 
 - **A step's label in place of its value** (production round 38; ooxml-edit 0.87.0): a scale

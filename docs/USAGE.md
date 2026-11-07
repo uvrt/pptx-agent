@@ -1101,6 +1101,22 @@ lists the layouts with their names and placeholders.
 compare before and after an edit. No edit adds one. Only PowerPoint itself can say for
 certain that a deck opens: the test suite's opt-in oracle drives it.
 
+**What is worked out again, and when.** Every changing tool call measures the slides it
+touched and validates the deck; `check` and `save_document` measure the slides they name
+(every slide at a save). Measuring asks pptx2svg for the slides as they are now, from the
+open package's parts -- no zip is written and read -- and a slide resolved before is taken
+from one cache per process (`pptx2svg.ModelCache`, 512 slides) when the bytes it was
+resolved from are the same: its part, and everything its relationships reach (layout,
+master, theme, pictures, charts), with the presentation's settings and its place in the
+deck. After an edit of one slide, that slide is resolved again; after a layout, master or
+theme edit, every slide on it. A slide showing a date field is resolved every time.
+`validate()` checks each part on its own (whether it parses, its relationship ids, child
+order, table grids, `mc:Ignorable` prefixes) once per its bytes and its relationships'
+bytes -- kept for every deck of the process, at most 8,192 parts -- and checks the parts
+together (content types, relationship targets, orphans, the slide list) every time, so a
+call's validation re-reads only the parts it changed, and a save's is the same full
+answer. Results are the same as working everything out afresh, byte for byte.
+
 ### Undo and batches
 
 ```python

@@ -10,6 +10,7 @@ the 1/60,000-degree units OOXML stores.
 
 from __future__ import annotations
 
+import contextvars
 import copy
 import dataclasses
 import os
@@ -3101,6 +3102,11 @@ class Slide(ShapeFactory):
         placeholder's, or -- when that has none either -- the master placeholder of the same
         kind, as PowerPoint resolves it (a title from the master's title, a body, subtitle
         or content placeholder from the master's body, the footers from theirs)."""
+        return _kept_while_reading(("xfrm", id(self.document.package), self.part_path,
+                                    placeholder), self._find_inherited_xfrm, placeholder)
+
+    def _find_inherited_xfrm(self, placeholder: tuple[str | None, int | None] | None
+                             ) -> Element | None:
         layout_shape = self._layout_placeholder(placeholder)
         if layout_shape is None:
             return None
@@ -3125,6 +3131,11 @@ class Slide(ShapeFactory):
 
     def _layout_placeholder(self, placeholder: tuple[str | None, int | None] | None) -> Element | None:
         """The layout shape a placeholder inherits from, matched by idx then by type."""
+        return _kept_while_reading(("layout", id(self.document.package), self.part_path,
+                                    placeholder), self._find_layout_placeholder, placeholder)
+
+    def _find_layout_placeholder(self, placeholder: tuple[str | None, int | None] | None
+                                 ) -> Element | None:
         if placeholder is None:
             return None
         wanted_type, wanted_idx = placeholder
@@ -4546,6 +4557,8 @@ class Document(CommentOps):
         with pptx2svg's own ids; slides only.
         """
         pptx2svg = _require_renderer()
+        from .resolved import convert_options as cached_options, source_of
+
         if self.font_dirs is not None and not options.get("agent"):
             options.setdefault("font_dirs", list(self.font_dirs))
         options.setdefault("locale", locale_of(self))
@@ -4555,11 +4568,11 @@ class Document(CommentOps):
                 raise ArgumentError("the agent view is of slides; render a layout or master "
                                  "without agent=True")
             return pptx2svg.convert_pptx_to_agent_svg(
-                self.to_bytes(), pptx2svg.ConvertOptions(slide_numbers=numbers,
+                source_of(self), pptx2svg.ConvertOptions(slide_numbers=numbers,
                                                          locale=options["locale"]))
-        convert_options = pptx2svg.ConvertOptions(slide_numbers=numbers,
-                                                  **_template_options(parts), **options)
-        return _in_order(pptx2svg.convert_pptx_to_svg(self.to_bytes(), convert_options), order)
+        convert_options = cached_options(slide_numbers=numbers, **_template_options(parts),
+                                         **options)
+        return _in_order(pptx2svg.convert_pptx_to_svg(source_of(self), convert_options), order)
 
     def render_png(self, slides=None, **options) -> list[bytes]:
         """Render to PNG via pptx2svg.  Requires ``pip install pptx-agent[png]``.  ``slides``
@@ -4573,17 +4586,19 @@ class Document(CommentOps):
             pngs = deck.render_png([1], width=1280)
         """
         pptx2svg = _require_renderer()
+        from .resolved import convert_options as cached_options, source_of
+
         if self.font_dirs is not None:
             options.setdefault("font_dirs", list(self.font_dirs))
         options.setdefault("locale", locale_of(self))
         render_keys = {"width", "height", "font_mapping", "measurer", "warnings", "locale"}
         numbers, parts, order = self._targets(slides)
-        convert_options = pptx2svg.ConvertOptions(
+        convert_options = cached_options(
             slide_numbers=numbers, **_template_options(parts),
             **{k: v for k, v in options.items() if k in render_keys}
         )
         return _in_order(pptx2svg.convert_pptx_to_png(
-            self.to_bytes(),
+            source_of(self),
             convert_options,
             **{k: v for k, v in options.items() if k not in render_keys},
         ), order)
@@ -4801,6 +4816,36 @@ def _numeric_ids(index: SlideShapeIndex) -> set[int]:
             if value and value.isdigit():
                 numbers.add(int(value))
     return numbers
+
+
+#: What :func:`reading` keeps: lookups that walk a layout or master, by what they asked.
+_READING: "contextvars.ContextVar[dict | None]" = contextvars.ContextVar(
+    "pptx_agent_reading", default=None)
+
+
+@contextmanager
+def reading() -> Iterator[None]:
+    """For a block that only reads decks (measuring them, say): each slide's walk to the
+    layout or master placeholder a placeholder inherits its box from is done once, not
+    once a question -- a slide's facts ask it for every shape, several times.  Nothing may
+    change a deck inside the block: what was found is kept until it ends.  Per thread."""
+    if _READING.get() is not None:
+        yield
+        return
+    token = _READING.set({})
+    try:
+        yield
+    finally:
+        _READING.reset(token)
+
+
+def _kept_while_reading(key, find, *args):
+    kept = _READING.get()
+    if kept is None:
+        return find(*args)
+    if key not in kept:
+        kept[key] = find(*args)
+    return kept[key]
 
 
 def _require_renderer():

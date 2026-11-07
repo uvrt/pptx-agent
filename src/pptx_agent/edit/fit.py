@@ -322,21 +322,30 @@ def _with_empty_lines(table):
     (``tools/table_rows_probe.py``, ``tests/fixtures/table-rows-probe.json``), a row of
     empty cells stored 14.4 pt and 18 pt tall is drawn 28.8 pt -- one 18 pt Aptos line, 21.6
     pt, and the cell's 0.05 in top and bottom margins -- while pptx2svg's table layout lets
-    a row with no text keep its stored height."""
-    import copy
+    a row with no text keep its stored height.
+
+    The resolved model is pptx2svg's, shared with other conversions (:mod:`.resolved`),
+    so it is not changed: the table, its rows, cells, text bodies and paragraphs are
+    copies, what they hold the model's own -- which the table layout only reads."""
+    from dataclasses import replace
 
     scene = _engine().model
-    out = copy.deepcopy(table)
-    for row in out.rows:
-        for cell in row.cells:
-            body = cell.text_body
-            if body is None:
-                continue
-            for paragraph in body.paragraphs:
-                if not any(run.text for run in paragraph.runs):
-                    properties = paragraph.end_para_run_properties or scene.RunProperties()
-                    paragraph.runs = [scene.TextRun(_EMPTY_LINE, properties)]
-    return out
+
+    def filled(paragraph):
+        if any(run.text for run in paragraph.runs):
+            return paragraph
+        properties = paragraph.end_para_run_properties or scene.RunProperties()
+        return replace(paragraph, runs=[scene.TextRun(_EMPTY_LINE, properties)])
+
+    def cell_of(cell):
+        body = cell.text_body
+        if body is None:
+            return cell
+        return replace(cell, text_body=replace(
+            body, paragraphs=[filled(paragraph) for paragraph in body.paragraphs]))
+
+    return replace(table, rows=[replace(row, cells=[cell_of(cell) for cell in row.cells])
+                                for row in table.rows])
 
 
 def rows_fitting(shape: "Shape", bottom: int | None = None,
@@ -632,10 +641,11 @@ def _model(document: "Document", slides: "list[Slide]"):
     from .document import locale_of
 
     # The deck's locale, as its render: a date field's text is measured as drawn.
-    options = pptx2svg.ConvertOptions(slide_numbers=sorted(slide.index + 1 for slide in slides),
-                                      warn_on_font_substitution=False,
-                                      locale=locale_of(document))
-    model = pptx2svg.convert_pptx_to_model(document.to_bytes(), options)
+    from .resolved import convert_options, source_of
+
+    options = convert_options(slide_numbers=sorted(slide.index + 1 for slide in slides),
+                              warn_on_font_substitution=False, locale=locale_of(document))
+    model = pptx2svg.convert_pptx_to_model(source_of(document), options)
     from pptx2svg.fonts.check import resolved_families
 
     # As pptx2svg measures: the deck's embedded faces, then the application's own

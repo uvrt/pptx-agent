@@ -560,6 +560,14 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
     <pptx_agent.Slide.size_overrides>`), and the slide numbers
     written by reference whose slide is gone (``missing_slides``,
     :func:`pptx_agent.edit.slidenumbers.missing`)."""
+    from ..edit.document import reading
+
+    with reading():
+        return _facts(deck, slide_ids, boxes=boxes, include=include)
+
+
+def _facts(deck, slide_ids: Iterable[int], *, boxes: bool,
+           include: Iterable[str]) -> dict[str, Any]:
     from ..edit.chart_text import unstated_title_fonts
     from ..edit.fit import slide_report
     from ..edit.slidenumbers import missing
