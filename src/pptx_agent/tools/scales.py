@@ -19,6 +19,15 @@ A value a picture or chart frame holds is skipped.
 
 **The step a value has now**: the step whose fill the shape or cell has (explicit, solid, the
 step's ``RRGGBB``); ``exact`` where every run's colour is the step's text colour too.
+
+**Labels** (round 38; a scale with ``"show": "label"``): the shape's or cell's text is
+replaced by its step's label -- written as ``ppt_set_text`` writes text, each surviving
+character keeping its formatting -- and the label is kept on the shape (or the table's frame)
+with the value it stands for and its reference (:func:`pptx_agent.edit.provenance.keep_label`,
+beside its text facts: it survives a save and a reopen, and a text tool's edit of the label
+keeps it).  A shape or cell whose text is a kept label reads it as
+:attr:`~ooxml_edit.tools.ScaleValue.kept`, and ``{{...}}`` targets the labels written from a
+matching reference.
 """
 
 from __future__ import annotations
@@ -89,7 +98,17 @@ def _location(shape: Any, cell: tuple[int, int] | None) -> str:
     return shape.id if cell is None else f"{shape.id}/cell{cell[0]},{cell[1]}"
 
 
-def _value(scale: _scales.Scale, shape: Any, cell: tuple[int, int] | None, given: str | None) -> ScaleValue:
+def _kept(shape: Any, cell: tuple[int, int] | None) -> dict[str, Any] | None:
+    """The label kept for the shape's or cell's text, or ``None``."""
+    for label in _provenance.labels_found(shape):
+        key = label.get("cell")
+        if (tuple(key) if isinstance(key, list) else None) == cell:
+            return label
+    return None
+
+
+def _value(scale: _scales.Scale, shape: Any, cell: tuple[int, int] | None, given: str | None,
+           source: str | None = None) -> ScaleValue:
     address = _location(shape, cell)
     where = {"slide": f"s:{shape._slide.slide_id}"}
     if cell is None:
@@ -118,7 +137,7 @@ def _value(scale: _scales.Scale, shape: Any, cell: tuple[int, int] | None, given
             shown = sorted(c or "inherited" for c in colours)
             differs = f"text colour {', '.join(shown)}"
     return ScaleValue(address, text, given=given, now=now, exact=exact, differs=differs, where=where,
-                      handle=(shape, cell))
+                      handle=(shape, cell), kept=_kept(shape, cell), source=source)
 
 
 def _hex(colour: Any) -> str | None:
@@ -149,7 +168,9 @@ def _referenced(deck: Any, scale: _scales.Scale, target: str, wanted: str) -> li
     seen: set[str] = set()
     for slide in deck.slides:
         for shape in slide.shapes:
-            for fact in _provenance.facts_found(shape):
+            found = [(fact, True) for fact in _provenance.facts_found(shape)]
+            found += [(label, False) for label in _provenance.labels_found(shape)]
+            for fact, written in found:
                 source = fact.get("source")
                 if not isinstance(source, str) or not _scales.reference_matches(wanted, source):
                     continue
@@ -158,7 +179,7 @@ def _referenced(deck: Any, scale: _scales.Scale, target: str, wanted: str) -> li
                 address = _location(shape, cell)
                 if address not in seen:
                     seen.add(address)
-                    out.append(_value(scale, shape, cell, target))
+                    out.append(_value(scale, shape, cell, target, source if written else None))
     if not out:
         raise ToolError("not_found", f"{target}: no value written by a reference like it is still in the "
                         "deck's text")
@@ -173,6 +194,8 @@ def write(call: Any, scale: _scales.Scale, plan: list[tuple[ScaleValue, _scales.
         shape, cell = value.handle
         if not preview:
             holder = shape if cell is None else shape.table.cell(*cell)
+            if scale.labels:
+                _write_label(shape, cell, holder, value, step)
             holder.fill = f"#{step.fill}"
             for paragraph in holder.text_frame.paragraphs:
                 for run in paragraph.runs:
@@ -183,6 +206,18 @@ def write(call: Any, scale: _scales.Scale, plan: list[tuple[ScaleValue, _scales.
     result = Result(changed=[] if preview else changed)
     result.data = {"styles": "none: a deck has no character styles; fill and text colour set directly"}
     return result
+
+
+def _write_label(shape: Any, cell: tuple[int, int] | None, holder: Any, value: ScaleValue,
+                 step: _scales.Step) -> None:
+    """The step's label in place of the text, kept with the value it stands for (the
+    module's notes)."""
+    assert step.label is not None and value.record is not None
+    before = _provenance.text_of(shape, cell) or ""
+    holder.text_frame.set_text(step.label)
+    after = _provenance.text_of(shape, cell) or ""
+    _provenance.facts_written(shape, cell, before, after)
+    _provenance.keep_label(shape, cell, {**value.record, "text": after})
 
 
 def style_by_value(call: Any, doc: str, scale: Any, preview: bool | None = None) -> Result:
