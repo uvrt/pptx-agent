@@ -7,6 +7,24 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+## 0.1.19 -- unreleased
+
+- **A step's label in place of its value** (production round 38; ooxml-edit 0.87.0): a scale
+  with `"show": "label"` makes `style_by_value` write each value's step's label as its shape's
+  or cell's text (`High`, not `4.5`), filled and coloured as the step, written as
+  `ppt_set_text` writes text; the shape (or the table's frame) keeps the value the label stands
+  for and its reference beside its text facts (`UVRT_TEXT_FACTS`, under `labels`:
+  `pptx_agent.edit.provenance.keep_label`, `labels_found`), through a save and a reopen. A text
+  tool's edit of a label keeps its record (the label is the whole text); rows and columns
+  inserted or deleted move it as they move a fact. `check(scale=...)` with such a scale lists
+  `labels` that are not their value's -- the value changed at its source, the label edited,
+  a value typed over it -- and `unrecorded` labels (no value kept), with the one fix; a value
+  written by reference is read again from its source where the session holds it. Exact text
+  steps are unchanged.
+- Tokens (offline estimate): the scale's `show` +14 in the core (3,890 -> 3,904) and +60 in
+  every definition (14,348 -> 14,408, guard 14,410); a reviewer's core 2,705 -> 2,719, all
+  4,902 -> 4,916. The strict set unchanged.
+
 ## 0.1.18 -- unreleased
 
 - **Values styled by a scale, applied once** (production round 36, R31; ooxml-edit 0.85.0):

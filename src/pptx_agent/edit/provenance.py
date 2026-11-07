@@ -29,6 +29,14 @@ for a table cell, on the table's frame: a :data:`FACTS_TAG` tag beside the
 ``p:sp`` as it does on a graphic frame is not measured: the element is the same
 (``CT_ApplicationNonVisualDrawingProps``' ``custDataLst`` in ECMA-376's ``pml.xsd``).
 
+**Labels** (round 38).  A step's label written in place of a value (``style_by_value`` with
+a scale that shows labels, :mod:`ooxml_edit.tools.scales`) is kept in the same tag, under
+``labels``: each with the value it stands for and its reference, ``p`` 0 and ``at`` 0 --
+a deck's value is its shape's or cell's whole text, and so is its label.  A text tool's edit
+there keeps it (:func:`ooxml_edit.provenance.labels_after_edit`), read back it is the text
+as it reads now (:func:`labels_found`), so a label edited by hand -- here or in PowerPoint --
+can be checked against its value; rows and columns move it as they move a fact.
+
 **Copies and deletes.**  The tags part is per-shape state: a duplicated slide, a duplicated
 shape and shapes copied to another slide or deck get their own copy of it
 (:data:`~pptx_agent.oxml.package.SHARED_ON_DUPLICATE` does not share tags); deleting the
@@ -261,10 +269,11 @@ def text_of(shape: "Shape", cell: tuple[int, int] | None = None) -> str | None:
     return None if frame is None else frame.text
 
 
-def facts(shape: "Shape") -> list[dict[str, Any]]:
-    """Every fact the shape keeps, as kept (not checked against its text)."""
+def facts(shape: "Shape", key: str = "facts") -> list[dict[str, Any]]:
+    """Every fact the shape keeps, as kept (not checked against its text); ``key``
+    ``"labels"``: its labels (round 38, see "labels" below)."""
     found = read(shape, FACTS_TAG)
-    listed = found.get("facts") if found else None
+    listed = found.get(key) if found else None
     return [dict(fact) for fact in listed if isinstance(fact, Mapping)] \
         if isinstance(listed, list) else []
 
@@ -276,11 +285,16 @@ def _cell_key(fact: Mapping[str, Any]) -> tuple[int, int] | None:
     return None
 
 
-def store_facts(shape: "Shape", found: Iterable[Mapping[str, Any]]) -> bool:
-    """Keep ``found`` as the shape's facts, replacing what it had; none drops the tag."""
+def store_facts(shape: "Shape", found: Iterable[Mapping[str, Any]],
+                labels: Iterable[Mapping[str, Any]] | None = None) -> bool:
+    """Keep ``found`` as the shape's facts, replacing what it had, and ``labels`` as its
+    labels (``None``: the ones it has); none of either drops the tag."""
     found = [dict(fact) for fact in found]
-    return store(shape, {"v": _records.VERSION, "facts": found} if found else None,
-                 FACTS_TAG)
+    labels = facts(shape, "labels") if labels is None else [dict(label) for label in labels]
+    record: dict[str, Any] = {"v": _records.VERSION, "facts": found}
+    if labels:
+        record["labels"] = labels
+    return store(shape, record if found or labels else None, FACTS_TAG)
 
 
 def facts_written(shape: "Shape", cell: tuple[int, int] | None, before: str, after: str,
@@ -292,8 +306,9 @@ def facts_written(shape: "Shape", cell: tuple[int, int] | None, before: str, aft
     others = [fact for fact in kept if _cell_key(fact) != cell]
     mine = [{k: v for k, v in fact.items() if k != "cell"} for fact in kept
             if _cell_key(fact) == cell]
+    labelled = _labels_written(shape, cell, before, after)
     if not mine and not new:
-        return False
+        return labelled is not None and store_facts(shape, kept, labelled)
     survivors = _records.facts_after_edit(mine, before, after)
     added = _records.facts_found(list(new), after)
     places = {(fact["p"], fact["at"]) for fact in added}
@@ -301,7 +316,47 @@ def facts_written(shape: "Shape", cell: tuple[int, int] | None, before: str, aft
                     + added, key=lambda fact: (fact["p"], fact["at"]))
     if cell is not None:
         merged = [{**fact, "cell": [cell[0], cell[1]]} for fact in merged]
-    return store_facts(shape, others + merged)
+    return store_facts(shape, others + merged, labelled)
+
+
+def _labels_written(shape: "Shape", cell: tuple[int, int] | None, before: str,
+                    after: str) -> list[dict[str, Any]] | None:
+    """The shape's labels after the text of ``shape`` (or its ``cell``) went from ``before``
+    to ``after`` (:func:`ooxml_edit.provenance.labels_after_edit`: a label is the whole
+    text, and stays it); ``None`` when that changes none."""
+    kept = facts(shape, "labels")
+    mine = [{k: v for k, v in label.items() if k != "cell"} for label in kept if _cell_key(label) == cell]
+    if not mine:
+        return None
+    others = [label for label in kept if _cell_key(label) != cell]
+    mine = _records.labels_found(mine, before, whole=True)       # as it read before: edited elsewhere
+    followed = _records.labels_after_edit(mine, before, after)
+    if cell is not None:
+        followed = [{**label, "cell": [cell[0], cell[1]]} for label in followed]
+    return others + followed
+
+
+def keep_label(shape: "Shape", cell: tuple[int, int] | None, label: Mapping[str, Any]) -> bool:
+    """Keep ``label`` (round 38: a step's label written in place of a value, with the value
+    it stands for, :mod:`ooxml_edit.tools.scales`) as the whole text of ``shape`` or its
+    ``cell``, in place of the label kept there; the facts there go (their text is gone)."""
+    kept = facts(shape)
+    labels = [item for item in facts(shape, "labels") if _cell_key(item) != cell]
+    entry = {**dict(label), "p": 0, "at": 0}
+    if cell is not None:
+        entry["cell"] = [cell[0], cell[1]]
+    return store_facts(shape, [fact for fact in kept if _cell_key(fact) != cell], labels + [entry])
+
+
+def labels_found(shape: "Shape") -> list[dict[str, Any]]:
+    """The shape's labels, each its shape's or cell's whole text as it reads now (``text``),
+    edited here or elsewhere; a cell no longer there takes its label away."""
+    out = []
+    for label in facts(shape, "labels"):
+        text = text_of(shape, _cell_key(label))
+        if text is not None:
+            out += _records.labels_found([label], text, whole=True)
+    return out
 
 
 def cell_facts_after(shape: "Shape", rule: str, index: int | None = None,
@@ -311,30 +366,40 @@ def cell_facts_after(shape: "Shape", rule: str, index: int | None = None,
     (``delete_row``, ``delete_column``: its cells' facts go, the ones after move back), or
     after ``cells`` were rewritten some other way (``cells``: their facts go)."""
     kept = facts(shape)
-    if not kept:
+    labels = facts(shape, "labels")
+    if not kept and not labels:
         return False
     gone = set(cells)
-    out = []
-    for fact in kept:
-        key = _cell_key(fact)
-        if key is None:
-            out.append(fact)
-            continue
-        row, col = key
-        if key in gone:
-            continue
-        if rule in ("insert_row", "delete_row"):
-            if rule == "delete_row" and row == index:
-                continue
-            if index is not None and row >= index + (rule == "delete_row"):
-                row += 1 if rule == "insert_row" else -1
-        elif rule in ("insert_column", "delete_column"):
-            if rule == "delete_column" and col == index:
-                continue
-            if index is not None and col >= index + (rule == "delete_column"):
-                col += 1 if rule == "insert_column" else -1
-        out.append({**fact, "cell": [row, col]})
-    return store_facts(shape, out) if out != kept else False
+    moved = [_cell_moved(fact, rule, index, gone) for fact in kept]
+    moved_labels = [_cell_moved(label, rule, index, gone) for label in labels]
+    out = [fact for fact in moved if fact is not None]
+    out_labels = [label for label in moved_labels if label is not None]
+    if out == kept and out_labels == labels:
+        return False
+    return store_facts(shape, out, out_labels)
+
+
+def _cell_moved(fact: dict[str, Any], rule: str, index: int | None,
+                gone: set[tuple[int, int]]) -> dict[str, Any] | None:
+    """A fact or label after :func:`cell_facts_after`'s ``rule``: moved, as it was, or
+    ``None`` -- gone with its cell."""
+    key = _cell_key(fact)
+    if key is None:
+        return fact
+    row, col = key
+    if key in gone:
+        return None
+    if rule in ("insert_row", "delete_row"):
+        if rule == "delete_row" and row == index:
+            return None
+        if index is not None and row >= index + (rule == "delete_row"):
+            row += 1 if rule == "insert_row" else -1
+    elif rule in ("insert_column", "delete_column"):
+        if rule == "delete_column" and col == index:
+            return None
+        if index is not None and col >= index + (rule == "delete_column"):
+            col += 1 if rule == "insert_column" else -1
+    return {**fact, "cell": [row, col]}
 
 
 def facts_found(shape: "Shape") -> list[dict[str, Any]]:

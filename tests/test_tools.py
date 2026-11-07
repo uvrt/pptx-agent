@@ -251,10 +251,13 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: steps as fill and text colour), deferred in shared_misc, +464 (13,726 -> 14,348).  The
 #: guard rises to 14,350.  style_by_value is listed last and does not fit Claude's strict
 #: limits beside the others: the strict set is unchanged.
+#: Round 38 (ooxml-edit 0.87.0): the scale's ``show`` (label: a step's label in place of its
+#: value, the value kept) +14 to the core (3,890 -> 3,904) and +60 to every definition
+#: (14,348 -> 14,408).  The guard rises to 14,410.  The strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 14350
+ALL_GUARD = 14410
 
 
 def estimate_tokens(definitions) -> int:
