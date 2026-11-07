@@ -138,3 +138,40 @@ def test_a_row_inserted_moves_the_labels_with_their_cells(toolbox):
     assert [(k["cell"], k["text"]) for k in kept] == [([2, 1], "High"), ([3, 1], "Low")]
     found = ok(call(toolbox, session, "check", doc="d1", scale=given)).data["scale"]
     assert found["right"] == 2 and found["labels"] == []
+
+
+def test_a_cell_rewritten_from_its_source_or_merged_has_no_record_and_check_says_so(toolbox):
+    # A cell rewritten from a source, or merged, drops its label's record (as it drops a
+    # fact): check never guesses what such a cell stands for.  Text that is a step's label is
+    # listed as unrecorded; a value is listed as showing its value, with the fix.
+    session, _, _, table = _build(toolbox)
+    session.entry("d2").document.tables["levels"] = (
+        ("topic", "level", "due", "done", "note"), [("Door", "High", None, None, None), ("Roof", "2", None, None, None)])
+    given = labels(f"{table}/col1")
+    ok(call(toolbox, session, "style_by_value", doc="d1", scale=given))
+    ok(call(toolbox, session, "ppt_edit_table", doc="d1", target=table, action="set_cells", index=1,
+            header=[], **{"from": "t:levels", "from_columns": ["topic", "level"]}))
+    assert provenance.labels_found(_deck(session).shape(table)) == []
+    found = ok(call(toolbox, session, "check", doc="d1", scale=given)).data["scale"]
+    assert found["unrecorded"] == [{"target": f"{table}/cell1,1", "from": f"{table}/col1", "slide": "s:257",
+                                    "shows": "High", "label_of": 3}]
+    assert [(e["target"], e["shows"], e["label"], e["why"]) for e in found["labels"]] == [
+        (f"{table}/cell2,1", "2", "Low", "shows its value, not its label")]
+    assert found["fix"]["arguments"]["scale"]["targets"] == [f"{table}/cell2,1"]
+    assert "unrecorded: a step's label with no value kept" in found["notes"][0]
+
+
+def test_a_merged_cell_has_no_record_and_check_lists_it_as_unrecorded(toolbox):
+    if not hasattr(scales.Reading, "several"):
+        pytest.skip("needs ooxml-edit 0.90.1 (several labels unrecorded)")
+    session, _, _, table = _build(toolbox)
+    given = labels(f"{table}/col1")
+    ok(call(toolbox, session, "style_by_value", doc="d1", scale=given))
+    ok(call(toolbox, session, "ppt_edit_table", doc="d1", target=table, action="merge",
+            span={"row": 1, "col": 1, "to_row": 2}))
+    assert provenance.labels_found(_deck(session).shape(table)) == []
+    found = ok(call(toolbox, session, "check", doc="d1", scale=given)).data["scale"]
+    # The merged cell holds both labels, one per line, and neither record (ooxml-edit 0.90.1).
+    assert found["unrecorded"] == [{"target": f"{table}/cell1,1", "from": f"{table}/col1", "slide": "s:257",
+                                    "shows": "High\nLow", "label_of": [3, 1]}]
+    assert found["labels"] == [] and "fix" not in found
