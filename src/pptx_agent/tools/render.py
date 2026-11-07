@@ -104,7 +104,7 @@ class SlideRenderer(RendererBase):
         parts = [item for item in items if isinstance(item, str)]
         extra = {"templates": parts} if parts else {}
         options = pptx2svg.ConvertOptions(slide_numbers=numbers, width=int(width), locale=locale,
-                                          font_dirs=list(font_dirs), **extra)
+                                          font_dirs=list(font_dirs), **extra, **_cached())
         with warnings.catch_warnings():
             # The same facts come back with the images; the worker's stderr is nobody's to read.
             warnings.filterwarnings("ignore", message=".*no font this render loads")
@@ -189,6 +189,19 @@ class SlideRenderer(RendererBase):
         return render.fingerprint(self, bool(check_glyphs),
                                   file_stamps((), [*map(str, font_dirs), *bundled]), system,
                                   host, faces, os.environ.get("PPTX2SVG_OFFICE_FONTS"))
+
+
+def _cached() -> dict:
+    """``{"cache": ...}``: the worker process's model cache (round 39; pptx2svg 0.3.8's
+    ``ModelCache``, bounded, the one ``pptx_agent.edit.resolved.model_cache`` keeps for the
+    process), so a worker drawing a deck again parses only the slides, layouts, masters and
+    themes it has not seen -- the same SVGs, byte for byte; nothing where there is none."""
+    try:
+        from ..edit.resolved import model_cache
+    except ImportError:                        # pragma: no cover - before pptx-agent 0.1.20
+        return {}
+    cache = model_cache()
+    return {} if cache is None else {"cache": cache}
 
 
 #: The deck's renderer, handed to the pipeline's worker tasks.

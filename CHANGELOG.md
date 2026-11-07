@@ -7,6 +7,19 @@ snapshot commit; the development history before it is summarised here.
 
 ## Unreleased
 
+## 0.1.21 -- unreleased
+
+- **A worker's renders reuse the slides it has parsed** (production round 39): the render
+  pipeline's workers convert with the process's model cache (pptx2svg 0.3.8's
+  `ModelCache`, kept by `pptx_agent.edit.resolved.model_cache`, bounded), so drawing a deck
+  again parses only the slides, layouts, masters and themes the worker has not seen. The
+  same SVGs and PNGs, byte for byte (the parallel and subprocess render tests compare them
+  with the serial renderer). In-process, four slides after a one-slide edit: 1.59 -> 1.30 s
+  of CPU on a first call, 0.22-0.28 -> 0.12-0.14 s after. Rendering also runs in ooxml-edit
+  0.92.0's render lane where installed (it yields to other work; past its deadline a worker
+  finishes the slides rather than being stopped). `render`'s `fast` is a document's only:
+  a slide costs about a fifth of a page to draw, and outlining saved about a fifth of that.
+
 ## 0.1.19 -- unreleased
 
 - **A step's label in place of its value** (production round 38; ooxml-edit 0.87.0): a scale
