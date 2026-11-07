@@ -32,7 +32,20 @@ snapshot commit; the development history before it is summarised here.
   The same facts, views, renders and validation byte for byte: every tool result, live view
   and the saved deck of the made-up builds (1 and 6 builders, 2 decks each), and per slide
   the facts, live views, agent view and validation of the local corpus (579 decks, 3,040
-  slides); `tests/test_resolved.py`. Measured below (CPU per deck).
+  slides); `tests/test_resolved.py`.
+- Measured (made-up 25-slide builds from a template: duplicate, fill, live view of each slide,
+  a check every 4 slides, a check of all, 8 slides rendered, a save; 2 layout workers, half a
+  core of other load on a 4-core Mac that other work was loading too, so latencies are
+  loose): with 6 builders, 31.5 to 34.4 CPU-seconds per deck before, 8.9 after (1.7 to 1.9
+  decks per CPU-minute, 6.7 after); the main process 23 to 25 CPU-s per deck, 5.3 after, and
+  no longer bound to one core (0.45 to 0.57 of one); the workers 8.2 to 9.0, 3.6 after; median
+  latency 212 to 318 s, 47 to 63 s. With 1 builder, 34.0 CPU-s per deck, 10.6 after. Per
+  deck in the main process: 165 conversions, 3,059 slides parsed and 173 zips written before;
+  165 conversions, 91 slides parsed and resolved (74 more taken from the cache) and 8 zips
+  (the check snapshots and the save) after. Memory: the cache of resolved slides holds about
+  56 KB a slide (512 at most, about 30 MB), the validation one a few MB; at 6 builders the
+  main process peaked at 172 MB (154 before), a worker at 126 MB (102).
+- Tokens: no tool definition changed (offline delta 0).
 
 ## 0.1.19 -- unreleased
 
