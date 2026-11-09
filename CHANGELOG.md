@@ -5,6 +5,12 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.22 -- unreleased
+- Golden transcript p11's recorded hashes follow ooxml-edit 0.101.0, whose save copies
+  untouched parts as their compressed entries: p11's input deck is built from a fixture
+  PowerPoint compressed, whose entries (and their deflate flags) now pass through as they
+  are. Tests only; no tool definition changed.
+
 ## Unreleased
 
 ## 0.1.21 -- unreleased
