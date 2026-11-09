@@ -53,10 +53,8 @@ jobs:
         # They are @main, so a sibling change this repository depends on lands there first.
         run: |
           python -m pip install --upgrade pip
-          # TEMPORARY (r46raw): ooxml-common from its branch until it is merged; back to @main then.
-          python -m pip install "ooxml-common @ git+https://github.com/uvrt/ooxml-common@r46-raw-copy"
-          # TEMPORARY (r46raw): ooxml-edit from its branch until it is merged; back to @main then.
-          python -m pip install "ooxml-edit @ git+https://github.com/uvrt/ooxml-edit@r46-raw-copy"
+          python -m pip install "ooxml-common @ git+https://github.com/uvrt/ooxml-common@main"
+          python -m pip install "ooxml-edit @ git+https://github.com/uvrt/ooxml-edit@main"
           python -m pip install "pptx2svg[png] @ git+https://github.com/uvrt/pptx2svg@main"
           # The fonts a render draws with, as the README installs them: without them a runner
           # with no CJK font leaves the fixtures' Japanese out of every PNG (and says so).
