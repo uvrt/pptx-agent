@@ -232,8 +232,11 @@ A frame taller than its text stretches every row, the header too: `add_table` sh
 frame's height evenly among the rows. `table.fit_rows()` sets each row to
 its text's height and the frame to their sum; `table.fit_rows(276 * 12700, fill=True)`
 shares the room left in a 276 pt box among the body rows, the header row keeping its
-text's height (one undo step; needs pptx2svg). `insert_row` copies its `like` row's height
-and `delete_row` takes its row's height out of the frame: the other rows keep theirs.
+text's height (one undo step; needs pptx2svg); `table.fit_rows(rows=[1, 2])` fits only
+those rows. `insert_row` copies its `like` row's height and `delete_row` takes its row out:
+the other rows keep theirs. Every row height change (`set_row_height`, `set_row_heights`,
+`insert_row`, `delete_row`, `fit_rows`) sets the frame's height to the rows' sum as drawn,
+as PowerPoint writes it -- rows stored 0 count their text's height.
 
 To know before placing one, `slide.measure_table(data, size=12)` builds the table on a copy
 of the deck (the deck is not changed) and returns a `TableMeasure`: each row's drawn

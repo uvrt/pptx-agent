@@ -254,10 +254,13 @@ SPIKE_P8_A1 = (Path.home() / "Documents/agent-work/spike/mirror/p8-engagement-pl
 #: Round 38 (ooxml-edit 0.87.0): the scale's ``show`` (label: a step's label in place of its
 #: value, the value kept) +14 to the core (3,890 -> 3,904) and +60 to every definition
 #: (14,348 -> 14,408).  The guard rises to 14,410.  The strict set is unchanged.
+#: Round 54, R114: ``ppt_edit_table``'s ``fit_rows`` (an enum value; ``rows`` names it), deferred,
+#: +6 to every definition (14,408 -> 14,414; 1,686 -> 1,699 counted online for the tool), the
+#: core unchanged (3,904).  The guard rises to 14,420.  The strict set is unchanged.
 CHARS_PER_TOKEN = 3.5
 COUNTED_PER_ESTIMATED = 1.48
 CORE_COUNTED_BUDGET = 6500
-ALL_GUARD = 14410
+ALL_GUARD = 14420
 
 
 def estimate_tokens(definitions) -> int:

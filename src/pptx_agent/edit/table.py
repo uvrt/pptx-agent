@@ -357,41 +357,60 @@ class Table:
 
         return rows_fitting(self._shape(), bottom)
 
-    def fit_rows(self, height: int | None = None, *, fill: bool = False) -> "Table":
-        """Set every row to the height its text needs -- as PowerPoint draws a row whose
-        stored height is less (:attr:`drawn_row_heights`; measured, ``tools/table_rows_probe.py``)
-        -- and the frame's height to their sum, so a header row is never stretched by a box
-        shared evenly among the rows.  With ``fill``, the room ``height`` (EMU) leaves below
-        the rows is shared evenly among the body rows -- every row but the header (row 0,
-        when the Header Row flag is on) -- and the header keeps its text's height.  Rows
+    def fit_rows(self, height: int | None = None, *, fill: bool = False,
+                 rows=None) -> "Table":
+        """Set every row -- or the rows ``rows`` names (from 0) -- to the height its text
+        needs, as PowerPoint draws a row whose stored height is less (:attr:`drawn_row_heights`;
+        measured, ``tools/table_rows_probe.py``), and the frame's height to the rows' sum as
+        drawn, so a header row is never stretched by a box shared evenly among the rows and a
+        row copied from a taller sample row hugs its own text.  PowerPoint keeps a row's
+        stored height, a minimum, when its text is replaced by shorter text (measured, round
+        54), so rows filled from a sample keep the sample's height until fitted.  With
+        ``fill``, the room ``height`` (EMU) leaves below the rows is shared evenly among the
+        body rows -- every row but the header (row 0, when the Header Row flag is on) -- and
+        the header keeps its text's height; ``fill`` and ``height`` fit every row.  Rows
         taller together than ``height`` keep their text's heights: the table runs past it.
         One undo step; returns the table.  Needs pptx2svg.
 
         For example::
 
             table.fit_rows()                             # rows hug their text
+            table.fit_rows(rows=[1, 2, 3, 4])            # only these rows
             table.fit_rows(276 * 12700, fill=True)       # the body rows fill a 276 pt box
         """
         from .document import _require_renderer
-        from .fit import table_heights
+        from .fit import row_text_heights, table_heights
 
+        if rows is not None and (fill or height is not None):
+            raise ArgumentError("rows fits only those rows to their text; height and fill "
+                                "share a box among every row: give one or the other")
         _require_renderer()
         with self._editing() as table:
-            rows = self._rows(table)
-            for row in rows:              # a stored height is a minimum: measure without it
-                row.set("h", "0")
-            heights = list(table_heights(self._shape()))
-            header = 1 if self.flags.get("first_row") and len(rows) > 1 else 0
-            spare = 0 if height is None else int(height) - sum(heights)
-            if fill and spare > 0:
-                share, rest = divmod(spare, len(rows) - header)
-                for index in range(header, len(rows)):
-                    heights[index] += share + (1 if index - header < rest else 0)
-            for row, value in zip(rows, heights):
-                set_int(row, "h", int(value))
+            nodes = self._rows(table)
+            chosen = (range(len(nodes)) if rows is None
+                      else sorted({self._row_index(int(row), table) for row in rows}))
+            heights = row_text_heights(self._shape())
+            if heights is None:          # not in the resolved slide: measured without minimums
+                for row in nodes:
+                    row.set("h", "0")
+                heights = list(table_heights(self._shape()))
+            if rows is None:
+                header = 1 if self.flags.get("first_row") and len(nodes) > 1 else 0
+                spare = 0 if height is None else int(height) - sum(heights)
+                if fill and spare > 0:
+                    share, rest = divmod(spare, len(nodes) - header)
+                    for index in range(header, len(nodes)):
+                        heights[index] += share + (1 if index - header < rest else 0)
+                drawn = heights
+            else:
+                stored = [get_int(row, "h", 0) or 0 for row in nodes]
+                drawn = [heights[index] if index in chosen else max(stored[index], heights[index])
+                         for index in range(len(nodes))]
+            for index in chosen:
+                set_int(nodes[index], "h", int(heights[index]))
             extent = find(self._shape()._element, "p:xfrm/a:ext")
             if extent is not None:
-                set_int(extent, "cy", sum(heights))
+                set_int(extent, "cy", sum(drawn))
         return self
 
     def set_column_width(self, column: int, width: int) -> "Table":
@@ -412,18 +431,31 @@ class Table:
 
     def set_row_height(self, row: int, height: int) -> "Table":
         """Set a row's height.  PowerPoint treats it as a minimum: text may still grow it.
+        The frame's height follows the rows as drawn (a row stored 0 counts its text's
+        height), as PowerPoint writes it.
 
         For example::
 
             table.set_row_height(0, 457200)
         """
-        if int(height) < 0:
+        return self.set_row_heights({row: height})
+
+    def set_row_heights(self, heights) -> "Table":
+        """Set several rows' heights at once, EMU: ``{row: height}`` (rows from 0), or a
+        list with one height per row.  As :meth:`set_row_height`, measured once.
+
+        For example::
+
+            table.set_row_heights({1: 0, 2: 0})          # rows 1 and 2 hug their text
+        """
+        pairs = dict(enumerate(heights)) if isinstance(heights, (list, tuple)) else dict(heights)
+        if any(int(height) < 0 for height in pairs.values()):
             raise ArgumentError("a row height cannot be negative")
         with self._editing() as table:
-            node = self._rows(table)[self._row_index(row, table)]
-            delta = int(height) - (get_int(node, "h", 0) or 0)
-            set_int(node, "h", int(height))
-            self._grow_frame(dy=delta)
+            nodes = self._rows(table)
+            for row, height in pairs.items():
+                set_int(nodes[self._row_index(int(row), table)], "h", int(height))
+            self._frame_to_rows()
         return self
 
     def set_text_size(self, size: float) -> "Table":
@@ -575,7 +607,7 @@ class Table:
                 if region.top < position <= region.bottom:
                     _write_region(rows, Region(region.top, region.left, region.bottom + 1,
                                                region.right))
-            self._grow_frame(dy=get_int(new, "h", 0) or 0)
+            self._frame_to_rows()
         return self
 
     def delete_row(self, index: int) -> "Table":
@@ -605,9 +637,8 @@ class Table:
                 remaining = [r for r in range(region.top, region.bottom + 1) if r != index]
                 _write_region([rows[r] for r in remaining],
                               Region(0, region.left, shrunk.height - 1, region.right))
-            height = get_int(rows[index], "h", 0) or 0
             remove(rows[index])
-            self._grow_frame(dy=-height)
+            self._frame_to_rows()
         return self
 
     def insert_column(self, index: int | None = None, *, like: int | None = None,
@@ -749,6 +780,19 @@ class Table:
             set_int(extent, "cx", max((get_int(extent, "cx", 0) or 0) + dx, 0))
         if dy:
             set_int(extent, "cy", max((get_int(extent, "cy", 0) or 0) + dy, 0))
+
+    def _frame_to_rows(self) -> None:
+        """The frame's stored height (``a:ext@cy``) to the rows' sum as drawn
+        (:attr:`drawn_row_heights`: a row's stored height, a minimum, or its text's when
+        more) -- what PowerPoint writes when it lays the table out (measured, round 54: rows
+        stored 62 pt, one drawn 72 pt, written with the frame 320 pt tall; rows stored 0
+        with the frame their drawn sum) -- never the stored heights' sum alone, which is 0
+        for rows stored 0.  The stored heights' sum without pptx2svg."""
+        from .fit import table_heights
+
+        extent = find(self._shape()._element, "p:xfrm/a:ext")
+        if extent is not None:
+            set_int(extent, "cy", sum(table_heights(self._shape())))
 
     def _editing(self):
         return _TableEdit(self)

@@ -318,6 +318,19 @@ and `delete_row` takes its row's out of the frame; no other row changes. `set_he
 only those columns. `ppt_set_shape`'s `h` on a table still rescales every row in
 proportion and warns, naming the header row's new height.
 
+Rows copied from a sample row keep its height, and PowerPoint keeps a row's stored height
+when its text gets shorter (measured, round 54: `tools/table_fit_probe.py`), so a short
+item leaves a wider gap than a long one. `check`, and the checks after a changing call,
+name such a table in `row_slack` -- its rows stored taller than their text, when the gaps
+differ from row to row -- with the fixing call: `{"tool": "ppt_edit_table", "target":
+"256.3", "action": "fit_rows"}`. `fit_rows` sets every row (or those `rows` names) to its
+text's height and the frame to the rows' sum: `fit_rows on table 256.3: 5 row(s) set to
+their text's height; frame 310 -> 208.8 pt`, with `fit` listing each row changed
+(`{"row": 0, "from": 62.0, "to": 28.8}`, up to 40; `rows_left_out` counts the rest) and
+`frame_h`; rows that already fit are no change. Any row height change keeps the frame's
+height at the rows' sum as drawn, as PowerPoint writes it: rows set to 0 draw at their
+text's height and the frame takes that, not 0.
+
 To place fewer rows, name them: a row range of the source, `t:items/#1:#9` (rows 1 to 9,
 from 1, the last included) or `d:by_region/#10:` (row 10 to the last); each value keeps
 its sources. `rows` smaller than the source is refused saying so: nothing is cut.

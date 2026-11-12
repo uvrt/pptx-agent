@@ -550,13 +550,40 @@ ROWS_NOTE = ("rows_past: a table's rows grow to fit their text and PowerPoint cu
              "passes the slide's bottom; keep rows_fit rows and move the rest to a table on "
              "the next slide, or shorten the text")
 
+ROW_SLACK_NOTE = ("row_slack: table rows stored taller than their text (h, a minimum PowerPoint "
+                  "keeps when text gets shorter: rows copied from a sample keep its height), so "
+                  "gaps differ row to row; fix is the call that sets them to their text's "
+                  "height. Ignore if the heights are meant")
+#: At most this many rows listed per table in ``row_slack``; ``more`` counts the rest.
+ROW_SLACK_ROWS = 10
+
+
+def row_slack_json(shape, measured) -> dict[str, Any] | None:
+    """``row_slack``'s entry for a table (:func:`pptx_agent.edit.fit.row_slack`): its rows
+    stored taller than their text, points, and the ``fit_rows`` call that fits them."""
+    from ..edit.fit import row_slack
+
+    found = row_slack(shape, measured)
+    if not found:
+        return None
+    entry: dict[str, Any] = {
+        "shape": shape.id,
+        "rows": [{"row": row, "h": pt(stored), "text": pt(text)}
+                 for row, stored, text in found[:ROW_SLACK_ROWS]],
+        "fix": {"tool": "ppt_edit_table", "target": shape.id, "action": "fit_rows"}}
+    if len(found) > ROW_SLACK_ROWS:
+        entry["more"] = len(found) - ROW_SLACK_ROWS
+    return entry
+
 
 def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
           include: Iterable[str] = ("fit", "collisions")) -> dict[str, Any]:
     """Fit and collision facts for some slides, in points, from one measurement each; with
     ``fit``, the empty placeholders too (:meth:`Slide.empty_placeholders`), the charts
     whose title states no font (``chart_title_font``,
-    :func:`pptx_agent.edit.chart_text.unstated_title_fonts`), the placeholders whose slide
+    :func:`pptx_agent.edit.chart_text.unstated_title_fonts`), the tables whose rows are
+    stored taller than their text with uneven gaps (``row_slack``,
+    :func:`pptx_agent.edit.fit.row_slack`), the placeholders whose slide
     sets a size other than their layout's (``overrides``, :meth:`Slide.size_overrides
     <pptx_agent.Slide.size_overrides>`), and the slide numbers
     written by reference whose slide is gone (``missing_slides``,
@@ -570,7 +597,7 @@ def facts(deck, slide_ids: Iterable[int], *, boxes: bool = False,
 def _facts(deck, slide_ids: Iterable[int], *, boxes: bool,
            include: Iterable[str]) -> dict[str, Any]:
     from ..edit.chart_text import unstated_title_fonts
-    from ..edit.fit import slide_report
+    from ..edit.fit import _Measured, _flatten, slide_report
     from ..edit.slidenumbers import missing
 
     wanted = set(include)
@@ -583,6 +610,7 @@ def _facts(deck, slide_ids: Iterable[int], *, boxes: bool,
     small: list = []
     titles: list[dict] = []
     overrides: list = []
+    slack: list[dict] = []
     minimums = text_minimums(getattr(deck, "min_text_size", None))
     for sid in slide_ids:
         try:
@@ -597,7 +625,21 @@ def _facts(deck, slide_ids: Iterable[int], *, boxes: bool,
         if "fit" in wanted:
             titles += unstated_title_fonts(target)
             overrides += target.size_overrides()
-        problems, fits = slide_report(target, boxes=boxes)
+        measured = None
+        tables = []
+        if "fit" in wanted:
+            tables = [shape for shape in _flatten(target.shapes)
+                      if shape.kind == "graphic_frame" and shape.has_table]
+            if tables:               # one measurement for the report and the rows' text
+                try:
+                    measured = _Measured(target)
+                except ImportError:           # pragma: no cover - without pptx2svg
+                    measured = None
+        problems, fits = slide_report(target, boxes=boxes, measured=measured)
+        for shape in tables:
+            entry = row_slack_json(shape, measured)
+            if entry is not None:
+                slack.append(entry)
         for problem in problems:
             if problem.kind == "text" and "fit" in wanted:
                 overflows.append({"shape": problem.shape, **fit_json(problem.fit)})
@@ -642,6 +684,9 @@ def _facts(deck, slide_ids: Iterable[int], *, boxes: bool,
         if titles:
             out["chart_title_font"] = titles
             out["chart_title_font_note"] = CHART_TITLE_FONT_NOTE
+        if slack:
+            out["row_slack"] = slack
+            out["row_slack_note"] = ROW_SLACK_NOTE
         if overrides:
             out["overrides"] = size_overrides_json(overrides)
             out["overrides_note"] = OVERRIDES_NOTE

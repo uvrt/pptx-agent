@@ -292,22 +292,83 @@ class RowsFit:
 
 def table_heights(shape: "Shape", measured: "_Measured | None" = None) -> list[int]:
     """Each row's height as PowerPoint draws the table, EMU: ``a:tr@h`` -- a minimum -- or
-    what the row's text needs when that is more, laid out by pptx2svg's table layout
-    (:func:`pptx2svg.table_row_heights`) with this module's measurement.  The stored
+    what the row's text needs when that is more (:func:`row_text_heights`).  The stored
     heights without pptx2svg."""
     stored = shape.table.row_heights
+    text = row_text_heights(shape, measured)
+    if text is None:
+        return stored
+    return [max(int(height), needed) for height, needed in zip(stored, text)]
+
+
+def row_text_heights(shape: "Shape", measured: "_Measured | None" = None) -> list[int] | None:
+    """Each row's height its text needs, EMU, its stored height (a minimum) left out: the
+    height PowerPoint draws a row stored lower -- ``0`` -- at (measured, round 54: a row
+    PowerPoint is asked to make 0 or 10 pt tall is drawn at its text's height, and the
+    height asked for is what it writes).  Laid out by pptx2svg's table layout
+    (:func:`pptx2svg.table_row_heights`) with this module's measurement; an empty cell holds
+    a line (:func:`_with_empty_lines`), and a row whose every cell spans rows needs ``0``.
+    Kept on ``measured``, so a slide's tables are laid out once for its facts.  ``None``
+    without pptx2svg, or when the table is not in the resolved slide.
+
+    For example::
+
+        row_text_heights(frame)                    # [365760, 914400, 640080, ...]
+    """
     try:
         import pptx2svg
     except ImportError:                       # pragma: no cover - the extras-less install
-        return stored
+        return None
+    from dataclasses import replace
+
     measured = measured or _Measured(shape._slide)
+    key = (shape.id, len(shape.table.row_heights))
+    cached = measured.text_heights.get(key)
+    if cached is not None:
+        return list(cached)
     element, _ = measured.element(shape)
     if element is None or getattr(element, "table", None) is None:
-        return stored
-    drawn = pptx2svg.table_row_heights(_with_empty_lines(element.table), measured.context)
-    if len(drawn) != len(stored):
-        return stored
-    return [max(int(height), round(grown)) for height, grown in zip(stored, drawn)]
+        return None
+    table = _with_empty_lines(element.table)
+    if len(table.rows) != key[1]:
+        return None
+    table = replace(table, rows=[replace(row, height=0) for row in table.rows])
+    heights = tuple(max(0, round(height))
+                    for height in pptx2svg.table_row_heights(table, measured.context))
+    measured.text_heights[key] = heights
+    return list(heights)
+
+
+#: A row stored at least this much taller than its text is listed by :func:`row_slack`: a
+#: fifth of an 18 pt line, well above the 0.4 pt a PowerPoint table inserted with 18 pt
+#: text keeps (rows of 29.2 pt for 28.8 pt of text).
+SLACK = 4 * 12700
+
+
+def row_slack(shape: "Shape", measured: "_Measured | None" = None
+              ) -> list[tuple[int, int, int]]:
+    """The rows of a table stored taller than their text, when that leaves gaps that differ
+    from row to row: ``(row, stored, text)`` (from 0, EMU) of each row stored at least
+    :data:`SLACK` taller than its text needs.  PowerPoint keeps a row's stored height, a
+    minimum, when its text is replaced by shorter text (measured, round 54), so rows
+    copied from a sample keep its height and a short text leaves a wider gap than a long
+    one.  Listed only when the body rows' slack differs by :data:`SLACK` or more -- rows
+    sharing a box evenly (``fill_box``) or all one height on purpose leave even gaps; the
+    header row (Header Row on) is left out of that comparison.  Empty without pptx2svg.
+
+    For example::
+
+        row_slack(frame)                           # [(0, 787400, 365760), (3, 787400, 365760)]
+    """
+    text = row_text_heights(shape, measured)
+    if text is None:
+        return []
+    stored = shape.table.row_heights
+    slack = [max(0, height - needed) for height, needed in zip(stored, text)]
+    body = slack[1:] if shape.table.flags.get("first_row") and len(slack) > 1 else slack
+    if not body or max(body) - min(body) < SLACK:
+        return []
+    return [(row, stored[row], text[row]) for row, extra in enumerate(slack) if extra >= SLACK]
 
 
 #: Stands in for an empty paragraph's line: no width, the paragraph's end-of-paragraph size.
@@ -578,6 +639,8 @@ class _Measured:
             _drawn = model.slides[0]
             _context = context
         self.context = _context
+        #: :func:`row_text_heights` by ``(shape id, rows)``.
+        self.text_heights: dict[tuple[str, int], tuple[int, ...]] = {}
         self._by_id: dict[str, list[tuple[object, tuple[float, float]]]] = {}
         self._walk(_drawn.elements, (1.0, 1.0))
 
@@ -1338,4 +1401,4 @@ def _flatten(shapes):
 __all__ = ["Overflow", "RowsFit", "TableMeasure", "TextFit", "TextMeasure", "WRAP_MARGIN",
            "build_table", "fit_box", "fit_height", "measure", "measure_table", "measure_text",
            "overflows", "paginate", "rows_fitting", "slide_problems", "slide_report",
-           "table_heights"]
+           "table_heights", "row_text_heights", "row_slack"]
