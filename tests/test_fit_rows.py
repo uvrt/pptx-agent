@@ -38,9 +38,9 @@ LONG = ("Move the spare parts to the north shelf, label every bin with its new n
         "check the counts against last month's sheet before Friday")
 MID = "Order two more ladders for the back room and return the broken one"
 #: The probe's texts, in its order: PowerPoint drew them 28.8, 72, 50.4, 28.8 and 28.8 pt.
-TEXTS = ["Shelf audit closed", LONG, MID, "Done", "Shelf audit closed"]
+TEXTS = ["Shelf count closed", LONG, MID, "Done", "Shelf count closed"]
 #: The summary slide: the sample row first, four rows copied from it.
-SUMMARY = ["Shelf audit closed", LONG, "Done", MID, "Grades in"]
+SUMMARY = ["Shelf count closed", LONG, "Done", MID, "Grades in"]
 
 
 @pytest.fixture(scope="module")

@@ -1,8 +1,8 @@
 {
- "measured": "PowerPoint 16.106 for Mac, 2026-11-12, tools/table_fit_probe.py (object model; row heights as PowerPoint reports them, and the saved deck's a:tr@h and frame cy); the summary slide's rows also matched on screen (ScreenCaptureKit) and in the PDF export within 0.8 pt",
+ "measured": "PowerPoint 16.106 for Mac, 2026-11-12 (the one-line item was measured as a different three-word wording of the same one-line length, renamed after; one line at this width either way), tools/table_fit_probe.py (object model; row heights as PowerPoint reports them, and the saved deck's a:tr@h and frame cy); the summary slide's rows also matched on screen (ScreenCaptureKit) and in the PDF export within 0.8 pt",
  "table": {"columns_pt": [50, 420], "size_pt": 18, "style": "No Style, No Grid",
-           "texts": ["Shelf audit closed", "Move the spare parts ... before Friday (3 lines)",
-                     "Order two more ladders ... (2 lines)", "Done", "Shelf audit closed"]},
+           "texts": ["Shelf count closed", "Move the spare parts ... before Friday (3 lines)",
+                     "Order two more ladders ... (2 lines)", "Done", "Shelf count closed"]},
  "text_pt": [28.8, 72.0, 50.4, 28.8, 28.8],
  "cases": [
   {"name": "rows stored 62 pt, opened and shown", "stored_pt": [62, 62, 62, 62, 62],

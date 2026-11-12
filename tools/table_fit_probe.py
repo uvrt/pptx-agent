@@ -35,12 +35,12 @@ import time
 import zipfile
 
 PT = 12700
-TEXTS = ["Shelf audit closed",
+TEXTS = ["Shelf count closed",
          "Move the spare parts to the north shelf, label every bin with its new number, and "
          "check the counts against last month's sheet before Friday",
          "Order two more ladders for the back room and return the broken one",
          "Done",
-         "Shelf audit closed"]
+         "Shelf count closed"]
 
 _DRIVE = """
 on rowsOf(sl)
