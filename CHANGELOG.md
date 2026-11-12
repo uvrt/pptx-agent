@@ -5,6 +5,30 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.24 -- unreleased
+- **Rows fitted to their text from a tool** (round 54, R114). `ppt_edit_table` `fit_rows`
+  sets every row -- or those `rows` names -- to its text's height and the frame to the
+  rows' sum (`Table.fit_rows(rows=...)`): `fit_rows on table 256.3: 5 row(s) set to their
+  text's height; frame 310 -> 208.8 pt`, `fit` listing each row changed with its heights
+  before and after (up to 40, `rows_left_out` the rest), `frame_h`; rows that already fit
+  are no change. Measured first in PowerPoint 16.106 for Mac (`tools/table_fit_probe.py`,
+  `tests/fixtures/table-fit-probe.json`): replacing a cell's text with shorter or longer
+  text never changes the row's stored height (a minimum), and PowerPoint writes the height
+  asked for (0 or 10 pt below the text's) while drawing the row at its text's height. So
+  `set_cells` leaves heights as they are, and `check` (and a changing call's checks) name
+  tables whose rows are stored taller than their text with uneven gaps, `row_slack`, with
+  the `fit_rows` call as the fix; rows sharing a box evenly (`fill_box`) are not listed.
+- **The frame's height follows the rows as drawn** (R114). PowerPoint writes a table
+  frame's `cy` as the rows' drawn sum (rows stored 62 pt, one drawn 72: 320 pt; rows
+  stored 0: their text's 208.8 pt). `set_heights` (`Table.set_row_height`, new
+  `Table.set_row_heights`), `insert_row`, `delete_row` and `fit_rows` now set it so; rows
+  set to 0 no longer leave the frame 0 tall.
+- `fit.row_text_heights` (each row's text height, kept on the slide's measurement) and
+  `fit.row_slack`; `table_heights` is the stored height or the text's, from it -- one table
+  layout for a slide's facts and its row slack.
+- Definitions: `ppt_edit_table` (deferred) 1,686 -> 1,699 tokens counted online; the core
+  unchanged (5,903); no new parameter (an enum value), the strict set unchanged.
+
 ## 0.1.23 -- unreleased
 - **`check` lists what saving would refuse** (round 53, R109; needs ooxml-edit 0.111.0).
   Every deck `check` carries ooxml-edit's `validation` -- the problems `save_document` would

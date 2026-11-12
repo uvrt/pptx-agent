@@ -39,6 +39,16 @@ the frame's height follows their sum; ``insert_column``/``delete_column`` the sa
 widths.  ``set_heights``/``set_widths`` take ``rows``/``columns`` to set only those.  Each
 table result lists ``heights``, every row's stored height in points (up to 40).
 
+**Fitting rows** (round 54, R114).  Rows copied from a sample row keep its height, and
+PowerPoint keeps a row's stored height when its text is replaced by shorter text (measured,
+``tools/table_fit_probe.py``), so short items leave wider gaps.  ``fit_rows`` sets every row
+-- or those ``rows`` names -- to its text's height and the frame to the rows' sum; the
+result lists each row changed (``fit``, from and to, points, up to :data:`FIT_LISTED`) and
+the frame's height (``frame_h``); rows that already fit are no change.  ``check`` names such
+tables (``row_slack``, :func:`pptx_agent.tools.common.row_slack_json`) with this call as the
+fix.  Any row height change keeps the frame's stored height at the rows' sum as drawn, as
+PowerPoint writes it (rows stored 0 counting their text's height).
+
 **Continuing on the next slides.**  ``ppt_add_table`` with ``continue: true`` places every
 row: the rows that fit the box (its ``h``, or the slide's content area when ``h`` is 0)
 on the slide, under the header row, and the rest on new slides right after it, a page
@@ -524,7 +534,8 @@ _SIDES = ["top", "bottom", "left", "right", "all"]
        "action": string("What to do.", enum=["set_cells", "insert_row", "delete_row",
                                              "insert_column", "delete_column", "merge",
                                              "split", "set_widths", "set_heights",
-                                             "format_cells", "set_style", "set_flags"]),
+                                             "fit_rows", "format_cells", "set_style",
+                                             "set_flags"]),
        "cells": array(_CELL, "set_cells: the cells.", optional=True),
        "from": string("set_cells: rows of d:<id> or t:<table>, from row index.",
                       optional=True),
@@ -547,7 +558,8 @@ _SIDES = ["top", "bottom", "left", "right", "all"]
                       "set_widths/set_heights: one per column/row (or per columns/rows).",
                       optional=True),
        "rows": array(integer(minimum=0, maximum=10000),
-                     "format_cells, set_heights: rows from 0. Default all.", optional=True),
+                     "format_cells, set_heights, fit_rows: rows from 0. Default all.",
+                     optional=True),
        "columns": array(integer(minimum=0, maximum=10000),
                         "format_cells, set_widths: columns from 0. Default all.",
                         optional=True),
@@ -648,8 +660,10 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
         for column, value in _sized(need("sizes", sizes), columns, table.columns, "column"):
             table.set_column_width(column, emu(value))
     elif action == "set_heights":
-        for row, value in _sized(need("sizes", sizes), rows, table.rows, "row"):
-            table.set_row_height(row, emu(value))
+        table.set_row_heights({row: emu(value) for row, value in
+                               _sized(need("sizes", sizes), rows, table.rows, "row")})
+    elif action == "fit_rows":
+        return _fit_rows_action(call, frame, table, rows)
     elif action == "format_cells":
         if fill is None and not borders:
             raise ToolError("invalid_arguments", "format_cells needs fill or borders",
@@ -668,6 +682,45 @@ def ppt_edit_table(call, doc, target, action, cells=None, index=None, like=None,
     fresh = call.document.shape(frame.id)
     return Result(summary=f"{action} on table {frame.id}", changed=changed,
                   data=table_json(fresh, fresh.table))
+
+
+#: At most this many rows listed in a ``fit_rows`` result; ``rows_left_out`` counts the rest.
+FIT_LISTED = 40
+
+
+def _fit_rows_action(call, frame, table, rows) -> Result:
+    """``fit_rows``: each row named (every row by default) set to its text's height
+    (:meth:`Table.fit_rows <pptx_agent.edit.table.Table.fit_rows>`), the frame to the rows'
+    sum; the rows changed listed with their heights before and after, points.  Rows already
+    at their text's height are no change (rule 3)."""
+    if rows is not None:
+        for value in rows:
+            if value >= table.rows:
+                raise ToolError("not_found", f"no row {value}; the table has {table.rows} "
+                                f"(rows 0-{table.rows - 1})", field="rows")
+        if not rows:
+            rows = None                        # [] as strict mode fills it: every row
+    before = table.row_heights
+    extent_before = frame.height
+    table.fit_rows(rows=rows)
+    fresh = call.document.shape(frame.id)
+    after = fresh.table.row_heights
+    moved = [{"row": index, "from": pt(old), "to": pt(new)}
+             for index, (old, new) in enumerate(zip(before, after)) if old != new]
+    data = table_json(fresh, fresh.table)
+    data["fit"] = moved[:FIT_LISTED]
+    if len(moved) > FIT_LISTED:
+        data["rows_left_out"] = len(moved) - FIT_LISTED
+    height = {"from": pt(extent_before or 0), "to": pt(fresh.height or 0)}
+    data["frame_h"] = height
+    if not moved and height["from"] == height["to"]:
+        return Result(summary=f"fit_rows on table {frame.id}: no change, every row "
+                      f"{'named ' if rows is not None else ''}already fits its text",
+                      changed=[], data=data)
+    call.touch(frame._slide.slide_id)
+    return Result(summary=f"fit_rows on table {frame.id}: {len(moved)} row(s) set to their "
+                  f"text's height; frame {height['from']:g} -> {height['to']:g} pt",
+                  changed=[frame.id], data=data)
 
 
 def _sized(values, chosen, count: int, what: str) -> list[tuple[int, float]]:
