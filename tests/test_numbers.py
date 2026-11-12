@@ -66,7 +66,8 @@ def test_typed_and_unverified_numbers_are_listed_per_shape(toolbox):
     shape = box(toolbox, session, "Alpha rated 3,5/5, Gamma 1,3 and Delta 2,9")
     result = check(toolbox, session)
     data = result.data["numbers"]
-    assert set(result.data) == {"numbers"}             # nothing else asked: nothing else run
+    # nothing else asked: nothing else run, but what saving would refuse (round 53)
+    assert set(result.data) == {"numbers", "validation"}
     (text,) = data["texts"]
     assert (text["at"], text["slide"]) == (shape, "s:256")
     assert text["unverified"] == [{"text": "2,9", "near": [

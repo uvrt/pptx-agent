@@ -11,7 +11,8 @@ import functools
 from typing import Any, Callable, Iterable, Mapping
 
 from ooxml_edit.charts import ChartDataError
-from ooxml_edit.tools import Param, ToolError, array, boolean, integer, number, obj, string
+from ooxml_edit.tools import (Param, ToolError, array, boolean, integer, number, obj, string,
+                              validation)
 
 from ..edit.effective import TEXT_KINDS, size_overrides_json, small_text_json, text_minimums
 from ..edit.errors import ArgumentError
@@ -653,13 +654,13 @@ def _facts(deck, slide_ids: Iterable[int], *, boxes: bool,
 
 
 def validate_delta(entry, problems=None) -> dict[str, Any]:
-    deck = entry.document
-    problems = deck.validate() if problems is None else problems
-    baseline = {str(p) for p in entry.baseline_problems}
-    now = {str(p) for p in problems}
-    return {"new": [str(p) for p in problems if str(p) not in baseline],
-            "fixed": [p for p in sorted(baseline) if p not in now],
-            "baseline": len(entry.baseline_problems)}
+    """The deck's problems (``problems``, else ``validate()``'s, kept per version) against
+    those it had when opened: the save gate's own comparison (ooxml-edit's
+    :func:`~ooxml_edit.tools.validation`, round 53), so ``validate`` and the gate never
+    disagree."""
+    from . import FORMAT
+
+    return validation(entry, FORMAT, problems=problems)
 
 
 #: At most this many layout facts in one result.

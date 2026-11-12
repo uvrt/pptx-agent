@@ -5,6 +5,13 @@ pptx-agent has not been released to PyPI. Each version that reaches `main` is ta
 snapshot commit; the development history before it is summarised here.
 [`ROADMAP.md`](ROADMAP.md) has the detail.
 
+## 0.1.23 -- unreleased
+- **`check` lists what saving would refuse** (round 53, R109; needs ooxml-edit 0.111.0).
+  Every deck `check` carries ooxml-edit's `validation` -- the problems `save_document` would
+  refuse as new, the count the deck opened with -- whatever its `slides` or `include`; the
+  deck's `validate` delta is read through the same comparison (`fixed` now in the baseline's
+  order rather than sorted). No tool definition changed.
+
 ## 0.1.22 -- unreleased
 - Golden transcript p11's recorded hashes follow ooxml-edit 0.101.0, whose save copies
   untouched parts as their compressed entries: p11's input deck is built from a fixture
